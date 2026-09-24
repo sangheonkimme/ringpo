@@ -1,4 +1,7 @@
 import { hostname } from "node:os";
+import { createBillingDeps } from "@/server/billing/deps";
+import { billingConfigured } from "@/server/billing/gateway";
+import { processDueRenewals } from "@/server/billing/subscriptions";
 import { decryptSecret, encryptSecret } from "@/server/crypto";
 import { createDb } from "@/server/db/client";
 import { emails } from "@/server/emails";
@@ -64,6 +67,16 @@ async function main() {
     { name: "expire-events", intervalMs: 10 * MINUTE, run: async () => void (await expireStaleEvents(db, new Date())) },
     { name: "cleanup", intervalMs: 60 * MINUTE, run: () => cleanupOldData(db, new Date()) },
   ];
+  if (billingConfigured()) {
+    jobs.push({
+      name: "billing-renewals",
+      intervalMs: 10 * MINUTE,
+      run: async () => {
+        const count = await processDueRenewals(createBillingDeps(db));
+        if (count > 0) log.info("billing renewals processed", { count });
+      },
+    });
+  }
   const scheduler = startScheduler(jobs, {
     withLock: (name, fn) => withJobLock(db, name, fn),
     onError: (name, e) => log.error("scheduled job failed", { job: name, ...errorFields(e) }),
