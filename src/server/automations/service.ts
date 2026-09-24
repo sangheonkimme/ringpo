@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import { getUserPlan } from "@/server/billing/plan-of";
+import type { AutomationInput } from "@/lib/automation-schema";
 import type { Db } from "@/server/db/client";
 import { automations, igAccounts, type Automation } from "@/server/db/schema";
+import { normalizeText } from "./matcher";
 
 export type ToggleResult = { ok: true } | { ok: false; reason: "not_found" | "limit" | "account_inactive" };
 
@@ -67,4 +69,101 @@ export async function deleteAutomation(db: Db, userId: string, id: string): Prom
     .where(and(eq(automations.id, id), eq(automations.userId, userId)))
     .returning({ id: automations.id });
   return rows.length > 0;
+}
+
+export type SaveResult =
+  | { ok: true; id: string; activated: boolean; activationError?: "limit" | "account_inactive" }
+  | { ok: false; error: string };
+
+function isSelfShortLink(url: string, appUrl: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.host === new URL(appUrl).host && u.pathname.startsWith("/l/");
+  } catch {
+    return false;
+  }
+}
+
+function dedupeKeywords(keywords: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const k of keywords) {
+    const trimmed = k.trim();
+    const key = normalizeText(trimmed);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+function toColumns(input: AutomationInput) {
+  const specific = input.mediaScope === "specific" && input.media;
+  return {
+    igAccountId: input.igAccountId,
+    name: input.name,
+    mediaScope: input.mediaScope,
+    mediaId: specific ? input.media!.id : null,
+    mediaThumbnailUrl: specific ? input.media!.thumbnailUrl : null,
+    mediaPermalink: specific ? input.media!.permalink : null,
+    mediaCaption: specific ? input.media!.caption : null,
+    keywords: dedupeKeywords(input.keywords),
+    matchType: input.matchType,
+    replyEnabled: input.replyEnabled,
+    replyTexts: input.replyEnabled ? input.replyTexts : [],
+    dmText: input.dmText,
+    dmButtonTitle: input.dmButtonTitle,
+    dmLinkUrl: input.dmLinkUrl,
+  };
+}
+
+async function validateOwnership(db: Db, userId: string, input: AutomationInput, appUrl: string): Promise<string | null> {
+  const [acct] = await db
+    .select({ id: igAccounts.id })
+    .from(igAccounts)
+    .where(and(eq(igAccounts.id, input.igAccountId), eq(igAccounts.userId, userId), ne(igAccounts.status, "disconnected")))
+    .limit(1);
+  if (!acct) return "인스타 계정을 찾을 수 없어요";
+  if (isSelfShortLink(input.dmLinkUrl, appUrl)) return "이 서비스의 단축 링크는 넣을 수 없어요";
+  return null;
+}
+
+async function applyActivation(db: Db, userId: string, id: string, activate: boolean): Promise<SaveResult> {
+  const res = await setAutomationActive(db, userId, id, activate);
+  if (res.ok) return { ok: true, id, activated: activate };
+  if (res.reason === "not_found") return { ok: false, error: "자동화를 찾을 수 없어요" };
+  return { ok: true, id, activated: false, activationError: res.reason };
+}
+
+export async function createAutomation(
+  db: Db,
+  userId: string,
+  input: AutomationInput,
+  opts: { appUrl: string; activate: boolean },
+): Promise<SaveResult> {
+  const error = await validateOwnership(db, userId, input, opts.appUrl);
+  if (error) return { ok: false, error };
+  const [row] = await db
+    .insert(automations)
+    .values({ userId, ...toColumns(input), isActive: false })
+    .returning({ id: automations.id });
+  return applyActivation(db, userId, row.id, opts.activate);
+}
+
+export async function updateAutomation(
+  db: Db,
+  userId: string,
+  id: string,
+  input: AutomationInput,
+  opts: { appUrl: string; activate: boolean },
+): Promise<SaveResult> {
+  const error = await validateOwnership(db, userId, input, opts.appUrl);
+  if (error) return { ok: false, error };
+  const rows = await db
+    .update(automations)
+    .set(toColumns(input))
+    .where(and(eq(automations.id, id), eq(automations.userId, userId)))
+    .returning({ id: automations.id });
+  if (rows.length === 0) return { ok: false, error: "자동화를 찾을 수 없어요" };
+  return applyActivation(db, userId, id, opts.activate);
 }
