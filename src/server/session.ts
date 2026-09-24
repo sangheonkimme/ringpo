@@ -9,7 +9,9 @@ export interface SessionUser {
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await getAuth().api.getSession({ headers: await headers() });
+  // headers()를 먼저 호출해야 빌드 시 prerender가 env 검증 전에 동적 렌더링으로 빠진다
+  const h = await headers();
+  const session = await getAuth().api.getSession({ headers: h });
   if (!session) return null;
   return { id: session.user.id, email: session.user.email, name: session.user.name };
 }
