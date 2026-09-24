@@ -364,7 +364,10 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
    - 모바일은 `redirectUrl=/app/billing/complete?plan=...`로 돌아오고, 쿼리의 `billingKey`/`code`/`message`를 읽는다.
 2. **`POST /api/billing/subscribe` {plan, billingKey}**
    - 서버가 `GET /billing-keys/{billingKey}`로 `status == ISSUED`이고 `customer.id == user.id`인지 검증한다.
-   - `paymentId = sub_{subId8}_{YYYYMMDD}_{attempt}` 형식(`[A-Za-z0-9_-]` 6~40자)으로 `payments`에 `pending` 행을 만들고, 빌링키로 즉시 결제한다.
+   - 먼저 응답이 유실된 이전 첫 결제(`pending`)가 있으면 결제 조회로 결과를 맞춘다. 이미 `PAID`면 새로 청구하지 않고, 아직 진행 중이면 "잠시 후 다시" 안내만 한다(이중 청구 방지).
+   - `paymentId = new_{subId12}_{YYYYMMDD}_{attempt}` 형식(`[A-Za-z0-9_-]` 6~40자, 갱신은 `sub_` 접두사)으로 `payments`에 `pending` 행을 만든다.
+   - 청구 전에 빌링키를 구독에 암호화 저장한다. 응답이 유실돼 웹훅으로만 활성화돼도 갱신 결제를 할 수 있게 하기 위해서다. 결제가 거절되면 이전 카드로 되돌린다.
+   - 빌링키로 즉시 결제한다. 결과를 알 수 없는 오류면 "결제 결과를 확인하지 못했어요"로 안내하고 웹훅이나 다음 시도가 결과를 맞춘다.
    - 결제 응답과 결제 조회(`GET /payments/{id}`)로 `PAID`를 확인한다.
    - 확인되면 구독을 활성화한다: `current_period_end` = 지금 + 1개월(말일 보정), 빌링키 암호화 저장.
    - 기존 유료 구독이 있으면 기존 빌링키를 삭제한다.
