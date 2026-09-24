@@ -184,10 +184,10 @@ Better Auth 기본 테이블(`user`, `session`, `account`, `verification`)은 Be
 | error_code | text null | 최종 실패 사유 코드 |
 | error_message | text null | |
 | attempts | int default 0 | |
-| usage_reserved | boolean default false | 월 DM 사용량 예약 여부 |
+| usage_period | text null | 월 DM 사용량을 예약한 달(`YYYY-MM`, KST). null이면 미예약 |
 | run_at | timestamptz | 다음 처리 가능 시각 |
 | locked_at | timestamptz null | 선점 시각 (5분 초과 시 재선점) |
-| dm_reserved_at | timestamptz null | 레이트 리밋 윈도 카운트 기준 |
+| dm_reserved_at | timestamptz null | 예약된 발송 슬롯 시각(7.5). 레이트 리밋 윈도 카운트 기준 |
 | completed_at | timestamptz null | |
 | created_at, updated_at | timestamptz | |
 
@@ -216,6 +216,8 @@ DM 발송 전 `UPDATE ... SET dm_count = dm_count + 1 WHERE dm_count < :limit RE
 | status | text | `active` / `past_due` / `canceled` |
 | billing_key_enc | text null | 암호화된 포트원 빌링키 |
 | card_label | text null | 표시용 (예: "신한 **** 1234") |
+| customer_name, customer_phone | text null | 결제자 이름·휴대폰(PG 필수값, 갱신 결제 시 재사용) |
+| billing_anchor_at | timestamptz null | 첫 결제 시각. 다음 기간 종료일을 `anchor + n개월`(KST 말일 보정)로 계산해 날짜 밀림을 막는다 |
 | current_period_start, current_period_end | timestamptz null | |
 | cancel_at_period_end | boolean | |
 | pending_plan | text null | 기간 종료 시 전환할 하위 플랜 |
@@ -303,8 +305,8 @@ DM 발송 전 `UPDATE ... SET dm_count = dm_count + 1 WHERE dm_count < :limit RE
    - `contains`: 정규화한 댓글이 키워드를 포함하는지 본다.
    - `exact`: 정규화한 댓글 전체가 키워드와 같은지 보되, 끝의 구두점·이모지는 제거하고 비교한다.
 5. **중복**: `deliveries`에 예약한다. 이미 이 이벤트의 예약(`event_id` 일치)이 있으면 통과한다. 다른 이벤트가 선점했으면 `skipped/duplicate`.
-6. **사용량**: `usage_reserved = false`일 때만 `usage_counters`에서 DM 1건을 예약하고 `usage_reserved = true`로 표시한다. 한도 초과면 `skipped/quota`로 끝내고 `deliveries` 예약을 삭제한다.
-7. **레이트 리밋·간격**: `reserveSendSlot(account)`(7.5)을 호출한다. 연기가 필요하면 `status=pending, run_at=연기시각`으로 되돌린다.
+6. **사용량**: `usage_period`가 비어 있을 때만 `usage_counters`에서 DM 1건을 예약하고, 예약한 월(`YYYY-MM`)을 `usage_period`에 저장한다. 월을 넘겨 연기돼도 정확한 달에서 해제하기 위해서다. 한도 초과면 `skipped/quota`로 끝내고 `deliveries` 예약을 삭제한다.
+7. **레이트 리밋·간격**: `dm_reserved_at`이 없으면 `reserveSendSlot`(7.5)으로 슬롯을 예약한다. 슬롯이 5초 넘게 남았으면 `status=pending, run_at=슬롯`으로 되돌린다.
    - 중복·사용량 예약은 유지한다.
    - 이벤트가 최종적으로 `failed`/`expired`가 되면, DM이 발송되지 않은 경우에 한해 두 예약을 해제한다(`deliveries` 삭제, 사용량 1 감소).
 8. **공개 답글**(`reply_enabled`일 때): `reply_texts`에서 무작위로 고르고 `{username}`을 `@사용자명`으로 치환해 발송한다.
@@ -320,12 +322,19 @@ DM 발송 전 `UPDATE ... SET dm_count = dm_count + 1 WHERE dm_count < :limit RE
 답글과 DM은 독립적으로 기록한다. 재시도할 때는 이미 성공한 쪽을 다시 보내지 않는다(`reply_status`/`dm_status` 확인).
 
 ### 7.5 레이트 리밋과 발송 간격
-`reserveSendSlot(igAccountId)`는 하나의 트랜잭션 안에서 다음을 한다.
-1. `pg_advisory_xact_lock(hashtext('ig-send:' || id))`
-2. 윈도 카운트: `count(*) FROM comment_events WHERE ig_account_id=$1 AND dm_reserved_at > now()-interval '1 hour'`
-3. 카운트가 `IG_PRIVATE_REPLY_HOURLY_LIMIT`(기본 700, 한도 750에서 여유분을 뺀 값) 이상이면, 윈도에서 가장 오래된 예약 시각 + 1시간 + 무작위 0~30초를 연기 시각으로 반환한다.
-4. 발송 간격: `slot = greatest(now(), next_reply_at)`, 새 `next_reply_at = slot + 무작위(1.0~3.0초)`. `slot - now() > 20초`이면 `run_at=slot`으로 연기한다. 아니면 워커가 `slot`까지 대기한 뒤 발송한다.
-5. 이벤트의 `dm_reserved_at = now()`로 예약을 확정한다.
+이벤트마다 고유한 발송 시각(슬롯)을 한 번 예약한다. 예약한 슬롯은 `dm_reserved_at`에 저장한다(미래 시각일 수 있다). 3,000건이 몰려도 이벤트마다 선점·연기가 1번씩만 일어난다.
+
+`reserveSendSlot(igAccountId, eventId, now)`는 하나의 트랜잭션 안에서 다음을 한다.
+1. `pg_advisory_xact_lock(hashtext('ig-send:' || id))`로 계정별 직렬화한다.
+2. 슬롯 후보 `t = max(now, ig_accounts.next_reply_at)`(발송 간격).
+3. 시간당 한도: 윈도 `dm_reserved_at > now - 1시간`의 예약을 최신순으로 정렬해 `IG_PRIVATE_REPLY_HOURLY_LIMIT`(기본 700, 한도 750에서 여유분을 뺀 값)번째 행을 본다. 그 행이 있으면 `t = max(t, 그 시각 + 1시간)`. 슬롯은 단조 증가하므로 이 조건만으로 어떤 1시간 구간에도 예약이 한도를 넘지 않는다.
+4. `next_reply_at = t + 무작위(1.0~3.0초)`, 이벤트 `dm_reserved_at = t`로 저장하고 `t`를 반환한다.
+
+파이프라인은 `dm_reserved_at`이 이미 있으면 재예약하지 않는다.
+- `t - now ≤ 5초`이면 워커가 `t`까지 대기한 뒤 발송한다.
+- `t - now > 5초`이면 `status=pending, run_at=t`로 큐에 돌려보낸다. 다른 계정의 이벤트가 밀리지 않게 하기 위해서다.
+- `t`가 `received_at + 7일`을 넘으면 즉시 `expired`로 처리한다.
+- 일시 오류로 재시도할 때는 `dm_reserved_at`을 비워 새 슬롯을 받는다. 실패한 호출은 카운트에서 빠지지만 한도 여유분(50)이 이를 흡수한다.
 
 대시보드의 "발송 대기 N건"은 `status='pending' AND automation_id IS NOT NULL AND run_at > now()` 건수다.
 
@@ -391,7 +400,7 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 | 토큰 갱신 | 1시간 | 7.1-3 |
 | 구독 갱신·재시도 | 10분 | 7.8-4 |
 | 만료 처리 | 10분 | `status=pending AND received_at < now()-7일` → `expired` + 예약 해제 |
-| 데이터 정리 | 매일 04:00 KST | `skip_reason IN ('no_match','self')` 이벤트는 3일 뒤 삭제. 나머지 이벤트는 180일 뒤 삭제. `links.event_id`는 ON DELETE SET NULL이라 링크는 계속 동작 |
+| 데이터 정리 | 1시간 (삭제는 멱등) | `skip_reason IN ('no_match','self')` 이벤트는 3일 뒤 삭제. 나머지 이벤트는 180일 뒤 삭제. `links.event_id`는 ON DELETE SET NULL이라 링크는 계속 동작 |
 
 개인정보처리방침의 보유기간은 이 표와 맞춘다.
 
