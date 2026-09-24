@@ -35,6 +35,6 @@ describe("buildTextFallback", () => {
 
 describe("brandingLine", () => {
   it("mentions the service name", () => {
-    expect(brandingLine()).toContain("리치업");
+    expect(brandingLine()).toContain("링포");
   });
 });

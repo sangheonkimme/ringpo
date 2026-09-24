@@ -51,7 +51,7 @@ echo <GHCR read:packages 토큰> | docker login ghcr.io -u <github 사용자> --
 - 키를 비워두면 해당 로그인 버튼이 숨겨지고 이메일 링크 로그인만 노출됨
 
 ## 4. 이메일 (Resend)
-- resend.com → 도메인 추가 → DNS(SPF/DKIM) 등록 → API 키 → `RESEND_API_KEY`, `EMAIL_FROM="리치업 <noreply@<도메인>>"`
+- resend.com → 도메인 추가 → DNS(SPF/DKIM) 등록 → API 키 → `RESEND_API_KEY`, `EMAIL_FROM="링포 <noreply@<도메인>>"`
 
 ## 5. 포트원 V2
 1. 포트원 콘솔 → 테스트 모드 → 채널 추가: KG이니시스(빌링) `INIBillTst` 또는 토스페이먼츠 `iamporttest_4`

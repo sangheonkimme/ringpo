@@ -38,7 +38,7 @@
 - **보안:**
   - 토큰, 빌링키, 이메일, 댓글 원문은 로그에 남기지 않는다.
   - 토큰과 빌링키는 `encryptSecret`(AES-256-GCM)으로 저장한다.
-- **서비스명과 사업자 정보:** `src/lib/site.ts` 한 곳에만 둔다. 서비스명은 "리치업(ReachUp)", 도메인 후보는 reachup.kr·reachup.co.kr이다.
+- **서비스명과 사업자 정보:** `src/lib/site.ts` 한 곳에만 둔다. 서비스명은 "링포(Ringpo)", 도메인 후보는 ringpo.kr·ringpo.co.kr·getringpo.com이다.
 - **디자인 기준:** 시안은 `docs/design/*.dc.html`(원본 캔버스 https://claude.ai/artifact/SRaJbXr46m8aYjGvgcjn16)이다.
   - 이 계획의 UI 코드는 동작과 데이터 연결의 기준이다. 레이아웃·간격·문구·색은 시안에 맞춘다.
   - 색 토큰: 배경 #F5F1EA, 카드 #FFFFFF, 글자 #16120E, 보조 글자 #3D352E, 흐린 글자 #6E655C, 선 #E3DBCF, 입력 테두리 #D8CFC3, 포인트 #FF5B35(글자로 쓸 땐 #D9401C), 키워드 칩 #FFE3D9/#7A2410, 성공 #DDF2E6/#14573A, 경고 #FFF0D1/#7A4700, 실패 #FBE3E0/#8F1D16, 중립 #EEE9E2/#4A423B.
@@ -358,7 +358,7 @@ export function errorFields(e: unknown): Fields {
 
 ```ts
 export const site = {
-  name: "리치업",
+  name: "링포",
   description: "댓글 키워드 하나로 공개 답글과 DM 링크를 자동 발송하는 인스타그램 자동화 도구",
   supportEmail: "support@example.com",
   effectiveDate: "2026-10-01",
@@ -435,7 +435,7 @@ KAKAO_CLIENT_SECRET=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 RESEND_API_KEY=
-EMAIL_FROM=리치업 <noreply@example.com>
+EMAIL_FROM=링포 <noreply@example.com>
 IG_APP_ID=
 IG_APP_SECRET=
 META_APP_SECRET=
@@ -1466,7 +1466,7 @@ describe("buildTextFallback", () => {
 
 describe("brandingLine", () => {
   it("mentions the service name", () => {
-    expect(brandingLine()).toContain("리치업");
+    expect(brandingLine()).toContain("링포");
   });
 });
 ```
@@ -3357,7 +3357,7 @@ describe("processCommentEvent", () => {
     expect(dm.igUserId).toBe(acct.igUserId);
     expect(dm.message).toMatchObject({ kind: "button", buttonTitle: "구매하기", url: "https://shop.example.com/p/1" });
     expect(dm.message.text).toContain("구매 링크 보내드려요");
-    expect(dm.message.text).toContain("리치업 자동 발송");
+    expect(dm.message.text).toContain("링포 자동 발송");
 
     const row = await eventRow(ev.id);
     expect(row).toMatchObject({ status: "succeeded", automationId: auto.id, replyStatus: "sent", dmStatus: "sent", replyCommentId: "reply-1" });
@@ -8538,7 +8538,7 @@ describe("billing", () => {
     gateway.issueKey("bk_1", u.id);
     expect(await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" })).toEqual({ ok: true, charged: true });
     expect(gateway.charges).toHaveLength(1);
-    expect(gateway.charges[0]).toMatchObject({ amount: 9900, orderName: "리치업 Pro 월 구독", customer: { id: u.id, name: "홍길동", phone: "01012345678" } });
+    expect(gateway.charges[0]).toMatchObject({ amount: 9900, orderName: "링포 Pro 월 구독", customer: { id: u.id, name: "홍길동", phone: "01012345678" } });
     const s = await sub(u.id);
     expect(s).toMatchObject({ plan: "pro", status: "active", cardLabel: "신한카드 **** 1234", retryCount: 0 });
     expect(decryptSecret(s.billingKeyEnc ?? "")).toBe("bk_1");
@@ -10395,7 +10395,7 @@ KAKAO_CLIENT_SECRET=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 RESEND_API_KEY=
-EMAIL_FROM=리치업 <noreply@example.com>
+EMAIL_FROM=링포 <noreply@example.com>
 IG_APP_ID=
 IG_APP_SECRET=
 META_APP_SECRET=
@@ -10629,7 +10629,7 @@ echo <GHCR read:packages 토큰> | docker login ghcr.io -u <github 사용자> --
 - 키를 비워두면 해당 로그인 버튼이 숨겨지고 이메일 링크 로그인만 노출됨
 
 ## 4. 이메일 (Resend)
-- resend.com → 도메인 추가 → DNS(SPF/DKIM) 등록 → API 키 → `RESEND_API_KEY`, `EMAIL_FROM="리치업 <noreply@<도메인>>"`
+- resend.com → 도메인 추가 → DNS(SPF/DKIM) 등록 → API 키 → `RESEND_API_KEY`, `EMAIL_FROM="링포 <noreply@<도메인>>"`
 
 ## 5. 포트원 V2
 1. 포트원 콘솔 → 테스트 모드 → 채널 추가: KG이니시스(빌링) `INIBillTst` 또는 토스페이먼츠 `iamporttest_4`

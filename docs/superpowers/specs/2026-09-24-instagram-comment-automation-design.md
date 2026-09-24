@@ -1,8 +1,8 @@
-# 리치업(ReachUp) — 인스타그램 댓글 자동응답 서비스 설계 (MVP)
+# 링포(Ringpo) — 인스타그램 댓글 자동응답 서비스 설계 (MVP)
 
 - 작성일: 2026-09-24
 - 원본 PRD: https://claude.ai/code/artifact/d85fc834-d9f1-43d0-b5a4-82be95dfff3e
-- 서비스명: 리치업(ReachUp). 도메인 후보는 reachup.kr, reachup.co.kr(2026-09-24 whois 기준 미등록)
+- 서비스명: 링포(Ringpo). 도메인 후보는 ringpo.kr, ringpo.co.kr, getringpo.com(2026-09-24 whois 기준 미등록, ringpo.com은 등록됨). GitHub 저장소는 `ringpo`
 - 디자인 시안: https://claude.ai/artifact/SRaJbXr46m8aYjGvgcjn16 (소스 사본 `docs/design/`)
 - 범위: PRD P0(F1~F6) + F7(링크 클릭 추적) + 정기결제 + 랜딩·법적 페이지·Meta 콜백
 

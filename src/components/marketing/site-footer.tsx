@@ -30,7 +30,7 @@ export function SiteFooter() {
           {rows.map(([k, v]) => `${k} ${v}`).join(" · ")}
         </p>
         <p className="text-xs leading-[1.8] text-muted-foreground md:text-[13px]">
-          {site.name}은 Meta의 공식 Instagram API만 사용하며 인스타그램 비밀번호를 받거나 저장하지 않아요. Instagram은 Meta
+          {site.name}는 Meta의 공식 Instagram API만 사용하며 인스타그램 비밀번호를 받거나 저장하지 않아요. Instagram은 Meta
           Platforms, Inc.의 상표입니다. © {new Date().getFullYear()} {b.companyName || site.name}
         </p>
       </div>

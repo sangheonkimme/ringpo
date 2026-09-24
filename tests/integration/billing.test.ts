@@ -52,7 +52,7 @@ describe("billing", () => {
     gateway.issueKey("bk_1", u.id);
     expect(await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" })).toEqual({ ok: true, charged: true });
     expect(gateway.charges).toHaveLength(1);
-    expect(gateway.charges[0]).toMatchObject({ amount: 9900, orderName: "리치업 Pro 월 구독", customer: { id: u.id, name: "홍길동", phone: "01012345678" } });
+    expect(gateway.charges[0]).toMatchObject({ amount: 9900, orderName: "링포 Pro 월 구독", customer: { id: u.id, name: "홍길동", phone: "01012345678" } });
     const s = await sub(u.id);
     expect(s).toMatchObject({ plan: "pro", status: "active", cardLabel: "신한카드 **** 1234", retryCount: 0 });
     expect(decryptSecret(s.billingKeyEnc ?? "")).toBe("bk_1");
