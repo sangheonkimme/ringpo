@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { MESSAGE_ACCESS_OFF } from "@/server/instagram/errors";
 import type { Plan } from "@/lib/plans";
 import { getUserPlan } from "@/server/billing/plan-of";
 import type { Db } from "@/server/db/client";
@@ -70,12 +71,25 @@ async function statsByAutomation(db: Db, automationIds: string[]): Promise<Map<s
   return out;
 }
 
+/** 계정별 가장 최근 DM 결과가 '메시지 접근 허용 꺼짐' 실패인 계정. 다음 DM이 성공하면 풀린다 */
+async function dmBlockedAccountIds(db: Db, accountIds: string[]): Promise<Set<string>> {
+  if (accountIds.length === 0) return new Set();
+  const latest = await db
+    .selectDistinctOn([commentEvents.igAccountId], { igAccountId: commentEvents.igAccountId, dmStatus: commentEvents.dmStatus, errorCode: commentEvents.errorCode })
+    .from(commentEvents)
+    .where(and(inArray(commentEvents.igAccountId, accountIds), inArray(commentEvents.dmStatus, ["sent", "failed"]), isNotNull(commentEvents.completedAt)))
+    .orderBy(commentEvents.igAccountId, desc(commentEvents.completedAt));
+  return new Set(latest.filter((r) => r.dmStatus === "failed" && r.errorCode === MESSAGE_ACCESS_OFF).map((r) => r.igAccountId));
+}
+
 export async function getDashboard(db: Db, userId: string, now: Date) {
   const plan: Plan = await getUserPlan(db, userId);
-  const accounts = await db
+  const accountRows = await db
     .select({ id: igAccounts.id, username: igAccounts.username, status: igAccounts.status, profilePictureUrl: igAccounts.profilePictureUrl })
     .from(igAccounts)
     .where(and(eq(igAccounts.userId, userId), ne(igAccounts.status, "disconnected")));
+  const blocked = await dmBlockedAccountIds(db, accountRows.map((a) => a.id));
+  const accounts = accountRows.map((a) => ({ ...a, dmBlocked: blocked.has(a.id) }));
   const autos = await db
     .select({
       id: automations.id,

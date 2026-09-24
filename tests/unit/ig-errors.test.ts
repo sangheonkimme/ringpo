@@ -32,4 +32,9 @@ describe("errorReasonKo", () => {
     expect(errorReasonKo(null)).toBe("");
     expect(errorReasonKo("999")).toBe("인스타그램 오류 (999)");
   });
+  it("points to the Instagram setting when message access is off or permissions are missing", () => {
+    expect(errorReasonKo("200/2534041")).toContain("메시지 접근 허용");
+    expect(errorReasonKo("10")).toContain("메시지 접근 허용");
+    expect(errorReasonKo("200")).toContain("메시지 접근 허용");
+  });
 });

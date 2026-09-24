@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DmAccessBanner } from "@/components/app/dm-access-banner";
 import { EventList } from "@/components/app/event-list";
 import { MediaThumb } from "@/components/app/media-thumb";
 import { ReauthBanner } from "@/components/app/reauth-banner";
@@ -40,6 +41,7 @@ export default async function DashboardPage() {
   return (
     <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
       <ReauthBanner accounts={d.accounts} />
+      <DmAccessBanner accounts={d.accounts} />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">

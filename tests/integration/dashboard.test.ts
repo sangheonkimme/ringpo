@@ -34,6 +34,21 @@ describe("getDashboard", () => {
     expect(d.recent.every((r) => r.automationName === "공구 자동화")).toBe(true);
   });
 
+  it("flags an account whose latest DM was blocked because message access is off", async () => {
+    const u = await createUser();
+    const blocked = await createIgAccount(u.id, { username: "blocked.shop" });
+    const fine = await createIgAccount(u.id, { username: "fine.shop" });
+    const t = (min: number) => new Date(Date.now() - min * 60_000);
+    await createEvent(blocked, { status: "succeeded", dmStatus: "sent", completedAt: t(30) });
+    await createEvent(blocked, { status: "partial", dmStatus: "failed", errorCode: "200/2534041", completedAt: t(5) });
+    await createEvent(fine, { status: "partial", dmStatus: "failed", errorCode: "200/2534041", completedAt: t(30) });
+    await createEvent(fine, { status: "succeeded", dmStatus: "sent", completedAt: t(5) });
+    await createEvent(fine, { status: "failed", dmStatus: "failed", errorCode: "551", completedAt: t(1) });
+    const d = await getDashboard(getDb(), u.id, new Date());
+    const byName = Object.fromEntries(d.accounts.map((a) => [a.username, a.dmBlocked]));
+    expect(byName).toEqual({ "blocked.shop": true, "fine.shop": false });
+  });
+
   it("does not leak other users' data", async () => {
     const a = await createUser();
     const b = await createUser();

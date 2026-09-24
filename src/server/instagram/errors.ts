@@ -44,6 +44,9 @@ export function classifyError(err: unknown): ClassifiedError {
   return { cls: "transient", code: "unknown", message: err instanceof Error ? err.message : String(err) };
 }
 
+/** 인스타 앱의 '메시지 접근 허용'(연결된 도구)이 꺼져 있을 때 DM 발송이 받는 오류 */
+export const MESSAGE_ACCESS_OFF = "200/2534041";
+
 const REASONS: Record<string, string> = {
   "10/2534022": "발송 가능 시간이 지났어요 (댓글 후 7일)",
   "10/2018278": "발송 가능 시간이 지났어요",
@@ -52,7 +55,7 @@ const REASONS: Record<string, string> = {
   "100/2534015": "메시지 형식이 거부됐어요",
   "551": "상대방이 지금 메시지를 받을 수 없어요",
   "551/1545041": "상대방이 지금 메시지를 받을 수 없어요",
-  "200/2534041": "인스타 계정에서 DM 접근이 꺼져 있어요",
+  "200/2534041": "인스타 설정에서 ‘메시지 접근 허용’이 꺼져 있어요",
   "190": "인스타 연결이 만료됐어요. 다시 연결해주세요",
   network: "일시적인 네트워크 오류",
   expired: "7일 안에 발송하지 못했어요",
@@ -66,6 +69,6 @@ export function errorReasonKo(code: string | null): string {
   if (["4", "17", "32", "613", "80002", "http_429"].includes(base)) {
     return "인스타그램 발송 한도에 걸려 잠시 후 재시도해요";
   }
-  if (base === "10" || base === "200") return "권한이 부족해요. 인스타 연결을 확인해주세요";
+  if (base === "10" || base === "200") return "권한이 부족해요. ‘메시지 접근 허용’을 켜고 인스타를 다시 연결해주세요";
   return `인스타그램 오류 (${code})`;
 }
