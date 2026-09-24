@@ -1,0 +1,164 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "AutomationDetail.dc.html": {
+      "h": 1440,
+      "title": "자동화 상세",
+      "w": 390,
+      "x": 3990,
+      "y": 0
+    },
+    "Automations.dc.html": {
+      "h": 844,
+      "title": "자동화 목록",
+      "w": 390,
+      "x": 3520,
+      "y": 0
+    },
+    "Billing.dc.html": {
+      "h": 1560,
+      "title": "결제",
+      "w": 390,
+      "x": 2110,
+      "y": 3540
+    },
+    "Dashboard.dc.html": {
+      "h": 1500,
+      "title": "홈",
+      "w": 390,
+      "x": 3050,
+      "y": 0
+    },
+    "LandingMobile.dc.html": {
+      "h": 4900,
+      "title": "랜딩 · 모바일",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Login.dc.html": {
+      "h": 844,
+      "title": "로그인",
+      "w": 390,
+      "x": 2110,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 5400,
+      "title": "랜딩 · 데스크톱",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Onboarding.dc.html": {
+      "h": 1180,
+      "title": "온보딩",
+      "w": 390,
+      "x": 2580,
+      "y": 0
+    },
+    "Settings.dc.html": {
+      "h": 844,
+      "title": "설정",
+      "w": 390,
+      "x": 2580,
+      "y": 3540
+    },
+    "WizardDm.dc.html": {
+      "h": 900,
+      "title": "④ DM",
+      "w": 390,
+      "x": 3520,
+      "y": 1960
+    },
+    "WizardKeywords.dc.html": {
+      "h": 960,
+      "title": "② 키워드",
+      "w": 390,
+      "x": 2580,
+      "y": 1960
+    },
+    "WizardMedia.dc.html": {
+      "h": 1080,
+      "title": "① 게시물",
+      "w": 390,
+      "x": 2110,
+      "y": 1960
+    },
+    "WizardReply.dc.html": {
+      "h": 900,
+      "title": "③ 공개 답글",
+      "w": 390,
+      "x": 3050,
+      "y": 1960
+    },
+    "WizardReview.dc.html": {
+      "h": 1120,
+      "title": "⑤ 확인",
+      "w": 390,
+      "x": 3990,
+      "y": 1960
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-24T06:30:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "appBilling": {
+      "kind": "title1",
+      "maxW": 860,
+      "text": "앱 — 결제와 설정",
+      "w": 240,
+      "x": 2110,
+      "y": 3280
+    },
+    "appHome": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "앱 — 시작과 홈",
+      "w": 240,
+      "x": 2110,
+      "y": -260
+    },
+    "appWizard": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "앱 — 자동화 만들기",
+      "w": 240,
+      "x": 2110,
+      "y": 1700
+    },
+    "marketing": {
+      "kind": "title1",
+      "maxW": 1910,
+      "text": "마케팅 페이지",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "LandingMobile.dc.html",
+    "Login.dc.html",
+    "Onboarding.dc.html",
+    "Dashboard.dc.html",
+    "Automations.dc.html",
+    "AutomationDetail.dc.html",
+    "WizardMedia.dc.html",
+    "WizardKeywords.dc.html",
+    "WizardReply.dc.html",
+    "WizardDm.dc.html",
+    "WizardReview.dc.html",
+    "Billing.dc.html",
+    "Settings.dc.html"
+  ],
+  "pages": [],
+  "title": "리치업 전체 시안"
+}

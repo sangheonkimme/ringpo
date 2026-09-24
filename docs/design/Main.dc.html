@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>랜딩 — 데스크톱</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@600;700;800&amp;family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#16120E;background:#F5F1EA;-webkit-font-smoothing:antialiased}
+a{color:#16120E}a:hover{color:#B8361A}
+summary::-webkit-details-marker{display:none}
+</style>
+</helmet>
+<div style="width: 1440px; height: 5400px; background: #F5F1EA; display: flex; flex-direction: column; overflow: hidden">
+
+<header style="height: 80px; box-sizing: border-box; padding: 0 80px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #E3DBCF; flex-shrink: 0">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #16120E; text-decoration: none">
+<span style="width: 34px; height: 34px; border-radius: 10px; background: #16120E; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="fill: {{accent}}"><path d="M12 3C7 3 3 6.6 3 11c0 2.4 1.2 4.6 3.1 6.1L5 21l4.3-2.2c.9.2 1.8.3 2.7.3 5 0 9-3.6 9-8s-4-8-9-8z"></path></svg></span>
+<span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em">리치업</span>
+</a>
+<nav aria-label="사이트 메뉴" style="display: flex; align-items: center; gap: 4px">
+<a href="#how" style="padding: 12px 16px; font-size: 15px; font-weight: 500; text-decoration: none">사용 방법</a>
+<a href="#pricing" style="padding: 12px 16px; font-size: 15px; font-weight: 500; text-decoration: none">요금</a>
+<a href="#faq" style="padding: 12px 16px; font-size: 15px; font-weight: 500; text-decoration: none">자주 묻는 질문</a>
+<a href="Login.dc.html" style="padding: 12px 16px; font-size: 15px; font-weight: 500; text-decoration: none">로그인</a>
+<a href="Login.dc.html" style="margin-left: 8px; padding: 12px 22px; border-radius: 12px; background: #16120E; color: #FFFFFF; font-size: 15px; font-weight: 600; text-decoration: none">무료로 시작</a>
+</nav>
+</header>
+
+<section style="padding: 88px 80px 104px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px; align-items: center; flex-shrink: 0">
+<div style="display: flex; flex-direction: column; gap: 28px">
+<p style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #3D352E"><span style="width: 8px; height: 8px; border-radius: 999px; background: {{accent}}"></span>인스타그램 댓글 자동 DM</p>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h1 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 84px; line-height: 1.1; letter-spacing: -0.04em">댓글에 <span style="background: linear-gradient(transparent 62%, {{accent}} 62%); padding: 0 4px">‘링크’</span><br>남겨주세요.</h1>
+<p style="margin: 0; font-family: Hahmlet, serif; font-weight: 700; font-size: 34px; letter-spacing: -0.03em; color: #3D352E">DM은 저희가 보낼게요.</p>
+</div>
+<p style="margin: 0; max-width: 540px; font-size: 19px; line-height: 1.7; color: #3D352E">키워드 댓글이 달리면 공개 답글과 링크 버튼이 담긴 DM을 몇 초 안에 자동으로 보내요. 공구·자료 배포·이벤트 댓글에 하나하나 답하던 시간을 돌려드려요.</p>
+<div style="display: flex; align-items: center; gap: 12px">
+<a href="Login.dc.html" style="height: 58px; padding: 0 28px; border-radius: 14px; background: #16120E; color: #FFFFFF; font-size: 17px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 10px">무료로 시작하기<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a href="#pricing" style="height: 58px; padding: 0 24px; border-radius: 14px; border: 1.5px solid #16120E; box-sizing: border-box; color: #16120E; font-size: 17px; font-weight: 600; text-decoration: none; display: flex; align-items: center">요금 보기</a>
+</div>
+<p style="margin: 0; font-size: 14px; color: #6E655C">카드 등록 없이 시작 · Free 플랜 월 DM 300건</p>
+</div>
+
+<div style="position: relative; width: 600px; height: 640px; justify-self: end">
+<div style="position: absolute; left: 0; top: 0; width: 392px; background: #FFFFFF; border: 1px solid #E3DBCF; border-radius: 24px; box-shadow: 0 28px 56px -28px rgba(22, 18, 14, 0.35); overflow: hidden">
+<div style="height: 232px; background: #E7CFB4; display: flex; align-items: flex-end; padding: 16px; box-sizing: border-box">
+<span style="padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); font-size: 13px; font-weight: 600; color: #16120E">릴스 · 10월 텀블러 공구</span>
+</div>
+<div style="padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #3D352E"><strong style="color: #16120E">hana.living</strong> 오늘 밤 9시 공구 오픈! 댓글에 ‘공구’ 남겨주시면 링크 보내드려요</p>
+<div style="height: 1px; background: #EFE8DE"></div>
+<div style="display: flex; gap: 10px; align-items: flex-start">
+<span style="width: 32px; height: 32px; border-radius: 999px; background: #CFE0E6; flex-shrink: 0"></span>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0; font-size: 14px"><strong>jiwoo.daily</strong> <span style="background: linear-gradient(transparent 55%, {{accent}} 55%)">공구</span> 링크 주세요!</p>
+<span style="font-size: 12px; color: #6E655C">방금</span>
+</div>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start; padding-left: 42px">
+<span style="width: 28px; height: 28px; border-radius: 999px; background: #16120E; flex-shrink: 0"></span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 14px"><strong>hana.living</strong> @jiwoo.daily DM 확인해주세요!</p>
+<span style="align-self: flex-start; padding: 3px 8px; border-radius: 6px; background: #F5F1EA; font-size: 11px; font-weight: 600; color: #3D352E">자동 답글</span>
+</div>
+</div>
+</div>
+</div>
+
+<div style="position: absolute; left: 24px; top: 540px; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 999px; background: #16120E; color: #FFFFFF; font-size: 14px; font-weight: 600">
+<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+몇 초 안에 자동 발송
+<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+</div>
+
+<div style="position: absolute; right: 0; bottom: 0; width: 340px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E3DBCF; border-radius: 24px; box-shadow: 0 28px 56px -24px rgba(22, 18, 14, 0.38); padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 32px; height: 32px; border-radius: 999px; background: #16120E"></span>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 14px; font-weight: 600">hana.living</span>
+<span style="font-size: 12px; color: #6E655C">메시지</span>
+</div>
+</div>
+<span style="padding: 4px 10px; border-radius: 999px; background: {{accent}}; font-size: 12px; font-weight: 700; color: #16120E">자동 DM</span>
+</div>
+<p style="margin: 0; padding: 14px 16px; border-radius: 18px 18px 18px 6px; background: #F3EEE7; font-size: 15px; line-height: 1.6">요청하신 텀블러 공구 링크예요. 10월 31일까지 공구가로 만나보세요.</p>
+<a href="#" style="height: 48px; border-radius: 12px; background: #16120E; color: #FFFFFF; font-size: 15px; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>구매하러 가기</a>
+</div>
+</div>
+</section>
+
+<section style="padding: 96px 80px; background: #FFFFFF; border-top: 1px solid #E3DBCF; border-bottom: 1px solid #E3DBCF; display: flex; flex-direction: column; gap: 48px; flex-shrink: 0">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 40px">
+<h2 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 48px; line-height: 1.2; letter-spacing: -0.03em">공구부터 자료 배포까지,<br>댓글 키워드 하나면 돼요</h2>
+<p style="margin: 0; max-width: 440px; font-size: 17px; line-height: 1.7; color: #3D352E">댓글 이벤트는 자주 열지만 전담 인력은 없는 크리에이터를 위해 만들었어요.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<article style="padding: 28px; border-radius: 20px; background: #F5F1EA; display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #6E655C">공구 크리에이터</p>
+<h3 style="margin: 0; font-family: Hahmlet, serif; font-weight: 700; font-size: 26px; line-height: 1.35; letter-spacing: -0.02em">공구 오픈 날<br>쏟아지는 댓글 1,000개</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #3D352E">댓글 단 사람 모두에게 구매 링크 DM이 바로 나가요. 답장이 늦어 놓치던 구매를 붙잡아요.</p>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="padding: 7px 12px; border-radius: 999px; background: #FFFFFF; border: 1px solid #E3DBCF; font-size: 13px; font-weight: 600">댓글 “공구”</span>
+<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #6E655C; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="padding: 7px 12px; border-radius: 999px; background: #16120E; color: #FFFFFF; font-size: 13px; font-weight: 600">DM 구매 링크</span>
+</div>
+</article>
+<article style="padding: 28px; border-radius: 20px; background: #F5F1EA; display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #6E655C">정보형 크리에이터</p>
+<h3 style="margin: 0; font-family: Hahmlet, serif; font-weight: 700; font-size: 26px; line-height: 1.35; letter-spacing: -0.02em">“댓글 남기면<br>PDF 드려요” 릴스</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #3D352E">자료 링크를 DM으로 자동 배포해요. 한 명 한 명 보내던 수작업이 사라져요.</p>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="padding: 7px 12px; border-radius: 999px; background: #FFFFFF; border: 1px solid #E3DBCF; font-size: 13px; font-weight: 600">댓글 “자료”</span>
+<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #6E655C; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="padding: 7px 12px; border-radius: 999px; background: #16120E; color: #FFFFFF; font-size: 13px; font-weight: 600">DM PDF 링크</span>
+</div>
+</article>
+<article style="padding: 28px; border-radius: 20px; background: #F5F1EA; display: flex; flex-direction: column; gap: 18px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: #6E655C">막 시작한 크리에이터</p>
+<h3 style="margin: 0; font-family: Hahmlet, serif; font-weight: 700; font-size: 26px; line-height: 1.35; letter-spacing: -0.02em">도달과 참여를<br>키우는 중</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #3D352E">키워드 댓글에 자동 답글이 달려 대화가 이어져요. Free 플랜으로 부담 없이 시작해요.</p>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="padding: 7px 12px; border-radius: 999px; background: #FFFFFF; border: 1px solid #E3DBCF; font-size: 13px; font-weight: 600">댓글 “참여”</span>
+<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #6E655C; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+<span style="padding: 7px 12px; border-radius: 999px; background: #16120E; color: #FFFFFF; font-size: 13px; font-weight: 600">DM 이벤트 안내</span>
+</div>
+</article>
+</div>
+</section>
+
+<section id="how" style="padding: 112px 80px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; flex-shrink: 0">
+<div style="grid-column: span 4; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 15px; font-weight: 600; color: #6E655C">사용 방법</p>
+<h2 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 48px; line-height: 1.2; letter-spacing: -0.03em">3분이면<br>첫 자동화 완성</h2>
+<p style="margin: 0; font-size: 17px; line-height: 1.7; color: #3D352E">가입부터 첫 자동 발송까지 필요한 건 인스타그램 계정 하나예요.</p>
+</div>
+<ol style="grid-column: span 8; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<li style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; padding: 32px 0; border-top: 1px solid #E3DBCF">
+<span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 64px; line-height: 1; color: #D9401C">01</span>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h3 style="margin: 0; font-size: 24px; font-weight: 700">인스타그램 계정 연결</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.7; color: #3D352E">비즈니스·크리에이터 계정을 인스타그램 공식 로그인으로 연결해요. 비밀번호는 받지 않아요.</p>
+</div>
+</li>
+<li style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; padding: 32px 0; border-top: 1px solid #E3DBCF">
+<span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 64px; line-height: 1; color: #D9401C">02</span>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h3 style="margin: 0; font-size: 24px; font-weight: 700">키워드와 메시지 설정</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.7; color: #3D352E">게시물을 고르고, 반응할 키워드와 공개 답글·DM 문구·링크를 적어요.</p>
+</div>
+</li>
+<li style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; padding: 32px 0; border-top: 1px solid #E3DBCF; border-bottom: 1px solid #E3DBCF">
+<span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 64px; line-height: 1; color: #D9401C">03</span>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h3 style="margin: 0; font-size: 24px; font-weight: 700">댓글이 달리면 자동 발송</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.7; color: #3D352E">몇 초 안에 답글과 링크 버튼 DM이 나가요. 발송·클릭 수는 대시보드에서 확인해요.</p>
+</div>
+</li>
+</ol>
+</section>
+
+<section style="padding: 104px 80px; background: #16120E; color: #F5F1EA; display: flex; flex-direction: column; gap: 56px; flex-shrink: 0">
+<h2 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 48px; line-height: 1.2; letter-spacing: -0.03em">댓글 이벤트에 필요한 것만 담았어요</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<div style="padding: 28px; border-radius: 20px; background: #221D18; border: 1px solid #3A322B; display: flex; flex-direction: column; gap: 14px">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 700">공개 답글 + DM 동시 발송</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #CFC6BA">댓글에는 “DM 확인해주세요” 답글을, 링크는 버튼이 달린 DM으로 보내요.</p>
+</div>
+<div style="padding: 28px; border-radius: 20px; background: #221D18; border: 1px solid #3A322B; display: flex; flex-direction: column; gap: 14px">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 700">답글 문구 랜덤 발송</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #CFC6BA">문구 3~5개를 번갈아 보내 같은 문구 반복으로 인한 스팸 판정을 피해요.</p>
+</div>
+<div style="padding: 28px; border-radius: 20px; background: #221D18; border: 1px solid #3A322B; display: flex; flex-direction: column; gap: 14px">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 700">한 사람에게 한 번만</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #CFC6BA">같은 사람이 댓글을 여러 번 달아도 DM은 한 번만 가요. 내 댓글에는 반응하지 않아요.</p>
+</div>
+<div style="padding: 28px; border-radius: 20px; background: #221D18; border: 1px solid #3A322B; display: flex; flex-direction: column; gap: 14px">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 700">발송 한도 자동 조절</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #CFC6BA">인스타그램의 시간당 발송 한도를 넘는 분량은 대기열에 넣고 순서대로 보내요.</p>
+</div>
+<div style="padding: 28px; border-radius: 20px; background: #221D18; border: 1px solid #3A322B; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>
+<span style="padding: 3px 10px; border-radius: 999px; border: 1px solid #5A5047; font-size: 12px; font-weight: 600; color: #CFC6BA">Pro</span>
+</div>
+<h3 style="margin: 0; font-size: 21px; font-weight: 700">링크 클릭 추적</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #CFC6BA">DM 링크를 몇 명이 눌렀는지 자동화별로 확인해요.</p>
+</div>
+<div style="padding: 28px; border-radius: 20px; background: #221D18; border: 1px solid #3A322B; display: flex; flex-direction: column; gap: 14px">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+<h3 style="margin: 0; font-size: 21px; font-weight: 700">공식 API만 사용</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.7; color: #CFC6BA">Meta 공식 Instagram API로만 동작해요. 비밀번호 저장, 팔로우·좋아요 자동화는 하지 않아요.</p>
+</div>
+</div>
+</section>
+
+<section id="pricing" style="padding: 112px 80px; display: flex; flex-direction: column; gap: 48px; flex-shrink: 0">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+<p style="margin: 0; font-size: 15px; font-weight: 600; color: #6E655C">요금</p>
+<h2 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 48px; line-height: 1.2; letter-spacing: -0.03em">필요한 만큼만 쓰세요</h2>
+<p style="margin: 0; font-size: 17px; line-height: 1.7; color: #3D352E">모든 플랜은 월 단위 자동 결제이며 언제든 해지할 수 있어요. 금액은 VAT 포함이에요.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: stretch">
+<div style="padding: 32px; border-radius: 24px; background: #FFFFFF; border: 1px solid #E3DBCF; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 22px; font-weight: 700">Free</h3>
+<p style="margin: 0; font-size: 15px; color: #6E655C">처음 써보는 크리에이터</p>
+</div>
+<p style="margin: 0; display: flex; align-items: baseline; gap: 6px"><span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 44px; letter-spacing: -0.03em">0원</span></p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15px; flex-grow: 1">
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>인스타 계정 1개</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>자동화 1개</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>월 DM 300건</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>공개 답글 + DM 자동 발송</li>
+<li style="display: flex; align-items: center; gap: 10px; color: #6E655C"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #6E655C; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14"></path></svg>DM 하단에 서비스 표시</li>
+</ul>
+<a href="Login.dc.html" style="height: 54px; border-radius: 14px; border: 1.5px solid #16120E; box-sizing: border-box; color: #16120E; font-size: 16px; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center">무료로 시작</a>
+</div>
+<div style="padding: 32px; border-radius: 24px; background: #16120E; color: #F5F1EA; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h3 style="margin: 0; font-size: 22px; font-weight: 700">Pro</h3>
+<span style="padding: 4px 12px; border-radius: 999px; background: {{accent}}; color: #16120E; font-size: 12px; font-weight: 700">추천</span>
+</div>
+<p style="margin: 0; font-size: 15px; color: #CFC6BA">공구를 정기적으로 여는 크리에이터</p>
+</div>
+<p style="margin: 0; display: flex; align-items: baseline; gap: 6px"><span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 44px; letter-spacing: -0.03em">9,900원</span><span style="font-size: 15px; color: #CFC6BA">/ 월</span></p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15px; flex-grow: 1">
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>인스타 계정 1개</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>자동화 무제한</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>월 DM 10,000건</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>링크 클릭 추적</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: {{accent}}; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>서비스 표시 제거</li>
+</ul>
+<a href="Billing.dc.html" style="height: 54px; border-radius: 14px; background: {{accent}}; color: #16120E; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Pro 시작하기</a>
+</div>
+<div style="padding: 32px; border-radius: 24px; background: #FFFFFF; border: 1px solid #E3DBCF; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 22px; font-weight: 700">Agency</h3>
+<p style="margin: 0; font-size: 15px; color: #6E655C">여러 계정을 운영하는 팀·에이전시</p>
+</div>
+<p style="margin: 0; display: flex; align-items: baseline; gap: 6px"><span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 44px; letter-spacing: -0.03em">59,000원</span><span style="font-size: 15px; color: #6E655C">/ 월</span></p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15px; flex-grow: 1">
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>인스타 계정 5개</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>자동화 무제한</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>월 DM 50,000건</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>링크 클릭 추적</li>
+<li style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #16120E; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round"><path d="M20 6 9 17l-5-5"></path></svg>서비스 표시 제거</li>
+</ul>
+<a href="Billing.dc.html" style="height: 54px; border-radius: 14px; border: 1.5px solid #16120E; box-sizing: border-box; color: #16120E; font-size: 16px; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center">Agency 시작하기</a>
+</div>
+</div>
+<p style="margin: 0; text-align: center; font-size: 14px; line-height: 1.7; color: #6E655C">DM 한도는 매월 1일(한국 시간)에 초기화돼요 · 상위 플랜 변경은 즉시, 하위 플랜 변경과 해지는 결제 기간이 끝날 때 적용돼요</p>
+</section>
+
+<section id="faq" style="padding: 104px 80px; background: #FFFFFF; border-top: 1px solid #E3DBCF; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; flex-shrink: 0">
+<div style="grid-column: span 4">
+<h2 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 48px; line-height: 1.2; letter-spacing: -0.03em">자주 묻는<br>질문</h2>
+</div>
+<div style="grid-column: span 8; display: flex; flex-direction: column">
+<details open style="padding: 24px 0; border-top: 1px solid #E3DBCF">
+<summary style="cursor: pointer; list-style: none; font-size: 20px; font-weight: 600">개인 계정도 쓸 수 있나요?</summary>
+<p style="margin: 12px 0 0; font-size: 16px; line-height: 1.7; color: #3D352E">인스타그램 정책상 비즈니스 또는 크리에이터 계정만 연결할 수 있어요. 인스타그램 설정에서 무료로 전환할 수 있고, 연결 화면에서 방법을 안내해드려요.</p>
+</details>
+<details style="padding: 24px 0; border-top: 1px solid #E3DBCF">
+<summary style="cursor: pointer; list-style: none; font-size: 20px; font-weight: 600">계정이 정지될 위험은 없나요?</summary>
+<p style="margin: 12px 0 0; font-size: 16px; line-height: 1.7; color: #3D352E">Meta가 공식 제공하는 Instagram API만 쓰고, 댓글을 남긴 사람에게만 한 번 보내요. 답글 문구도 번갈아 보내 반복을 피해요.</p>
+</details>
+<details style="padding: 24px 0; border-top: 1px solid #E3DBCF">
+<summary style="cursor: pointer; list-style: none; font-size: 20px; font-weight: 600">인스타 비밀번호를 알려줘야 하나요?</summary>
+<p style="margin: 12px 0 0; font-size: 16px; line-height: 1.7; color: #3D352E">아니요. 인스타그램 공식 로그인 창에서 권한만 허용하면 되고, 비밀번호는 저장하지 않아요.</p>
+</details>
+<details style="padding: 24px 0; border-top: 1px solid #E3DBCF">
+<summary style="cursor: pointer; list-style: none; font-size: 20px; font-weight: 600">댓글이 한꺼번에 수천 개 달리면요?</summary>
+<p style="margin: 12px 0 0; font-size: 16px; line-height: 1.7; color: #3D352E">인스타그램의 시간당 발송 한도를 넘는 분량은 대기열에 넣고 순서대로 보내요. 인스타그램 정책상 댓글 후 7일이 지나면 DM을 보낼 수 없어요.</p>
+</details>
+<details style="padding: 24px 0; border-top: 1px solid #E3DBCF; border-bottom: 1px solid #E3DBCF">
+<summary style="cursor: pointer; list-style: none; font-size: 20px; font-weight: 600">DM은 상대방에게 어떻게 보이나요?</summary>
+<p style="margin: 12px 0 0; font-size: 16px; line-height: 1.7; color: #3D352E">댓글 단 사람이 내 계정을 팔로우하면 메시지함으로, 아니면 메시지 요청함으로 들어가요. 링크는 버튼으로 보여요.</p>
+</details>
+</div>
+</section>
+
+<section style="padding: 96px 80px; background: {{accent}}; display: flex; align-items: center; justify-content: space-between; gap: 40px; flex-shrink: 0">
+<h2 style="margin: 0; font-family: Hahmlet, serif; font-weight: 800; font-size: 56px; line-height: 1.15; letter-spacing: -0.035em; color: #16120E">다음 공구 게시물부터,<br>댓글 DM은 자동으로.</h2>
+<a href="Login.dc.html" style="height: 64px; padding: 0 32px; border-radius: 16px; background: #16120E; color: #FFFFFF; font-size: 18px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 10px; flex-shrink: 0">무료로 시작하기<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</section>
+
+<footer style="flex-grow: 1; padding: 56px 80px; background: #F5F1EA; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-family: Hahmlet, serif; font-weight: 800; font-size: 20px">리치업</span>
+<nav aria-label="약관" style="display: flex; gap: 24px; font-size: 14px">
+<a href="#" style="text-decoration: none">이용약관</a>
+<a href="#" style="text-decoration: none; font-weight: 700">개인정보처리방침</a>
+<a href="#" style="text-decoration: none">환불정책</a>
+<a href="#pricing" style="text-decoration: none">요금</a>
+</nav>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.8; color: #6E655C">상호 [상호] · 대표 [대표자] · 사업자등록번호 [000-00-00000] · 통신판매업 신고 [신고번호]<br>주소 [사업장 주소] · 전화 [대표 전화] · 이메일 support@example.com</p>
+<p style="margin: 0; font-size: 13px; line-height: 1.8; color: #6E655C">리치업은 Meta의 공식 Instagram API만 사용하며 인스타그램 비밀번호를 받거나 저장하지 않아요. Instagram은 Meta Platforms, Inc.의 상표입니다. © 2026 리치업</p>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF5B35","options":["#FF5B35","#3B6CFF","#12A36B","#F2B705"]},"$preview":{"width":1440,"height":5400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF5B35' };
+  }
+}
+</script>
+</body>
+</html>

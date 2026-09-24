@@ -38,7 +38,14 @@
 - **보안:**
   - 토큰, 빌링키, 이메일, 댓글 원문은 로그에 남기지 않는다.
   - 토큰과 빌링키는 `encryptSecret`(AES-256-GCM)으로 저장한다.
-- **서비스명과 사업자 정보:** `src/lib/site.ts` 한 곳에만 둔다. 가칭은 "댓글링크"다.
+- **서비스명과 사업자 정보:** `src/lib/site.ts` 한 곳에만 둔다. 서비스명은 "리치업(ReachUp)", 도메인 후보는 reachup.kr·reachup.co.kr이다.
+- **디자인 기준:** 시안은 `docs/design/*.dc.html`(원본 캔버스 https://claude.ai/artifact/SRaJbXr46m8aYjGvgcjn16)이다.
+  - 이 계획의 UI 코드는 동작과 데이터 연결의 기준이다. 레이아웃·간격·문구·색은 시안에 맞춘다.
+  - 색 토큰: 배경 #F5F1EA, 카드 #FFFFFF, 글자 #16120E, 보조 글자 #3D352E, 흐린 글자 #6E655C, 선 #E3DBCF, 입력 테두리 #D8CFC3, 포인트 #FF5B35(글자로 쓸 땐 #D9401C), 키워드 칩 #FFE3D9/#7A2410, 성공 #DDF2E6/#14573A, 경고 #FFF0D1/#7A4700, 실패 #FBE3E0/#8F1D16, 중립 #EEE9E2/#4A423B.
+  - 서체: 제목은 Hahmlet(600·700·800), 본문과 UI는 IBM Plex Sans KR(400~700). `next/font/google`로 불러온다.
+  - 위자드(`/app/automations/new`, `/app/automations/[id]/edit`)에서는 하단 내비를 숨기고 하단 고정 이전/다음 바를 쓴다.
+  - 이모지는 UI와 기본 문구에 쓰지 않는다.
+- **"모든 댓글" 자동화:** `match_type = 'any'`이면 키워드 없이 모든 댓글에 반응한다(본인 댓글 제외, 같은 사람에게 1회). 같은 범위 안에서는 키워드 자동화가 `any`보다 먼저 선택된다.
 - **커밋 메시지:** `Co-Authored-By` 트레일러와 "Generated with Claude Code" 문구를 넣지 않는다.
 - **테스트 DB:**
   - `TEST_DATABASE_URL`, 기본값 `postgres://postgres:postgres@localhost:54329/igc_test`를 쓴다.
@@ -351,7 +358,7 @@ export function errorFields(e: unknown): Fields {
 
 ```ts
 export const site = {
-  name: "댓글링크",
+  name: "리치업",
   description: "댓글 키워드 하나로 공개 답글과 DM 링크를 자동 발송하는 인스타그램 자동화 도구",
   supportEmail: "support@example.com",
   effectiveDate: "2026-10-01",
@@ -428,7 +435,7 @@ KAKAO_CLIENT_SECRET=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 RESEND_API_KEY=
-EMAIL_FROM=댓글링크 <noreply@example.com>
+EMAIL_FROM=리치업 <noreply@example.com>
 IG_APP_ID=
 IG_APP_SECRET=
 META_APP_SECRET=
@@ -763,7 +770,7 @@ export const igAccounts = pgTable(
 );
 
 export const MEDIA_SCOPES = ["specific", "all", "next"] as const;
-export const MATCH_TYPES = ["contains", "exact"] as const;
+export const MATCH_TYPES = ["contains", "exact", "any"] as const;
 
 export const automations = pgTable(
   "automations",
@@ -1293,8 +1300,9 @@ git commit -m "feat: add database schema, migrations and integration test harnes
 - Consumes: `site` (Task 1)
 - Produces:
   - `normalizeText(input: string): string`
-  - `matchesKeywords(comment: string, keywords: string[], matchType: "contains" | "exact"): boolean`
-  - `interface RuleLike { id: string; mediaScope: "specific" | "all" | "next"; mediaId: string | null; keywords: string[]; matchType: "contains" | "exact"; createdAt: Date }`
+  - `type MatchType = "contains" | "exact" | "any"` (`any` = 키워드 없이 모든 댓글)
+  - `matchesKeywords(comment: string, keywords: string[], matchType: MatchType): boolean`
+  - `interface RuleLike { id: string; mediaScope: "specific" | "all" | "next"; mediaId: string | null; keywords: string[]; matchType: MatchType; createdAt: Date }`
   - `rulesToBind(rules: RuleLike[], mediaPublishedAt: Date | null): string[]`
   - `selectAutomation<T extends RuleLike>(rules: T[], mediaId: string, commentText: string): T | null`
   - `renderReply(template: string, username: string | null): string`
@@ -1342,6 +1350,11 @@ describe("matchesKeywords", () => {
     expect(matchesKeywords("아무거나", [], "contains")).toBe(false);
     expect(matchesKeywords("아무거나", ["  "], "contains")).toBe(false);
   });
+  it("any: matches every comment regardless of keywords", () => {
+    expect(matchesKeywords("예뻐요", [], "any")).toBe(true);
+    expect(matchesKeywords("", [], "any")).toBe(true);
+    expect(matchesKeywords("아무 말", ["공구"], "any")).toBe(true);
+  });
 });
 
 const rule = (o: Partial<RuleLike> & { id: string }): RuleLike => ({
@@ -1381,6 +1394,21 @@ describe("selectAutomation", () => {
   });
   it("never selects an unbound next rule", () => {
     expect(selectAutomation([rule({ id: "next", mediaScope: "next" })], "m1", "공구")).toBeNull();
+  });
+  it("prefers keyword rules over newer 'any' rules within the same scope", () => {
+    const rules = [
+      rule({ id: "any", matchType: "any", keywords: [], createdAt: new Date("2026-09-20T00:00:00Z") }),
+      rule({ id: "kw", keywords: ["공구"], createdAt: new Date("2026-09-01T00:00:00Z") }),
+    ];
+    expect(selectAutomation(rules, "m1", "공구요")?.id).toBe("kw");
+    expect(selectAutomation(rules, "m1", "예뻐요")?.id).toBe("any");
+  });
+  it("prefers a specific-media 'any' rule over an all-media keyword rule", () => {
+    const rules = [
+      rule({ id: "all-kw", keywords: ["공구"] }),
+      rule({ id: "specific-any", mediaScope: "specific", mediaId: "m1", matchType: "any", keywords: [] }),
+    ];
+    expect(selectAutomation(rules, "m1", "공구")?.id).toBe("specific-any");
   });
 });
 
@@ -1438,7 +1466,7 @@ describe("buildTextFallback", () => {
 
 describe("brandingLine", () => {
   it("mentions the service name", () => {
-    expect(brandingLine()).toContain("댓글링크");
+    expect(brandingLine()).toContain("리치업");
   });
 });
 ```
@@ -1451,7 +1479,7 @@ Expected: FAIL — 모듈 없음
 - [ ] **Step 3: `src/server/automations/matcher.ts` 구현**
 
 ```ts
-export type MatchType = "contains" | "exact";
+export type MatchType = "contains" | "exact" | "any";
 
 export interface RuleLike {
   id: string;
@@ -1470,6 +1498,7 @@ export function normalizeText(input: string): string {
 const EDGE_NOISE = /^[\s\p{P}\p{S}‍️]+|[\s\p{P}\p{S}‍️]+$/gu;
 
 export function matchesKeywords(comment: string, keywords: string[], matchType: MatchType): boolean {
+  if (matchType === "any") return true;
   const text = normalizeText(comment);
   const normalized = keywords.map(normalizeText).filter((k) => k.length > 0);
   if (normalized.length === 0) return false;
@@ -1485,11 +1514,13 @@ export function rulesToBind(rules: RuleLike[], mediaPublishedAt: Date | null): s
     .map((r) => r.id);
 }
 
+/** 우선순위: 특정 게시물 > 모든 게시물, 같은 범위에서는 키워드 규칙 > 'any' 규칙, 그다음 최신순 */
 export function selectAutomation<T extends RuleLike>(rules: T[], mediaId: string, commentText: string): T | null {
   const newestFirst = [...rules].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   const specific = newestFirst.filter((r) => r.mediaScope === "specific" && r.mediaId === mediaId);
   const all = newestFirst.filter((r) => r.mediaScope === "all");
-  for (const r of [...specific, ...all]) {
+  const keywordFirst = (list: T[]) => [...list.filter((r) => r.matchType !== "any"), ...list.filter((r) => r.matchType === "any")];
+  for (const r of [...keywordFirst(specific), ...keywordFirst(all)]) {
     if (matchesKeywords(commentText, r.keywords, r.matchType)) return r;
   }
   return null;
@@ -3326,7 +3357,7 @@ describe("processCommentEvent", () => {
     expect(dm.igUserId).toBe(acct.igUserId);
     expect(dm.message).toMatchObject({ kind: "button", buttonTitle: "구매하기", url: "https://shop.example.com/p/1" });
     expect(dm.message.text).toContain("구매 링크 보내드려요");
-    expect(dm.message.text).toContain("댓글링크 자동 발송");
+    expect(dm.message.text).toContain("리치업 자동 발송");
 
     const row = await eventRow(ev.id);
     expect(row).toMatchObject({ status: "succeeded", automationId: auto.id, replyStatus: "sent", dmStatus: "sent", replyCommentId: "reply-1" });
@@ -3541,6 +3572,15 @@ describe("processCommentEvent", () => {
     expect(await processCommentEvent(deps(), await claim(ev.id))).toBe("succeeded");
     expect(graph.replies).toHaveLength(0);
     expect(await eventRow(ev.id)).toMatchObject({ replyStatus: "skipped", dmStatus: "sent" });
+  });
+
+  it("responds to any comment when the automation uses the 'any' match type", async () => {
+    const u = await createUser();
+    const acct = await createIgAccount(u.id, { nextReplyAt: new Date(Date.now() - 60_000) });
+    await createAutomation(acct, { matchType: "any", keywords: [] });
+    const ev = await createEvent(acct, { commentText: "너무 예뻐요" });
+    expect(await processCommentEvent(deps(), await claim(ev.id))).toBe("succeeded");
+    expect(graph.dms).toHaveLength(1);
   });
 });
 ```
@@ -4799,15 +4839,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
+const display = Hahmlet({ weight: ["600", "700", "800"], preload: false, display: "swap", variable: "--font-hahmlet" });
+const sans = IBM_Plex_Sans_KR({ weight: ["400", "500", "600", "700"], preload: false, display: "swap", variable: "--font-plex" });
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
-        />
-      </head>
+    <html lang="ko" className={`${display.variable} ${sans.variable}`}>
       <body className="min-h-dvh bg-background font-sans text-foreground antialiased">
         {children}
         <Toaster position="top-center" richColors />
@@ -4816,9 +4853,51 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 ```
-`src/app/globals.css`의 `@theme inline { ... }` 블록에서 `--font-sans` 줄을 다음으로 바꾼다. 없으면 블록 안에 추가하고, Geist 관련 `--font-mono` 줄은 삭제한다.
+파일 상단 import에 `import { Hahmlet, IBM_Plex_Sans_KR } from "next/font/google";`를 추가한다. `preload: false`는 한글 글리프가 unicode-range 조각으로 제공되기 때문이다.
+
+`src/app/globals.css`를 시안 토큰으로 맞춘다.
+- `@theme inline { ... }` 블록에서 `--font-sans`를 아래 두 줄로 바꾸고, Geist 관련 `--font-mono` 줄은 지운다. 이후 `font-display` 클래스로 제목 서체를 쓴다.
+- 같은 블록에 브랜드 색 토큰을 추가한다.
+- `:root { ... }` 블록의 shadcn 색 변수 값을 시안 값으로 바꾼다. `.dark` 블록은 그대로 둔다(다크 모드는 범위 밖).
 ```css
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+@theme inline {
+  /* ...shadcn이 만든 기존 줄 유지... */
+  --font-sans: var(--font-plex), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-display: var(--font-hahmlet), "Nanum Myeongjo", serif;
+  --color-brand: #FF5B35;
+  --color-brand-ink: #D9401C;
+  --color-ink-2: #3D352E;
+  --color-chip: #FFE3D9;
+  --color-chip-foreground: #7A2410;
+  --color-success-soft: #DDF2E6;
+  --color-success-ink: #14573A;
+  --color-warning-soft: #FFF0D1;
+  --color-warning-ink: #7A4700;
+  --color-danger-soft: #FBE3E0;
+  --color-danger-ink: #8F1D16;
+}
+
+:root {
+  --radius: 0.875rem;
+  --background: #F5F1EA;
+  --foreground: #16120E;
+  --card: #FFFFFF;
+  --card-foreground: #16120E;
+  --popover: #FFFFFF;
+  --popover-foreground: #16120E;
+  --primary: #16120E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEE9E2;
+  --secondary-foreground: #16120E;
+  --muted: #EEE9E2;
+  --muted-foreground: #6E655C;
+  --accent: #FFE3D9;
+  --accent-foreground: #7A2410;
+  --destructive: #B3261E;
+  --border: #E3DBCF;
+  --input: #D8CFC3;
+  --ring: #16120E;
+}
 ```
 
 - [ ] **Step 7: 로그인 페이지**
@@ -7294,6 +7373,10 @@ describe("automationInputSchema", () => {
     expect(issues({ ...valid, replyTexts: [] })).toContain("답글 문구를 1개 이상 입력해주세요");
     expect(automationInputSchema.safeParse({ ...valid, replyEnabled: false, replyTexts: [] }).success).toBe(true);
   });
+  it("allows no keywords only for the 'any' match type", () => {
+    const parsed = automationInputSchema.safeParse({ ...valid, matchType: "any", keywords: [] });
+    expect(parsed.success).toBe(true);
+  });
   it("requires at least one keyword and caps lengths", () => {
     expect(issues({ ...valid, keywords: [] })).toContain("키워드를 1개 이상 입력해주세요");
     expect(automationInputSchema.safeParse({ ...valid, dmButtonTitle: "가".repeat(21) }).success).toBe(false);
@@ -7412,9 +7495,8 @@ export const automationInputSchema = z
       .nullable(),
     keywords: z
       .array(z.string().trim().min(1).max(KEYWORD_MAX, `키워드는 ${KEYWORD_MAX}자까지 쓸 수 있어요`))
-      .min(1, "키워드를 1개 이상 입력해주세요")
       .max(10, "키워드는 10개까지 넣을 수 있어요"),
-    matchType: z.enum(["contains", "exact"]),
+    matchType: z.enum(["contains", "exact", "any"]),
     replyEnabled: z.boolean(),
     replyTexts: z.array(replyText).max(5, "답글 문구는 5개까지 넣을 수 있어요"),
     dmText: z.string().trim().min(1, "DM 내용을 입력해주세요").max(DM_TEXT_MAX, `DM은 ${DM_TEXT_MAX}자까지 쓸 수 있어요`),
@@ -7431,6 +7513,9 @@ export const automationInputSchema = z
     }
     if (v.replyEnabled && v.replyTexts.length === 0) {
       ctx.addIssue({ code: "custom", path: ["replyTexts"], message: "답글 문구를 1개 이상 입력해주세요" });
+    }
+    if (v.matchType !== "any" && v.keywords.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["keywords"], message: "키워드를 1개 이상 입력해주세요" });
     }
   });
 
@@ -7783,7 +7868,7 @@ export function AutomationWizard({
       if (!draft.igAccountId) return "인스타 계정을 선택해주세요";
       if (draft.mediaScope === "specific" && !draft.media) return "게시물을 선택해주세요";
     }
-    if (i === 1 && draft.keywords.length === 0) return "키워드를 1개 이상 입력해주세요";
+    if (i === 1 && draft.matchType !== "any" && draft.keywords.length === 0) return "키워드를 1개 이상 입력해주세요";
     if (i === 2 && draft.replyEnabled && draft.replyTexts.filter((t) => t.trim()).length === 0) return "답글 문구를 1개 이상 입력해주세요";
     if (i === 3) {
       if (!draft.dmText.trim()) return "DM 내용을 입력해주세요";
@@ -7874,6 +7959,21 @@ export function AutomationWizard({
       {step === 1 && (
         <section className="space-y-5">
           <div className="space-y-2">
+            <Label>어떤 댓글에 반응할까요?</Label>
+            <RadioGroup value={draft.matchType} onValueChange={(v) => set("matchType", v as Draft["matchType"])}>
+              <label className="flex items-center gap-2 text-sm">
+                <RadioGroupItem value="contains" /> 키워드가 들어간 댓글 — &ldquo;공구요!&rdquo;, &ldquo;@친구 공구&rdquo;도 반응
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <RadioGroupItem value="exact" /> 키워드만 있는 댓글 — 끝의 이모지·문장부호는 무시
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <RadioGroupItem value="any" /> 모든 댓글 — 키워드 없이 댓글 단 모든 사람에게 (같은 사람에게는 한 번)
+              </label>
+            </RadioGroup>
+          </div>
+          {draft.matchType !== "any" && (
+          <div className="space-y-2">
             <Label htmlFor="kw">트리거 키워드</Label>
             <div className="flex gap-2">
               <Input
@@ -7904,17 +8004,7 @@ export function AutomationWizard({
               ))}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>일치 방식</Label>
-            <RadioGroup value={draft.matchType} onValueChange={(v) => set("matchType", v as Draft["matchType"])}>
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="contains" /> 포함 — &ldquo;공구요!&rdquo;, &ldquo;@친구 공구&rdquo;도 반응
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="exact" /> 정확히 일치 — 댓글이 키워드만 있을 때 반응 (끝의 이모지·문장부호는 무시)
-              </label>
-            </RadioGroup>
-          </div>
+          )}
         </section>
       )}
 
@@ -8448,7 +8538,7 @@ describe("billing", () => {
     gateway.issueKey("bk_1", u.id);
     expect(await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" })).toEqual({ ok: true, charged: true });
     expect(gateway.charges).toHaveLength(1);
-    expect(gateway.charges[0]).toMatchObject({ amount: 9900, orderName: "댓글링크 Pro 월 구독", customer: { id: u.id, name: "홍길동", phone: "01012345678" } });
+    expect(gateway.charges[0]).toMatchObject({ amount: 9900, orderName: "리치업 Pro 월 구독", customer: { id: u.id, name: "홍길동", phone: "01012345678" } });
     const s = await sub(u.id);
     expect(s).toMatchObject({ plan: "pro", status: "active", cardLabel: "신한카드 **** 1234", retryCount: 0 });
     expect(decryptSecret(s.billingKeyEnc ?? "")).toBe("bk_1");
@@ -10305,7 +10395,7 @@ KAKAO_CLIENT_SECRET=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 RESEND_API_KEY=
-EMAIL_FROM=댓글링크 <noreply@example.com>
+EMAIL_FROM=리치업 <noreply@example.com>
 IG_APP_ID=
 IG_APP_SECRET=
 META_APP_SECRET=
@@ -10539,7 +10629,7 @@ echo <GHCR read:packages 토큰> | docker login ghcr.io -u <github 사용자> --
 - 키를 비워두면 해당 로그인 버튼이 숨겨지고 이메일 링크 로그인만 노출됨
 
 ## 4. 이메일 (Resend)
-- resend.com → 도메인 추가 → DNS(SPF/DKIM) 등록 → API 키 → `RESEND_API_KEY`, `EMAIL_FROM="댓글링크 <noreply@<도메인>>"`
+- resend.com → 도메인 추가 → DNS(SPF/DKIM) 등록 → API 키 → `RESEND_API_KEY`, `EMAIL_FROM="리치업 <noreply@<도메인>>"`
 
 ## 5. 포트원 V2
 1. 포트원 콘솔 → 테스트 모드 → 채널 추가: KG이니시스(빌링) `INIBillTst` 또는 토스페이먼츠 `iamporttest_4`

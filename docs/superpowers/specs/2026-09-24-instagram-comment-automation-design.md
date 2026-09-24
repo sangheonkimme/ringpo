@@ -1,7 +1,9 @@
-# 인스타그램 댓글 자동응답 서비스 — 설계 (MVP)
+# 리치업(ReachUp) — 인스타그램 댓글 자동응답 서비스 설계 (MVP)
 
 - 작성일: 2026-09-24
 - 원본 PRD: https://claude.ai/code/artifact/d85fc834-d9f1-43d0-b5a4-82be95dfff3e
+- 서비스명: 리치업(ReachUp). 도메인 후보는 reachup.kr, reachup.co.kr(2026-09-24 whois 기준 미등록)
+- 디자인 시안: https://claude.ai/artifact/SRaJbXr46m8aYjGvgcjn16 (소스 사본 `docs/design/`)
 - 범위: PRD P0(F1~F6) + F7(링크 클릭 추적) + 정기결제 + 랜딩·법적 페이지·Meta 콜백
 
 ## 1. 목표와 성공 기준
@@ -147,8 +149,8 @@ Better Auth 기본 테이블(`user`, `session`, `account`, `verification`)은 Be
 | media_scope | text | `specific` / `all` / `next` |
 | media_id | text null | `specific`일 때 대상, `next`는 첫 매칭 시 바인딩 |
 | media_thumbnail_url, media_permalink, media_caption | text null | 목록 표시용 캐시 |
-| keywords | text[] | 1개 이상 |
-| match_type | text | `contains` / `exact` |
+| keywords | text[] | `match_type`이 `any`가 아니면 1개 이상 |
+| match_type | text | `contains` / `exact` / `any`(키워드 없이 모든 댓글) |
 | reply_enabled | boolean | |
 | reply_texts | text[] | 답글 문구. 활성화 시 1~5개(3개 이상 권장 경고) |
 | dm_text | text | DM 본문 (최대 640자) |
@@ -300,7 +302,8 @@ DM 발송 전 `UPDATE ... SET dm_count = dm_count + 1 WHERE dm_count < :limit RE
    - `commenter_ig_id == ig_user_id`
    - `commenter_username == username`
    - `comment_id`가 어떤 이벤트의 `reply_comment_id`와 같음
-4. **규칙 매칭**: 해당 계정의 활성 자동화 중 대상 게시물이 맞고(`specific` 일치 → `next` 바인딩 → `all` 순, 같은 스코프 안에서는 최근 생성순) 키워드가 매칭되는 첫 자동화를 고른다. 없으면 `skipped/no_match`.
+4. **규칙 매칭**: 해당 계정의 활성 자동화 중 대상 게시물이 맞고 키워드가 매칭되는 첫 자동화를 고른다. 순서는 `specific` 일치(`next` 바인딩 포함) → `all`이고, 같은 스코프 안에서는 키워드 자동화 → `any` 자동화, 그다음 최근 생성순이다. 없으면 `skipped/no_match`.
+   - `any`: 키워드 없이 모든 댓글에 매칭된다. 본인 댓글 제외와 같은 사람 1회 발송 규칙은 그대로 적용된다.
    - 정규화: NFKC, 소문자, 앞뒤 공백 제거, 연속 공백 1개로.
    - `contains`: 정규화한 댓글이 키워드를 포함하는지 본다.
    - `exact`: 정규화한 댓글 전체가 키워드와 같은지 보되, 끝의 구두점·이모지는 제거하고 비교한다.
@@ -406,6 +409,11 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 
 ## 8. 화면
 
+시각 디자인은 시안(`docs/design/`)을 따른다. 요약:
+- 톤: 웜 화이트 배경과 먹색 텍스트, 포인트 색은 토마토(#FF5B35) 하나다.
+- 서체: 제목 Hahmlet, 본문 IBM Plex Sans KR.
+- 위자드는 하단 내비 없이 하단 고정 이전/다음 바를 쓴다.
+
 모든 화면은 375px 폭을 기준으로 설계한다. 데스크톱에서는 최대 폭 컨테이너를 쓴다.
 
 | 경로 | 내용 |
@@ -417,7 +425,7 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 | `/app/onboarding` | 1) 프로페셔널 계정 확인·전환 가이드 2) 인스타 연결 버튼 3) 첫 자동화 만들기로 이동 |
 | `/app` | 대시보드: 연결 계정 상태, 이번 달 DM 사용량/한도, 발송 대기 N건, 자동화별 트리거·성공·부분·실패·클릭(Pro+) 카드, 최근 이벤트 20건(실패 사유 표시) |
 | `/app/automations` | 목록 + 활성 토글 |
-| `/app/automations/new` | 위자드 5단계: 게시물 선택(최근 게시물 그리드 / 전체 / 다음 게시물) → 키워드(칩 입력, 포함/일치) → 공개 답글 문구(최대 5개, 3개 미만이면 권장 경고, `{username}` 삽입 버튼) → DM(본문, 버튼 라벨, 링크) → 미리보기(DM 말풍선 목업) 후 활성화 |
+| `/app/automations/new` | 위자드 5단계: 게시물 선택(최근 게시물 그리드 / 전체 / 다음 게시물) → 반응할 댓글(키워드 포함 / 키워드만 / 모든 댓글, 키워드 칩 입력) → 공개 답글 문구(최대 5개, 3개 미만이면 권장 경고, `{username}` 삽입 버튼) → DM(본문, 버튼 라벨, 링크) → 미리보기(DM 말풍선 목업) 후 활성화 |
 | `/app/automations/[id]` | 수정 + 해당 자동화의 이벤트 목록 |
 | `/app/billing` | 현재 플랜, 다음 결제일, 카드, 플랜 변경, 해지/해지 취소, 결제 내역 |
 | `/app/settings` | 인스타 계정 목록·연결 해제·재연결, 회원 탈퇴 |
