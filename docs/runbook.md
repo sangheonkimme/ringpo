@@ -27,6 +27,16 @@ echo <GHCR read:packages 토큰> | docker login ghcr.io -u <github 사용자> --
 - Environments에 `production` 생성(필요 시 승인자 지정)
 - 첫 배포: main에 push → Actions 성공 → `https://<도메인>/api/health?strict=1` 이 `{"ok":true,...}`
 
+### 1-4. GitHub Actions 없이 배포 (VPS에서 직접 빌드)
+Actions를 쓸 수 없을 때(결제 잠금 등)는 VPS에 저장소를 clone해 두고 VPS에서 이미지를 빌드한다. GHCR 로그인과 GitHub secrets가 필요 없다.
+```bash
+git clone https://github.com/<owner>/ringpo.git ~/workspace/projects/ringpo && cd ~/workspace/projects/ringpo/deploy
+cp .env.example .env && chmod 600 .env        # 값 채우기 (1-2 표)
+docker network create ringpo_edge              # TRAEFIK_NETWORK=ringpo_edge (Traefik이 host 네트워크면 아무 bridge 네트워크나 된다)
+sh deploy-on-vps.sh                            # git pull → docker build → compose up → health 확인
+```
+이후 배포도 `sh deploy/deploy-on-vps.sh` 한 번이면 된다.
+
 ## 2. Meta(Instagram) 앱 설정
 1. developers.facebook.com → 앱 만들기 → 유형 **Business** → 사용 사례 "Instagram API 설정(Instagram 로그인)"
 2. Instagram > API setup with Instagram login

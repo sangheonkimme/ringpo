@@ -1,4 +1,4 @@
-name: igcomment
+name: ringpo
 
 x-app: &app
   image: ${IMAGE:?IMAGE is required}
@@ -48,11 +48,11 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_NETWORK:?TRAEFIK_NETWORK is required}
-      - traefik.http.routers.igcomment.rule=Host(`${APP_DOMAIN:?APP_DOMAIN is required}`)
-      - traefik.http.routers.igcomment.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
-      - traefik.http.routers.igcomment.tls=true
-      - traefik.http.routers.igcomment.tls.certresolver=${TRAEFIK_CERTRESOLVER:?TRAEFIK_CERTRESOLVER is required}
-      - traefik.http.services.igcomment.loadbalancer.server.port=3000
+      - traefik.http.routers.ringpo.rule=Host(`${APP_DOMAIN:?APP_DOMAIN is required}`)
+      - traefik.http.routers.ringpo.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.ringpo.tls=true
+      - traefik.http.routers.ringpo.tls.certresolver=${TRAEFIK_CERTRESOLVER:?TRAEFIK_CERTRESOLVER is required}
+      - traefik.http.services.ringpo.loadbalancer.server.port=3000
 
   worker:
     <<: *app
