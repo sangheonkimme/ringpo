@@ -15,11 +15,14 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({ href, size = "md" }: { href: string; size?: "md" | "lg" }) {
+const MARK = { md: "", lg: "size-9 rounded-[10px]", responsive: "md:size-[34px] md:rounded-[10px]" } as const;
+const TEXT = { md: "text-[19px]", lg: "text-2xl", responsive: "text-[19px] md:text-2xl" } as const;
+
+export function Logo({ href, size = "md" }: { href: string; size?: keyof typeof MARK }) {
   return (
-    <Link href={href} className="flex items-center gap-2 text-foreground">
-      <LogoMark className={size === "lg" ? "size-9 rounded-[10px]" : undefined} />
-      <span className={cn("font-display font-extrabold tracking-[-0.02em]", size === "lg" ? "text-2xl" : "text-[19px]")}>
+    <Link href={href} className="flex items-center gap-2 text-foreground md:gap-2.5">
+      <LogoMark className={MARK[size]} />
+      <span className={cn("font-display font-extrabold tracking-[-0.02em]", TEXT[size])}>
         {site.name}
       </span>
     </Link>
