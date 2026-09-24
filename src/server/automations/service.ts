@@ -163,7 +163,9 @@ export async function updateAutomation(
     .update(automations)
     .set(toColumns(input))
     .where(and(eq(automations.id, id), eq(automations.userId, userId)))
-    .returning({ id: automations.id });
+    .returning({ id: automations.id, isActive: automations.isActive });
   if (rows.length === 0) return { ok: false, error: "자동화를 찾을 수 없어요" };
-  return applyActivation(db, userId, id, opts.activate);
+  // '저장만'은 켜짐/꺼짐 상태를 그대로 둔다. 끄는 것은 토글로만 한다
+  if (!opts.activate) return { ok: true, id, activated: rows[0].isActive };
+  return applyActivation(db, userId, id, true);
 }

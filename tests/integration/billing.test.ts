@@ -75,7 +75,7 @@ describe("billing", () => {
     gateway.nextCharge = () => ({ status: "failed", reason: "잔액 부족" });
     const res = await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" });
     expect(res).toEqual({ ok: false, error: "결제에 실패했어요: 잔액 부족" });
-    expect((await sub(u.id)).plan).toBe("free");
+    expect(await sub(u.id)).toMatchObject({ plan: "free", billingKeyEnc: null });
     expect(gateway.deleted).toEqual(["bk_1"]);
     const [p] = await getDb().select().from(payments);
     expect(p.status).toBe("failed");
@@ -105,6 +105,19 @@ describe("billing", () => {
     expect(s.currentPeriodStart?.toISOString()).toBe("2026-02-10T00:00:00.000Z");
   });
 
+  it("keeps the current plan and card when an upgrade charge is declined", async () => {
+    const u = await createUser();
+    gateway.issueKey("bk_1", u.id);
+    await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" });
+    gateway.issueKey("bk_2", u.id);
+    gateway.nextCharge = () => ({ status: "failed", reason: "한도 초과" });
+    expect((await subscribe(deps(), { userId: u.id, email: u.email, plan: "agency", billingKey: "bk_2" })).ok).toBe(false);
+    const s = await sub(u.id);
+    expect(s.plan).toBe("pro");
+    expect(decryptSecret(s.billingKeyEnc ?? "")).toBe("bk_1");
+    expect(gateway.deleted).toEqual(["bk_2"]);
+  });
+
   it("renews due subscriptions using the anchor day", async () => {
     const u = await createUser();
     gateway.issueKey("bk_1", u.id);
@@ -113,6 +126,7 @@ describe("billing", () => {
     clock = new Date("2026-02-27T16:05:00Z");
     expect(await processDueRenewals(deps())).toBe(1);
     expect(gateway.charges[1].paymentId).toBe(renewalPaymentId(before.id, before.currentPeriodEnd!, 0));
+    expect(gateway.charges[1].customer.email).toBe(u.email);
     const s = await sub(u.id);
     expect(s.currentPeriodStart?.toISOString()).toBe("2026-02-27T16:00:00.000Z");
     expect(s.currentPeriodEnd?.toISOString()).toBe("2026-03-30T16:00:00.000Z");
@@ -192,6 +206,76 @@ describe("billing", () => {
     await processDueRenewals(deps());
     expect(gateway.charges).toHaveLength(2);
     expect((await sub(u.id)).currentPeriodEnd?.toISOString()).toBe("2026-03-30T16:00:00.000Z");
+  });
+
+  describe("first payment whose response was lost", () => {
+    function chargeThenLoseResponse() {
+      gateway.nextCharge = (input) => {
+        gateway.payments.set(input.paymentId, { status: "PAID", amount: input.amount, paidAt: clock, failureReason: null });
+        return new Error("socket hang up");
+      };
+    }
+
+    it("reports an unknown outcome and does not charge again when the user retries", async () => {
+      const u = await createUser();
+      gateway.issueKey("bk_1", u.id);
+      chargeThenLoseResponse();
+      const first = await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" });
+      expect(first.ok).toBe(false);
+      gateway.nextCharge = null;
+      gateway.issueKey("bk_2", u.id);
+      expect(await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_2" })).toEqual({ ok: true, charged: true });
+      expect(gateway.charges).toHaveLength(1);
+      expect(await sub(u.id)).toMatchObject({ plan: "pro", status: "active" });
+      const rows = await getDb().select().from(payments);
+      expect(rows.map((r) => r.status)).toEqual(["paid"]);
+      clock = new Date("2026-02-27T16:05:00Z");
+      await processDueRenewals(deps());
+      expect(gateway.charges).toHaveLength(2);
+      expect(gateway.deleted).not.toContain(gateway.charges[1].billingKey);
+    });
+
+    it("charges anew when the lost request never reached PortOne", async () => {
+      const u = await createUser();
+      gateway.issueKey("bk_1", u.id);
+      gateway.nextCharge = () => new Error("ECONNRESET");
+      expect((await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" })).ok).toBe(false);
+      gateway.nextCharge = null;
+      gateway.issueKey("bk_2", u.id);
+      expect(await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_2" })).toEqual({ ok: true, charged: true });
+      const rows = await getDb().select().from(payments).orderBy(payments.createdAt);
+      expect(rows.map((r) => r.status).sort()).toEqual(["failed", "paid"]);
+    });
+
+    it("refuses to charge again while the earlier payment is still in flight", async () => {
+      const u = await createUser();
+      gateway.issueKey("bk_1", u.id);
+      gateway.nextCharge = (input) => {
+        gateway.payments.set(input.paymentId, { status: "READY", amount: input.amount, paidAt: null, failureReason: null });
+        return new Error("timeout");
+      };
+      expect((await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" })).ok).toBe(false);
+      gateway.nextCharge = null;
+      gateway.issueKey("bk_2", u.id);
+      expect((await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_2" })).ok).toBe(false);
+      expect(gateway.charges).toHaveLength(1);
+    });
+
+    it("keeps the card when only the webhook activates the plan, so renewal still charges", async () => {
+      const u = await createUser();
+      gateway.issueKey("bk_1", u.id);
+      chargeThenLoseResponse();
+      await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" });
+      gateway.nextCharge = null;
+      const [pending] = await getDb().select().from(payments);
+      await syncPayment(deps(), pending.paymentId);
+      expect(await sub(u.id)).toMatchObject({ plan: "pro", status: "active" });
+      clock = new Date("2026-02-27T16:05:00Z");
+      await processDueRenewals(deps());
+      expect(gateway.charges.at(-1)?.billingKey).toBe("bk_1");
+      expect(await sub(u.id)).toMatchObject({ plan: "pro", status: "active" });
+      expect(notices).toEqual([]);
+    });
   });
 
   it("syncPayment activates a paid initial payment whose response was lost", async () => {

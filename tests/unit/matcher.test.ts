@@ -26,6 +26,14 @@ describe("matchesKeywords", () => {
     expect(matchesKeywords("공구 주세요", ["공구"], "exact")).toBe(false);
     expect(matchesKeywords("@친구 공구", ["공구"], "exact")).toBe(false);
   });
+  it("exact: an emoji-only keyword matches only that emoji, not every emoji or empty comment", () => {
+    expect(matchesKeywords("🔥", ["🔥"], "exact")).toBe(true);
+    expect(matchesKeywords(" 🔥️ ", ["🔥"], "exact")).toBe(true);
+    expect(matchesKeywords("😂", ["🔥"], "exact")).toBe(false);
+    expect(matchesKeywords("!!", ["🔥"], "exact")).toBe(false);
+    expect(matchesKeywords("", ["🔥"], "exact")).toBe(false);
+    expect(matchesKeywords("❤️❤️", ["🔥"], "exact")).toBe(false);
+  });
   it("any of several keywords matches", () => {
     expect(matchesKeywords("링크", ["공구", "링크"], "exact")).toBe(true);
   });

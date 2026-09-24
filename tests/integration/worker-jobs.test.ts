@@ -66,6 +66,22 @@ describe("worker jobs", () => {
     expect(usage.dmCount).toBe(0);
   });
 
+  it("does not release reservations of a stale event whose DM already went out", async () => {
+    const u = await createUser();
+    const acct = await createIgAccount(u.id);
+    const auto = await createAutomation(acct);
+    const period = usagePeriod(new Date());
+    await getDb().insert(usageCounters).values({ userId: u.id, period, dmCount: 1 });
+    const ev = await createEvent(acct, { receivedAt: new Date(Date.now() - 8 * DAY), automationId: auto.id, usagePeriod: period, dmStatus: "sent" });
+    await getDb().insert(deliveries).values({ automationId: auto.id, mediaId: ev.mediaId, commenterIgId: ev.commenterIgId, eventId: ev.id });
+    expect(await expireStaleEvents(getDb(), new Date())).toBe(1);
+    const [row] = await getDb().select().from(commentEvents).where(eq(commentEvents.id, ev.id));
+    expect(row.status).toBe("partial");
+    expect(await getDb().select().from(deliveries)).toHaveLength(1);
+    const [usage] = await getDb().select().from(usageCounters);
+    expect(usage.dmCount).toBe(1);
+  });
+
   it("deletes old no-match events after 3 days and everything after 180 days", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);

@@ -15,6 +15,14 @@ export function normalizeText(input: string): string {
 
 // 앞뒤의 공백·구두점·기호(이모지 포함)·ZWJ·변형 선택자
 const EDGE_NOISE = /^[\s\p{P}\p{S}\u200d\ufe0f]+|[\s\p{P}\p{S}\u200d\ufe0f]+$/gu;
+// 이모지만으로 된 키워드는 기호를 지우면 빈 문자열이 되므로 공백·ZWJ·변형 선택자만 지워서 비교한다
+const INVISIBLE = /[\s\u200d\ufe0f]/gu;
+
+function exactMatch(text: string, keyword: string): boolean {
+  const core = keyword.replace(EDGE_NOISE, "");
+  if (core.length > 0) return text.replace(EDGE_NOISE, "") === core;
+  return text.replace(INVISIBLE, "") === keyword.replace(INVISIBLE, "");
+}
 
 export function matchesKeywords(comment: string, keywords: string[], matchType: MatchType): boolean {
   if (matchType === "any") return true;
@@ -22,8 +30,7 @@ export function matchesKeywords(comment: string, keywords: string[], matchType: 
   const normalized = keywords.map(normalizeText).filter((k) => k.length > 0);
   if (normalized.length === 0) return false;
   if (matchType === "contains") return normalized.some((k) => text.includes(k));
-  const core = text.replace(EDGE_NOISE, "");
-  return normalized.some((k) => core === k.replace(EDGE_NOISE, ""));
+  return normalized.some((k) => exactMatch(text, k));
 }
 
 export function rulesToBind(rules: RuleLike[], mediaPublishedAt: Date | null): string[] {

@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, lt, lte, ne, or, sql } from "drizzle-orm";
 import { isUpgrade, PLANS, type PaidPlanId, type PlanId } from "@/lib/plans";
 import { site } from "@/lib/site";
 import type { Db } from "@/server/db/client";
-import { automations, igAccounts, payments, subscriptions, type Subscription } from "@/server/db/schema";
+import { automations, igAccounts, payments, subscriptions, user, type Payment, type Subscription } from "@/server/db/schema";
 import { errorFields, log } from "@/server/log";
-import type { BillingGateway } from "./gateway";
+import type { BillingGateway, RemotePayment } from "./gateway";
 import { kstDateStamp, nextPeriodEnd } from "./periods";
 
 export interface BillingDeps {
@@ -25,6 +25,7 @@ const MAX_RENEWAL_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 86_400_000;
 const LEASE_MS = 120_000;
 
+const FIRST_PAYMENT_LIKE = "new\\_%";
 const shortId = (id: string) => id.replace(/-/g, "").slice(0, 12);
 const orderName = (plan: PlanId) => `${site.name} ${PLANS[plan].name} 월 구독`;
 
@@ -85,6 +86,12 @@ export async function subscribe(
   const now = deps.now();
 
   const result = await withLease(db, base.id, now, async (): Promise<SubscribeResult> => {
+    // 응답이 유실된 이전 첫 결제가 있으면 새로 청구하기 전에 결과부터 맞춘다(이중 청구 방지)
+    const earlier = await reconcilePendingFirstPayments(deps, base.id);
+    if (earlier === "in_flight") {
+      await safeDeleteKey(gateway, p.billingKey);
+      return { ok: false, error: "이전 결제를 확인하고 있어요. 잠시 후 다시 확인해주세요" };
+    }
     const [current] = await db.select().from(subscriptions).where(eq(subscriptions.id, base.id));
     const paidActive = current.plan !== "free" && current.status !== "canceled";
     const name = p.customerName ?? info.customerName ?? current.customerName;
@@ -97,7 +104,7 @@ export async function subscribe(
         .set({ billingKeyEnc: deps.encrypt(p.billingKey), cardLabel: info.cardLabel, customerName: name, customerPhone: phone })
         .where(eq(subscriptions.id, current.id));
       if (oldKey && oldKey !== p.billingKey) await safeDeleteKey(gateway, oldKey);
-      return { ok: true, charged: false };
+      return { ok: true, charged: earlier === "paid" };
     }
     if (paidActive && !isUpgrade(current.plan, p.plan)) {
       await safeDeleteKey(gateway, p.billingKey);
@@ -105,7 +112,12 @@ export async function subscribe(
     }
 
     const periodEnd = nextPeriodEnd(now, now);
-    const paymentId = `new_${shortId(current.id)}_${now.getTime().toString(36)}`;
+    // spec 7.8-2: (날짜, 시도 번호)로 결정적인 ID. 리스 안에서 세므로 겹치지 않는다
+    const [{ tries }] = await db
+      .select({ tries: sql<number>`count(*)::int` })
+      .from(payments)
+      .where(and(eq(payments.subscriptionId, current.id), like(payments.paymentId, FIRST_PAYMENT_LIKE)));
+    const paymentId = `new_${shortId(current.id)}_${kstDateStamp(now)}_${tries}`;
     const amount = PLANS[p.plan].priceKrw;
     await db.insert(payments).values({
       userId: p.userId,
@@ -116,15 +128,30 @@ export async function subscribe(
       periodStart: now,
       periodEnd,
     });
-    const charge = await gateway.charge({
-      paymentId,
-      billingKey: p.billingKey,
-      orderName: orderName(p.plan),
-      amount,
-      customer: { id: p.userId, name, email: p.email, phone },
-    });
+    // 응답이 유실돼 웹훅으로만 활성화되더라도 갱신 결제를 할 수 있도록 청구 전에 카드를 저장한다
+    await db
+      .update(subscriptions)
+      .set({ billingKeyEnc: deps.encrypt(p.billingKey), cardLabel: info.cardLabel, customerName: name, customerPhone: phone })
+      .where(eq(subscriptions.id, current.id));
+    let charge;
+    try {
+      charge = await gateway.charge({
+        paymentId,
+        billingKey: p.billingKey,
+        orderName: orderName(p.plan),
+        amount,
+        customer: { id: p.userId, name, email: p.email, phone },
+      });
+    } catch (e) {
+      log.error("first charge outcome unknown; reconciled by webhook or the next attempt", { paymentId, ...errorFields(e) });
+      return { ok: false, error: "결제 결과를 확인하지 못했어요. 잠시 후 결제 화면에서 상태를 확인해주세요" };
+    }
     if (charge.status === "failed") {
       await db.update(payments).set({ status: "failed", failureReason: charge.reason }).where(eq(payments.paymentId, paymentId));
+      await db
+        .update(subscriptions)
+        .set({ billingKeyEnc: current.billingKeyEnc, cardLabel: current.cardLabel })
+        .where(eq(subscriptions.id, current.id));
       await safeDeleteKey(gateway, p.billingKey);
       return { ok: false, error: `결제에 실패했어요: ${charge.reason}` };
     }
@@ -231,6 +258,7 @@ async function renewOne(deps: BillingDeps, subId: string): Promise<void> {
     }
 
     const plan = sub.pendingPlan ?? sub.plan;
+    const [owner] = await db.select({ email: user.email }).from(user).where(eq(user.id, sub.userId));
     const periodStart = sub.currentPeriodEnd;
     const periodEnd = nextPeriodEnd(sub.billingAnchorAt ?? periodStart, periodStart);
     const paymentId = renewalPaymentId(sub.id, periodStart, sub.retryCount);
@@ -246,7 +274,7 @@ async function renewOne(deps: BillingDeps, subId: string): Promise<void> {
         billingKey: deps.decrypt(sub.billingKeyEnc),
         orderName: orderName(plan),
         amount: PLANS[plan].priceKrw,
-        customer: { id: sub.userId, name: sub.customerName, email: null, phone: sub.customerPhone },
+        customer: { id: sub.userId, name: sub.customerName, email: owner?.email ?? null, phone: sub.customerPhone },
       });
     } catch (e) {
       log.error("renewal charge outcome unknown; will retry with the same paymentId", { subscriptionId: sub.id, ...errorFields(e) });
@@ -303,16 +331,41 @@ export async function processDueRenewals(deps: BillingDeps): Promise<number> {
   return due.length;
 }
 
+const SETTLED_REMOTE = new Set(["PAID", "FAILED", "CANCELLED", "PARTIAL_CANCELLED"]);
+
+async function reconcilePendingFirstPayments(deps: BillingDeps, subId: string): Promise<"none" | "paid" | "in_flight"> {
+  const pending = await deps.db
+    .select()
+    .from(payments)
+    .where(and(eq(payments.subscriptionId, subId), eq(payments.status, "pending"), like(payments.paymentId, FIRST_PAYMENT_LIKE)));
+  let outcome: "none" | "paid" | "in_flight" = "none";
+  for (const row of pending) {
+    const remote = await deps.gateway.getPayment(row.paymentId);
+    if (!remote) {
+      // 포트원에 도달하지 못한 요청이다
+      await deps.db.update(payments).set({ status: "failed", failureReason: "결제 요청이 전달되지 않았어요" }).where(eq(payments.id, row.id));
+      continue;
+    }
+    await applyRemotePayment(deps, row, remote);
+    if (remote.status === "PAID") outcome = "paid";
+    else if (!SETTLED_REMOTE.has(remote.status) && outcome === "none") outcome = "in_flight";
+  }
+  return outcome;
+}
+
 export async function syncPayment(deps: BillingDeps, paymentId: string): Promise<void> {
-  const { db } = deps;
-  const [row] = await db.select().from(payments).where(eq(payments.paymentId, paymentId));
+  const [row] = await deps.db.select().from(payments).where(eq(payments.paymentId, paymentId));
   if (!row) return;
   const remote = await deps.gateway.getPayment(paymentId);
   if (!remote) return;
+  await applyRemotePayment(deps, row, remote);
+}
 
+async function applyRemotePayment(deps: BillingDeps, row: Payment, remote: RemotePayment): Promise<void> {
+  const { db } = deps;
   if (remote.status === "PAID" && row.status !== "paid") {
     if (remote.amount !== row.amount) {
-      log.error("payment amount mismatch", { paymentId });
+      log.error("payment amount mismatch", { paymentId: row.paymentId });
       return;
     }
     await db.update(payments).set({ status: "paid", paidAt: remote.paidAt ?? deps.now() }).where(eq(payments.id, row.id));

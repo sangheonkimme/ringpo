@@ -102,13 +102,19 @@ describe("meta callbacks", () => {
   it("data deletion removes the account data and returns a status url", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);
-    await createEvent(acct);
+    const ev = await createEvent(acct);
+    const auto = await createAutomation(acct);
+    await getDb().insert(links).values([
+      { code: "dd-auto", automationId: auto.id, targetUrl: "https://shop.example.com" },
+      { code: "dd-event", eventId: ev.id, targetUrl: "https://shop.example.com" },
+    ]);
     const res = await dataDeletionPOST(formPost("/api/meta/data-deletion", { signed_request: signedRequest({ algorithm: "HMAC-SHA256", user_id: acct.igUserId }) }));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { url: string; confirmation_code: string };
     expect(body.url).toBe(`${BASE}/data-deletion/${body.confirmation_code}`);
     expect(await getDb().select().from(igAccounts)).toHaveLength(0);
     expect(await getDb().select().from(commentEvents)).toHaveLength(0);
+    expect(await getDb().select().from(links)).toHaveLength(0);
     const [reqRow] = await getDb().select().from(dataDeletionRequests);
     expect(reqRow.status).toBe("completed");
   });

@@ -60,6 +60,7 @@ export async function processCommentEvent(deps: PipelineDeps, event: CommentEven
 
   if (now.getTime() >= deadline) return expire(deps, ctx);
   if (account.status !== "active" || !account.accessTokenEnc) {
+    if (event.dmStatus === "sent") return endAfterDm(deps, ctx);
     await releaseReservations(db, ctx);
     return skip(deps, event.id, "account_inactive", { usagePeriod: null });
   }
@@ -70,6 +71,7 @@ export async function processCommentEvent(deps: PipelineDeps, event: CommentEven
     const [row] = await db.select().from(automations).where(eq(automations.id, event.automationId)).limit(1);
     automation = row?.isActive ? row : null;
     if (!automation) {
+      if (event.dmStatus === "sent") return endAfterDm(deps, ctx);
       await releaseReservations(db, ctx);
       return skip(deps, event.id, "automation_inactive", { usagePeriod: null });
     }
@@ -237,7 +239,14 @@ async function releaseReservations(db: Db, ctx: Ctx): Promise<void> {
   }
 }
 
+// DM이 이미 나간 이벤트(답글만 재시도 중)는 예약을 되돌리지 않고 일부 발송으로 끝낸다 (spec 7.4-7)
+async function endAfterDm(deps: PipelineDeps, ctx: Ctx): Promise<ProcessOutcome> {
+  await finishEvent(deps.db, ctx.event.id, "partial", { replyStatus: ctx.event.replyStatus ?? "failed" }, deps.now());
+  return "partial";
+}
+
 async function expire(deps: PipelineDeps, ctx: Ctx): Promise<ProcessOutcome> {
+  if (ctx.event.dmStatus === "sent") return endAfterDm(deps, ctx);
   await releaseReservations(deps.db, ctx);
   await finishEvent(deps.db, ctx.event.id, "expired", { errorCode: "expired", usagePeriod: null }, deps.now());
   return "expired";

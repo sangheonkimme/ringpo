@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { BillingGateway } from "@/server/billing/gateway";
 import type { Db } from "@/server/db/client";
 import { igAccounts, subscriptions, user } from "@/server/db/schema";
-import { disconnectIgAccounts } from "@/server/instagram/meta-callbacks";
+import { deleteIgAccounts, disconnectIgAccounts } from "@/server/instagram/meta-callbacks";
 import { errorFields, log } from "@/server/log";
 
 export async function disconnectAccount(db: Db, userId: string, accountId: string): Promise<boolean> {
@@ -28,6 +28,8 @@ export async function deleteUserAccount(
       log.error("billing key deletion failed during account deletion", errorFields(e));
     }
   }
+  const accounts = await deps.db.select({ id: igAccounts.id }).from(igAccounts).where(eq(igAccounts.userId, userId));
+  await deleteIgAccounts(deps.db, accounts.map((a) => a.id));
   // payments.user_id / subscription_id 는 ON DELETE SET NULL 이라 결제 기록은 남는다.
   await deps.db.delete(user).where(eq(user.id, userId));
 }

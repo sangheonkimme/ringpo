@@ -3,6 +3,7 @@ import { getUserPlan } from "@/server/billing/plan-of";
 import type { Db } from "@/server/db/client";
 import { igAccounts } from "@/server/db/schema";
 import { errorFields, log } from "@/server/log";
+import { deleteIgAccounts } from "./meta-callbacks";
 import type { GraphClient, IgProfile } from "./graph";
 
 export const IG_STATE_COOKIE = "ig_oauth_state";
@@ -39,8 +40,14 @@ export async function connectInstagramAccount(
   const accountType = profile.accountType.toUpperCase();
   if (accountType !== "BUSINESS" && accountType !== "MEDIA_CREATOR") return { ok: false, reason: "not_professional" };
 
-  const [existing] = await db.select().from(igAccounts).where(eq(igAccounts.igUserId, profile.userId)).limit(1);
-  if (existing && existing.userId !== p.userId) return { ok: false, reason: "owned_by_other" };
+  let existing: typeof igAccounts.$inferSelect | undefined;
+  [existing] = await db.select().from(igAccounts).where(eq(igAccounts.igUserId, profile.userId)).limit(1);
+  if (existing && existing.userId !== p.userId) {
+    if (existing.status !== "disconnected") return { ok: false, reason: "owned_by_other" };
+    // 이전 소유자가 연결을 끊은 계정은 새 사용자가 가져간다. 이전 소유자의 자동화·기록은 함께 지운다(cascade)
+    await deleteIgAccounts(db, [existing.id]);
+    existing = undefined;
+  }
 
   if (!existing || existing.status === "disconnected") {
     const plan = await getUserPlan(db, p.userId);

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { decryptSecret, encryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
-import { igAccounts } from "@/server/db/schema";
+import { automations, igAccounts } from "@/server/db/schema";
 import { connectInstagramAccount, type ConnectDeps } from "@/server/instagram/connect";
 import { GraphApiError } from "@/server/instagram/errors";
 import { resetDb } from "../helpers/db";
-import { createIgAccount, createUser } from "../helpers/factories";
+import { createAutomation, createIgAccount, createUser } from "../helpers/factories";
 import { FakeGraphClient } from "../helpers/fake-graph";
 
 let graph: FakeGraphClient;
@@ -50,6 +50,19 @@ describe("connectInstagramAccount", () => {
     await createIgAccount(owner.id, { igUserId: "17841400000000001" });
     const other = await createUser();
     expect(await connectInstagramAccount(deps(), { userId: other.id, code: "c" })).toEqual({ ok: false, reason: "owned_by_other" });
+  });
+
+  it("lets another user take over an account its previous owner disconnected, dropping the old owner's data", async () => {
+    const owner = await createUser();
+    const old = await createIgAccount(owner.id, { igUserId: "17841400000000001", status: "disconnected", accessTokenEnc: null });
+    await createAutomation(old);
+    const other = await createUser();
+    const res = await connectInstagramAccount(deps(), { userId: other.id, code: "c" });
+    expect(res.ok).toBe(true);
+    const rows = await getDb().select().from(igAccounts);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: other.id, status: "active" });
+    expect(await getDb().select().from(automations)).toHaveLength(0);
   });
 
   it("enforces the plan account limit but allows reconnecting the same account", async () => {

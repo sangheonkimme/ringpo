@@ -21,7 +21,8 @@ function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDb(), { provider: "pg", schema: { user, session, account, verification } }),
     socialProviders,
-    account: { accountLinking: { enabled: true, trustedProviders: ["kakao", "google"] } },
+    // 카카오는 미인증 이메일을 줄 수 있으므로 자동 연결을 신뢰하지 않는다(같은 이메일 계정 탈취 방지)
+    account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
     plugins: [
       magicLink({
         expiresIn: 300,

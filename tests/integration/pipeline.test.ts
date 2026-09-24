@@ -237,6 +237,43 @@ describe("processCommentEvent", () => {
     expect((await eventRow(ev.id)).errorCode).toBe("expired");
   });
 
+  describe("an event whose DM already went out and only the reply is being retried", () => {
+    async function dmSentEvent(receivedAt = new Date()) {
+      const { u, acct, auto } = await world();
+      const period = usagePeriod(new Date());
+      await getDb().insert(usageCounters).values({ userId: u.id, period, dmCount: 1 });
+      const ev = await createEvent(acct, { receivedAt, automationId: auto.id, usagePeriod: period, dmStatus: "sent", replyStatus: null });
+      await getDb().insert(deliveries).values({ automationId: auto.id, mediaId: ev.mediaId, commenterIgId: ev.commenterIgId, eventId: ev.id });
+      return { u, acct, auto, ev };
+    }
+    async function expectReservationsKept(userId: string) {
+      expect(await getDb().select().from(deliveries)).toHaveLength(1);
+      const [usage] = await getDb().select().from(usageCounters).where(eq(usageCounters.userId, userId));
+      expect(usage.dmCount).toBe(1);
+    }
+
+    it("ends as partial and keeps its reservations when it expires", async () => {
+      const { u, ev } = await dmSentEvent(new Date(Date.now() - 8 * 86_400_000));
+      expect(await processCommentEvent(deps(), await claim(ev.id))).toBe("partial");
+      expect(await eventRow(ev.id)).toMatchObject({ status: "partial", dmStatus: "sent" });
+      await expectReservationsKept(u.id);
+    });
+
+    it("ends as partial and keeps its reservations when the automation was turned off", async () => {
+      const { u, auto, ev } = await dmSentEvent();
+      await getDb().update(automations).set({ isActive: false }).where(eq(automations.id, auto.id));
+      expect(await processCommentEvent(deps(), await claim(ev.id))).toBe("partial");
+      await expectReservationsKept(u.id);
+    });
+
+    it("ends as partial and keeps its reservations when the account needs reauth", async () => {
+      const { u, acct, ev } = await dmSentEvent();
+      await getDb().update(igAccounts).set({ status: "reauth_required" }).where(eq(igAccounts.id, acct.id));
+      expect(await processCommentEvent(deps(), await claim(ev.id))).toBe("partial");
+      await expectReservationsKept(u.id);
+    });
+  });
+
   it("binds a 'next post' automation to media published after it was created", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id, { nextReplyAt: new Date(Date.now() - 60_000) });

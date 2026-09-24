@@ -62,6 +62,21 @@ describe("create/update automation", () => {
     const res = await updateAutomation(getDb(), u.id, created.id, input(acct.id, { mediaScope: "all", media: null, name: "전체" }), { ...opts, activate: false });
     expect(res.ok).toBe(true);
     const row = await getAutomation(getDb(), u.id, created.id);
-    expect(row).toMatchObject({ name: "전체", mediaScope: "all", mediaId: null, isActive: false });
+    expect(row).toMatchObject({ name: "전체", mediaScope: "all", mediaId: null });
+  });
+
+  it("'save only' on an existing automation keeps its on/off state", async () => {
+    const u = await createUser();
+    const acct = await createIgAccount(u.id);
+    const running = await createAutomation(getDb(), u.id, input(acct.id), opts);
+    if (!running.ok) throw new Error("unreachable");
+    const res = await updateAutomation(getDb(), u.id, running.id, input(acct.id, { dmText: "새 문구" }), { ...opts, activate: false });
+    expect(res).toMatchObject({ ok: true, activated: true });
+    expect(await getAutomation(getDb(), u.id, running.id)).toMatchObject({ dmText: "새 문구", isActive: true });
+
+    const paused = await createAutomation(getDb(), u.id, input(acct.id, { name: "꺼둔 것" }), { ...opts, activate: false });
+    if (!paused.ok) throw new Error("unreachable");
+    await updateAutomation(getDb(), u.id, paused.id, input(acct.id, { name: "꺼둔 것", dmText: "수정" }), { ...opts, activate: false });
+    expect(await getAutomation(getDb(), u.id, paused.id)).toMatchObject({ isActive: false });
   });
 });

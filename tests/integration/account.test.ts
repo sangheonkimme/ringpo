@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { deleteUserAccount, disconnectAccount } from "@/server/account";
 import { decryptSecret, encryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
-import { automations, igAccounts, payments, user } from "@/server/db/schema";
+import { automations, igAccounts, links, payments, user } from "@/server/db/schema";
 import { resetDb } from "../helpers/db";
 import { createAutomation, createIgAccount, createUser, setPlan } from "../helpers/factories";
 import { FakeBillingGateway } from "../helpers/fake-billing";
@@ -27,7 +27,8 @@ describe("account management", () => {
   it("deletes the user, their data and billing key but keeps payment records", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);
-    await createAutomation(acct);
+    const auto = await createAutomation(acct);
+    await getDb().insert(links).values({ code: "del-1", automationId: auto.id, targetUrl: "https://shop.example.com" });
     const s = await setPlan(u.id, "pro", { billingKeyEnc: encryptSecret("bk_9") });
     await getDb().insert(payments).values({ userId: u.id, subscriptionId: s.id, paymentId: "pay_1", plan: "pro", amount: 9900, status: "paid" });
     const gateway = new FakeBillingGateway();
@@ -35,6 +36,7 @@ describe("account management", () => {
     expect(gateway.deleted).toEqual(["bk_9"]);
     expect(await getDb().select().from(user)).toHaveLength(0);
     expect(await getDb().select().from(igAccounts)).toHaveLength(0);
+    expect(await getDb().select().from(links)).toHaveLength(0);
     const [p] = await getDb().select().from(payments);
     expect(p).toMatchObject({ paymentId: "pay_1", userId: null, subscriptionId: null });
   });
