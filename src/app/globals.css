@@ -148,3 +148,11 @@
     @apply font-sans;
   }
 }
+/* iOS Safari는 글자가 16px보다 작은 입력창을 누르면 화면을 확대한다. 레이어 밖에 두어 유틸리티 클래스보다 우선한다 */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}

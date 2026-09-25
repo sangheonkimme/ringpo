@@ -35,7 +35,7 @@ const SCOPE_LABEL = { specific: "특정 게시물", all: "모든 게시물", nex
 const SAVE_FAILED = "저장하지 못했어요. 입력한 내용은 그대로 있으니 다시 시도해 주세요.";
 
 const input =
-  "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function OptionCard({
   selected,
@@ -352,7 +352,7 @@ export function AutomationWizard({
             {draft.matchType !== "any" && (
               <div className="flex flex-col gap-2.5">
                 <label htmlFor="kw" className="text-sm font-semibold">
-                  트리거 키워드
+                  반응할 키워드
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -485,7 +485,7 @@ export function AutomationWizard({
                 value={draft.dmText}
                 placeholder="요청하신 공구 링크 보내드려요. 오늘 자정까지 특가예요."
                 onChange={(e) => set("dmText", e.target.value)}
-                className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-[15px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <span className="self-end text-xs text-muted-foreground">
                 {Array.from(draft.dmText).length} / {DM_TEXT_MAX}

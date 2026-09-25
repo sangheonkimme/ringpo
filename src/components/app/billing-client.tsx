@@ -33,7 +33,7 @@ function newIssueId(): string {
   return `issue_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const field = "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const field = "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function BillingClient({ storeId, channelKey, appUrl, user, current }: BillingClientProps) {
   const router = useRouter();
