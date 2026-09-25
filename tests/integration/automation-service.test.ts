@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { PLANS } from "@/lib/plans";
 import { deleteAutomation, getAutomation, listAutomations, setAutomationActive } from "@/server/automations/service";
 import { getDb } from "@/server/db/client";
 import { resetDb } from "../helpers/db";
@@ -18,10 +19,10 @@ describe("automation service", () => {
     expect(await listAutomations(getDb(), a.id)).toHaveLength(1);
   });
 
-  it("enforces the free plan's single active automation", async () => {
+  it("enforces the free plan's active automation limit", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);
-    await createAutomation(acct, { isActive: true });
+    for (let i = 0; i < PLANS.free.maxActiveAutomations!; i++) await createAutomation(acct, { isActive: true });
     const second = await createAutomation(acct, { isActive: false });
     expect(await setAutomationActive(getDb(), u.id, second.id, true)).toEqual({ ok: false, reason: "limit" });
     await setPlan(u.id, "pro");

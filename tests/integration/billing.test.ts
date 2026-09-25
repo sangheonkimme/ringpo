@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { PLANS } from "@/lib/plans";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   processDueRenewals,
@@ -136,8 +137,7 @@ describe("billing", () => {
   it("retries failed renewals daily and downgrades after the third failure", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);
-    await createAutomation(acct, { isActive: true });
-    await createAutomation(acct, { isActive: true });
+    for (let n = 0; n <= PLANS.free.maxActiveAutomations!; n++) await createAutomation(acct, { isActive: true });
     gateway.issueKey("bk_1", u.id);
     await subscribe(deps(), { userId: u.id, email: u.email, plan: "pro", billingKey: "bk_1" });
     gateway.nextCharge = () => ({ status: "failed", reason: "한도 초과" });
@@ -157,7 +157,7 @@ describe("billing", () => {
     expect(s).toMatchObject({ plan: "free", status: "active", billingKeyEnc: null, currentPeriodEnd: null });
     expect(gateway.deleted).toContain("bk_1");
     const active = await getDb().select().from(automations).where(eq(automations.isActive, true));
-    expect(active).toHaveLength(1);
+    expect(active).toHaveLength(PLANS.free.maxActiveAutomations!);
     expect(notices.filter((n) => n.startsWith("failed"))).toHaveLength(2);
     expect(notices).toContain(`downgraded:${u.id}:payment_failed`);
   });

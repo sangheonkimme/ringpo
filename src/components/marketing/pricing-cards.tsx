@@ -7,7 +7,7 @@ const CARDS: { id: PlanId; tagline: string; features: string[]; minus?: string; 
   {
     id: "free",
     tagline: "처음 써보는 크리에이터",
-    features: ["인스타 계정 1개", "자동화 1개", "월 DM 300건", "공개 답글 + DM 자동 발송"],
+    features: ["인스타 계정 1개", "자동화 3개", "월 DM 1,000건", "공개 답글 + DM 자동 발송"],
     minus: "DM 하단에 서비스 표시",
     cta: "무료로 시작",
     href: "/login",

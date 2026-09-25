@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { PLANS } from "@/lib/plans";
 import type { AutomationInput } from "@/lib/automation-schema";
 import { createAutomation, getAutomation, updateAutomation } from "@/server/automations/service";
 import { getDb } from "@/server/db/client";
@@ -50,7 +51,7 @@ describe("create/update automation", () => {
   it("saves but does not activate beyond the free plan limit", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);
-    await seedAutomation(acct, { isActive: true });
+    for (let i = 0; i < PLANS.free.maxActiveAutomations!; i++) await seedAutomation(acct, { isActive: true });
     const res = await createAutomation(getDb(), u.id, input(acct.id), opts);
     expect(res).toMatchObject({ ok: true, activated: false, activationError: "limit" });
   });

@@ -103,7 +103,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="text-center text-[13px] text-muted-foreground md:text-left md:text-sm">
-            카드 등록 없이 시작 · Free 플랜 월 DM 300건
+            카드 등록 없이 시작 · Free 플랜 월 DM 1,000건
           </p>
         </div>
         <HeroVisual />

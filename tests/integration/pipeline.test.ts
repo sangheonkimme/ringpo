@@ -1,4 +1,5 @@
 import { eq, sql } from "drizzle-orm";
+import { PLANS } from "@/lib/plans";
 import { beforeEach, describe, expect, it } from "vitest";
 import { decryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
@@ -134,7 +135,7 @@ describe("processCommentEvent", () => {
 
   it("stops at the monthly DM quota and releases the dedupe reservation", async () => {
     const { acct, u } = await world();
-    await getDb().insert(usageCounters).values({ userId: u.id, period: usagePeriod(new Date()), dmCount: 300 });
+    await getDb().insert(usageCounters).values({ userId: u.id, period: usagePeriod(new Date()), dmCount: PLANS.free.monthlyDmLimit });
     const ev = await createEvent(acct);
     expect(await processCommentEvent(deps(), await claim(ev.id))).toBe("skipped");
     expect((await eventRow(ev.id)).skipReason).toBe("quota");

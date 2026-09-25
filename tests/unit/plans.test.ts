@@ -5,7 +5,7 @@ import { usagePeriod } from "@/server/usage";
 
 describe("plans", () => {
   it("matches the spec values", () => {
-    expect(PLANS.free).toMatchObject({ priceKrw: 0, maxIgAccounts: 1, maxActiveAutomations: 1, monthlyDmLimit: 300, linkTracking: false, branding: true });
+    expect(PLANS.free).toMatchObject({ priceKrw: 0, maxIgAccounts: 1, maxActiveAutomations: 3, monthlyDmLimit: 1000, linkTracking: false, branding: true });
     expect(PLANS.pro).toMatchObject({ priceKrw: 9900, maxIgAccounts: 1, maxActiveAutomations: null, monthlyDmLimit: 10000, linkTracking: true, branding: false });
     expect(PLANS.agency).toMatchObject({ priceKrw: 59000, maxIgAccounts: 5, maxActiveAutomations: null, monthlyDmLimit: 50000 });
   });
