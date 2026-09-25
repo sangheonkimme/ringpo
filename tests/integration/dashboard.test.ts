@@ -18,6 +18,7 @@ describe("getDashboard", () => {
     await createEvent(acct, { automationId: auto.id, status: "succeeded" });
     await createEvent(acct, { automationId: auto.id, status: "failed", errorCode: "551" });
     await createEvent(acct, { automationId: auto.id, status: "pending", runAt: new Date(now.getTime() + 60_000) });
+    await createEvent(acct, { automationId: auto.id, status: "skipped", skipReason: "duplicate" });
     await createEvent(acct, { status: "skipped", skipReason: "no_match" });
     await getDb().insert(links).values([
       { code: "aaaaaaa", automationId: auto.id, targetUrl: "https://x", clickCount: 3 },
@@ -29,8 +30,8 @@ describe("getDashboard", () => {
     expect(d.plan.id).toBe("free");
     expect(d.usage).toBe(42);
     expect(d.waiting).toBe(1);
-    expect(d.automations[0].stats).toEqual({ total: 4, succeeded: 2, partial: 0, failed: 1, pending: 1, linksSent: 2, linksClicked: 1, clicks: 3 });
-    expect(d.recent).toHaveLength(4);
+    expect(d.automations[0].stats).toEqual({ total: 5, succeeded: 2, partial: 0, failed: 1, pending: 1, skipped: 1, linksSent: 2, linksClicked: 1, clicks: 3 });
+    expect(d.recent).toHaveLength(5);
     expect(d.recent.every((r) => r.automationName === "공구 자동화")).toBe(true);
   });
 

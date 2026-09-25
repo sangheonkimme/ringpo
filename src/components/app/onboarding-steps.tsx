@@ -85,7 +85,7 @@ function stepCard(state: StepState) {
     "flex flex-col gap-3.5 rounded-[18px] p-5",
     state === "current" && "border-2 border-foreground bg-card",
     (state === "done" || state === "upcoming") && "border bg-card",
-    state === "locked" && "border border-dashed border-[#D0C6B8]",
+    state === "locked" && "border border-dashed border-[#D3DBE5]",
   );
 }
 

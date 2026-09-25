@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keywordSummary } from "@/lib/event-labels";
+import { keywordSummary, SKIP_LABEL } from "@/lib/event-labels";
 
 describe("keywordSummary", () => {
   it("lists keywords with the match mode", () => {
@@ -8,5 +8,11 @@ describe("keywordSummary", () => {
   });
   it("describes all-comment automations", () => {
     expect(keywordSummary([], "any")).toBe("모든 댓글");
+  });
+});
+
+describe("SKIP_LABEL", () => {
+  it("says a duplicate skip is scoped to the post", () => {
+    expect(SKIP_LABEL.duplicate).toBe("이 게시물에서 이미 보낸 사람");
   });
 });

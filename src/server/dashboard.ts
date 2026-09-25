@@ -10,14 +10,18 @@ export interface AutomationStats {
   total: number;
   succeeded: number;
   partial: number;
+  /** 실패·기한 만료 */
   failed: number;
+  /** 대기·처리 중 */
   pending: number;
+  /** 건너뜀(이미 보낸 사람·한도 초과·자동화 꺼짐 등). 반응한 댓글 = 보냄 + 대기 + 실패 + 건너뜀 */
+  skipped: number;
   linksSent: number;
   linksClicked: number;
   clicks: number;
 }
 
-const EMPTY: AutomationStats = { total: 0, succeeded: 0, partial: 0, failed: 0, pending: 0, linksSent: 0, linksClicked: 0, clicks: 0 };
+const EMPTY: AutomationStats = { total: 0, succeeded: 0, partial: 0, failed: 0, pending: 0, skipped: 0, linksSent: 0, linksClicked: 0, clicks: 0 };
 
 const eventFields = {
   id: commentEvents.id,
@@ -45,6 +49,7 @@ async function statsByAutomation(db: Db, automationIds: string[]): Promise<Map<s
       partial: sql<number>`(count(*) filter (where ${commentEvents.status} = 'partial'))::int`,
       failed: sql<number>`(count(*) filter (where ${commentEvents.status} in ('failed', 'expired')))::int`,
       pending: sql<number>`(count(*) filter (where ${commentEvents.status} in ('pending', 'processing')))::int`,
+      skipped: sql<number>`(count(*) filter (where ${commentEvents.status} = 'skipped'))::int`,
     })
     .from(commentEvents)
     .where(inArray(commentEvents.automationId, automationIds))
@@ -62,7 +67,7 @@ async function statsByAutomation(db: Db, automationIds: string[]): Promise<Map<s
   for (const id of automationIds) out.set(id, { ...EMPTY });
   for (const r of ev) {
     const s = r.automationId ? out.get(r.automationId) : undefined;
-    if (s) Object.assign(s, { total: r.total, succeeded: r.succeeded, partial: r.partial, failed: r.failed, pending: r.pending });
+    if (s) Object.assign(s, { total: r.total, succeeded: r.succeeded, partial: r.partial, failed: r.failed, pending: r.pending, skipped: r.skipped });
   }
   for (const r of lk) {
     const s = r.automationId ? out.get(r.automationId) : undefined;
@@ -93,6 +98,7 @@ export async function getDashboard(db: Db, userId: string, now: Date) {
   const autos = await db
     .select({
       id: automations.id,
+      igAccountId: automations.igAccountId,
       name: automations.name,
       isActive: automations.isActive,
       mediaScope: automations.mediaScope,

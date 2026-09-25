@@ -20,7 +20,7 @@ export function MediaThumb({
     <span
       className={cn(
         "flex shrink-0 items-center justify-center rounded-[10px]",
-        scope === "next" ? "bg-[#D6E3DA]" : scope === "all" ? "bg-[#D9DCEB]" : "bg-[#E7CFB4]",
+        scope === "next" ? "bg-[#F3FBDF]" : scope === "all" ? "bg-[#E6EBF0]" : "bg-[#E6EBF0]",
         className,
       )}
     >

@@ -104,7 +104,7 @@ function Tile({ media, selected, reel, onClick }: { media: PickedMedia; selected
       aria-pressed={selected}
       aria-label={`게시물: ${media.caption ?? "캡션 없음"}${selected ? " (선택됨)" : ""}`}
       className={cn(
-        "relative flex aspect-square items-end overflow-hidden rounded-[10px] bg-[#E7CFB4] p-1.5",
+        "relative flex aspect-square items-end overflow-hidden rounded-[10px] bg-[#E6EBF0] p-1.5",
         selected && "shadow-[inset_0_0_0_3px_var(--foreground)]",
       )}
     >

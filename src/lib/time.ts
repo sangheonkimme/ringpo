@@ -15,3 +15,9 @@ export function kstDate(date: Date): string {
   const k = new Date(date.getTime() + KST_OFFSET_MS);
   return `${k.getUTCFullYear()}년 ${k.getUTCMonth() + 1}월 ${k.getUTCDate()}일`;
 }
+
+/** 월 사용량이 초기화되는 날(다음 달 1일, KST) */
+export function nextMonthStartKst(now: Date): string {
+  const k = new Date(now.getTime() + KST_OFFSET_MS);
+  return `${((k.getUTCMonth() + 1) % 12) + 1}월 1일`;
+}

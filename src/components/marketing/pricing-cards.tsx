@@ -47,13 +47,13 @@ export function PricingCards() {
                 <h3 className="text-xl font-bold md:text-[22px]">{plan.name}</h3>
                 {featured && <span className="rounded-full bg-brand px-3 py-1 text-xs font-bold text-foreground">추천</span>}
               </div>
-              <p className={cn("text-[15px]", featured ? "text-[#CFC6BA]" : "text-muted-foreground")}>{c.tagline}</p>
+              <p className={cn("text-[15px]", featured ? "text-[#D3DBE5]" : "text-muted-foreground")}>{c.tagline}</p>
             </div>
             <p className="flex items-baseline gap-1.5">
               <span className="font-display text-[34px] font-extrabold tracking-[-0.03em] md:text-[44px]">
                 {plan.priceKrw === 0 ? "0원" : formatKrw(plan.priceKrw)}
               </span>
-              {plan.priceKrw > 0 && <span className={cn("text-[15px]", featured ? "text-[#CFC6BA]" : "text-muted-foreground")}>/ 월</span>}
+              {plan.priceKrw > 0 && <span className={cn("text-[15px]", featured ? "text-[#D3DBE5]" : "text-muted-foreground")}>/ 월</span>}
             </p>
             <ul className="flex flex-1 flex-col gap-3 text-[15px]">
               {c.features.map((f) => (

@@ -37,7 +37,7 @@ const steps = [
 const features = [
   { icon: MessageCircle, title: "공개 답글 + DM 동시 발송", body: "댓글에는 “DM 확인해주세요” 답글을, 링크는 버튼이 달린 DM으로 보내요." },
   { icon: Shuffle, title: "답글 문구 랜덤 발송", body: "문구 3~5개를 번갈아 보내 같은 문구 반복으로 인한 스팸 판정을 피해요." },
-  { icon: ShieldCheck, title: "한 사람에게 한 번만", body: "같은 사람이 댓글을 여러 번 달아도 DM은 한 번만 가요. 내 댓글에는 반응하지 않아요." },
+  { icon: ShieldCheck, title: "게시물마다 한 번만", body: "같은 사람이 한 게시물에 댓글을 여러 번 달아도 DM은 한 번만 가요. 내 댓글에는 반응하지 않아요." },
   { icon: Clock, title: "발송 한도 자동 조절", body: "인스타그램의 시간당 발송 한도를 넘는 분량은 대기열에 넣고 순서대로 보내요." },
   { icon: Link2, title: "링크 클릭 추적", body: "DM 링크를 몇 명이 눌렀는지 자동화별로 확인해요.", pro: true },
   { icon: Lock, title: "공식 API만 사용", body: "Meta 공식 Instagram API로만 동작해요. 비밀번호 저장, 팔로우·좋아요 자동화는 하지 않아요." },
@@ -50,7 +50,7 @@ const faqs = [
   },
   {
     q: "계정이 정지될 위험은 없나요?",
-    a: `${site.name}는 Meta가 공식 제공하는 Instagram API만 쓰고, 댓글을 남긴 사람에게만 한 번 보내요. 답글 문구도 번갈아 보내 반복을 피해요.`,
+    a: `${site.name}는 Meta가 공식 제공하는 Instagram API만 쓰고, 댓글을 남긴 사람에게만, 게시물마다 한 번 보내요. 답글 문구도 번갈아 보내 반복을 피해요.`,
   },
   { q: "인스타 비밀번호를 알려줘야 하나요?", a: "아니요. 인스타그램 공식 로그인 창에서 권한만 허용하면 되고, 비밀번호는 저장하지 않아요." },
   {
@@ -171,11 +171,11 @@ export default function LandingPage() {
           <h2 className={h2}>댓글 이벤트에 필요한 것만 담았어요</h2>
           <div className="grid gap-3 md:grid-cols-3 md:gap-5">
             {features.map(({ icon: Icon, title, body, pro }) => (
-              <div key={title} className="flex gap-3.5 rounded-2xl border border-[#3A322B] bg-[#221D18] p-[18px] md:flex-col md:rounded-[20px] md:p-7">
+              <div key={title} className="flex gap-3.5 rounded-2xl border border-[#304B68] bg-[#20354F] p-[18px] md:flex-col md:rounded-[20px] md:p-7">
                 <div className="flex items-start justify-between">
                   <Icon className="size-6 shrink-0 text-brand md:size-7" aria-hidden />
                   {pro && (
-                    <span className="hidden rounded-full border border-[#5A5047] px-2.5 py-0.5 text-xs font-semibold text-[#CFC6BA] md:inline">Pro</span>
+                    <span className="hidden rounded-full border border-[#304B68] px-2.5 py-0.5 text-xs font-semibold text-[#D3DBE5] md:inline">Pro</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-1 md:gap-3.5">
@@ -183,7 +183,7 @@ export default function LandingPage() {
                     {title}
                     {pro && <span className="md:hidden"> · Pro</span>}
                   </h3>
-                  <p className="text-sm leading-relaxed text-[#CFC6BA] md:text-[15px] md:leading-[1.7]">{body}</p>
+                  <p className="text-sm leading-relaxed text-[#D3DBE5] md:text-[15px] md:leading-[1.7]">{body}</p>
                 </div>
               </div>
             ))}

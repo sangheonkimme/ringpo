@@ -4,7 +4,7 @@ export function HeroVisual() {
   return (
     <div className="relative mx-auto h-[520px] w-full max-w-[350px] md:h-[640px] md:max-w-[600px] md:justify-self-end">
       <div className="absolute left-0 top-0 w-[290px] overflow-hidden rounded-[20px] border bg-card shadow-[0_28px_56px_-28px_rgba(22,18,14,0.35)] md:w-[392px] md:rounded-3xl">
-        <div className="flex h-40 items-end bg-[#E7CFB4] p-3 md:h-[232px] md:p-4">
+        <div className="flex h-40 items-end bg-[#E6EBF0] p-3 md:h-[232px] md:p-4">
           <span className="rounded-full bg-white/90 px-2.5 py-1.5 text-xs font-semibold md:text-[13px]">릴스 · 10월 텀블러 공구</span>
         </div>
         <div className="flex flex-col gap-3 px-4 pb-[18px] pt-3.5 md:gap-4 md:px-5 md:pb-[22px] md:pt-[18px]">
@@ -13,7 +13,7 @@ export function HeroVisual() {
           </p>
           <div className="hidden h-px bg-line-soft md:block" />
           <div className="flex items-start gap-2.5">
-            <span className="size-7 shrink-0 rounded-full bg-[#CFE0E6] md:size-8" />
+            <span className="size-7 shrink-0 rounded-full bg-[#D3DBE5] md:size-8" />
             <div className="flex flex-col gap-1">
               <p className="text-[13px] md:text-sm">
                 <strong>jiwoo.daily</strong> <mark className="bg-transparent bg-[linear-gradient(transparent_55%,var(--color-brand)_55%)] text-inherit">공구</mark> 링크 주세요!

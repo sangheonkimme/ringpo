@@ -18,7 +18,7 @@ export function MessagePreview({
       <div className="flex flex-col gap-3 border-b border-line-soft p-4">
         <span className="text-xs font-semibold text-muted-foreground">1. 댓글이 달리면</span>
         <div className="flex items-start gap-2">
-          <span className="size-7 shrink-0 rounded-full bg-[#CFE0E6]" />
+          <span className="size-7 shrink-0 rounded-full bg-[#D3DBE5]" />
           <p className="text-sm leading-normal">
             <strong>jiwoo.daily</strong>{" "}
             <mark className="bg-transparent bg-[linear-gradient(transparent_55%,var(--color-brand)_55%)] text-inherit">{keyword || "댓글"}</mark>
@@ -33,7 +33,7 @@ export function MessagePreview({
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2.5 bg-[#FBF9F6] p-4">
+      <div className="flex flex-col gap-2.5 bg-[#F6F8FA] p-4">
         <span className="text-xs font-semibold text-muted-foreground">2. 댓글 단 사람에게 DM</span>
         <p className="max-w-[88%] whitespace-pre-wrap rounded-[16px_16px_16px_6px] bg-bubble px-3.5 py-3 text-sm leading-relaxed">
           {dmText || "DM 내용"}

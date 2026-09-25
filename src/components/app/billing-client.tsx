@@ -142,7 +142,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
                     onClick={() => startTransition(() => registerAndPay(id))}
                     className="h-[52px] flex-1 rounded-xl bg-foreground text-[15px] font-semibold text-white disabled:opacity-60"
                   >
-                    {isCurrent ? "카드 등록" : "카드 등록하고 결제"}
+                    {isCurrent ? "새 카드 등록" : `${formatKrw(plan.priceKrw)} 결제하고 ${current.paidActive ? `${plan.name}로 변경` : `${plan.name} 시작`}`}
                   </button>
                 </>
               ) : isCurrent ? (

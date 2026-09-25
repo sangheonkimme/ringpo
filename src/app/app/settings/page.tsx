@@ -39,7 +39,7 @@ export default async function SettingsPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={a.profilePictureUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
               ) : (
-                <span className="size-10 shrink-0 rounded-full bg-[#E7CFB4]" />
+                <span className="size-10 shrink-0 rounded-full bg-[#E6EBF0]" />
               )}
               <div className="flex min-w-0 flex-col gap-[3px]">
                 <span className="truncate text-[15px] font-bold">@{a.username}</span>

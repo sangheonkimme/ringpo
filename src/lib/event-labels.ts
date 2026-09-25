@@ -13,7 +13,7 @@ export const STATUS_LABEL: Record<EventStatus, string> = {
 export const SKIP_LABEL: Record<SkipReason, string> = {
   self: "본인 댓글",
   no_match: "키워드 불일치",
-  duplicate: "이미 발송한 사용자",
+  duplicate: "이 게시물에서 이미 보낸 사람",
   quota: "월 DM 한도 초과",
   account_inactive: "인스타 연결 끊김",
   automation_inactive: "자동화 꺼짐",

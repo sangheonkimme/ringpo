@@ -36,7 +36,7 @@ export default async function BillingPage() {
       <section className="flex flex-col gap-3.5 rounded-[18px] bg-foreground p-5 text-background">
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-1">
-            <span className="text-[13px] text-[#CFC6BA]">현재 플랜</span>
+            <span className="text-[13px] text-[#D3DBE5]">현재 플랜</span>
             <span className="font-display text-[30px] font-extrabold">{plan.name}</span>
           </div>
           <span className="text-[15px] font-semibold">{paidActive ? `${formatKrw(plan.priceKrw)} / 월` : "무료"}</span>
@@ -44,7 +44,7 @@ export default async function BillingPage() {
         <dl className="flex flex-col gap-2 text-sm">
           {paidActive && sub?.currentPeriodEnd && (
             <div className="flex justify-between gap-3">
-              <dt className="text-[#CFC6BA]">{sub.cancelAtPeriodEnd ? "이용 종료일" : "다음 결제일"}</dt>
+              <dt className="text-[#D3DBE5]">{sub.cancelAtPeriodEnd ? "이용 종료일" : "다음 결제일"}</dt>
               <dd>
                 {kstDate(sub.currentPeriodEnd)}
                 {sub.pendingPlan && ` · 다음부터 ${PLANS[sub.pendingPlan].name}`}
@@ -53,12 +53,12 @@ export default async function BillingPage() {
           )}
           {sub?.cardLabel && paidActive && (
             <div className="flex justify-between gap-3">
-              <dt className="text-[#CFC6BA]">결제 카드</dt>
+              <dt className="text-[#D3DBE5]">결제 카드</dt>
               <dd>{sub.cardLabel}</dd>
             </div>
           )}
           <div className="flex justify-between gap-3">
-            <dt className="text-[#CFC6BA]">이번 달 DM</dt>
+            <dt className="text-[#D3DBE5]">이번 달 DM</dt>
             <dd>
               {usage.toLocaleString()} / {plan.monthlyDmLimit.toLocaleString()}
             </dd>

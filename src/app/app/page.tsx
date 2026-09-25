@@ -2,9 +2,12 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DmAccessBanner } from "@/components/app/dm-access-banner";
+import { EmptyAutomations } from "@/components/app/empty-automations";
 import { EventList } from "@/components/app/event-list";
 import { MediaThumb } from "@/components/app/media-thumb";
+import { QuotaBanner } from "@/components/app/quota-banner";
 import { ReauthBanner } from "@/components/app/reauth-banner";
+import { AutomationStatusBadge } from "@/components/app/status-badge";
 import { cn } from "@/lib/utils";
 import { getDb } from "@/server/db/client";
 import { getDashboard } from "@/server/dashboard";
@@ -33,15 +36,18 @@ function KeywordChips({ keywords, matchType, active }: { keywords: string[]; mat
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const d = await getDashboard(getDb(), user.id, new Date());
+  const now = new Date();
+  const d = await getDashboard(getDb(), user.id, now);
   if (d.accounts.length === 0) redirect("/app/onboarding");
   const usagePct = Math.min(100, Math.round((d.usage / d.plan.monthlyDmLimit) * 100));
   const primary = d.accounts[0];
+  const accountStatus = new Map(d.accounts.map((a) => [a.id, a.status]));
 
   return (
     <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
       <ReauthBanner accounts={d.accounts} />
       <DmAccessBanner accounts={d.accounts} />
+      <QuotaBanner usage={d.usage} limit={d.plan.monthlyDmLimit} now={now} />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -49,7 +55,7 @@ export default async function DashboardPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={primary.profilePictureUrl} alt="" className="size-10 rounded-full border-2 border-white object-cover shadow-[0_0_0_1px_var(--border)]" />
           ) : (
-            <span className="size-10 rounded-full border-2 border-white bg-[#E7CFB4] shadow-[0_0_0_1px_var(--border)]" />
+            <span className="size-10 rounded-full border-2 border-white bg-accent shadow-[0_0_0_1px_var(--border)]" />
           )}
           <div className="flex flex-col">
             <span className="text-base font-bold">@{primary.username}</span>
@@ -96,15 +102,16 @@ export default async function DashboardPage() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">자동화</h2>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-lg font-bold">자동화</h2>
+            {d.automations.length > 0 && <span className="text-xs text-muted-foreground">통계는 만든 뒤 전체 기간</span>}
+          </div>
           <Link href="/app/automations/new" className="flex h-10 items-center gap-1.5 rounded-[10px] bg-foreground px-3.5 text-sm font-semibold text-white">
             <Plus className="size-4" strokeWidth={2.4} aria-hidden />새 자동화
           </Link>
         </div>
         {d.automations.length === 0 ? (
-          <Link href="/app/automations/new" className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            첫 자동화를 만들어보세요
-          </Link>
+          <EmptyAutomations />
         ) : (
           d.automations.map((a) => {
             const last = d.plan.linkTracking ? ["클릭", a.stats.clicks] : ["대기", a.stats.pending];
@@ -115,25 +122,19 @@ export default async function DashboardPage() {
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-base font-bold">{a.name}</span>
-                      {a.isActive ? (
-                        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-success-ink">
-                          <span className="size-[7px] rounded-full bg-success" />
-                          켜짐
-                        </span>
-                      ) : (
-                        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                          <span className="size-[7px] rounded-full border-[1.5px] border-muted-foreground" />
-                          꺼짐
-                        </span>
-                      )}
+                      <AutomationStatusBadge
+                        isActive={a.isActive}
+                        mediaScope={a.mediaScope}
+                        accountStatus={accountStatus.get(a.igAccountId) ?? "disconnected"}
+                      />
                     </div>
                     <KeywordChips keywords={a.keywords} matchType={a.matchType} active={a.isActive} />
                   </div>
                 </div>
                 <dl className="grid grid-cols-4 gap-1.5 text-center">
                   {[
-                    ["트리거", a.stats.total],
-                    ["성공", a.stats.succeeded + a.stats.partial],
+                    ["반응한 댓글", a.stats.total],
+                    ["보냄", a.stats.succeeded + a.stats.partial],
                     ["실패", a.stats.failed],
                     last,
                   ].map(([k, v]) => (

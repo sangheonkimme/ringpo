@@ -1,13 +1,22 @@
 "use client";
 
 import { Check, ChevronLeft, Plus, X } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { saveAutomationAction } from "@/app/app/automations/actions";
 import { MediaPicker, type PickedMedia } from "@/components/app/media-picker";
 import { MessagePreview } from "@/components/app/message-preview";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ToggleSwitch } from "@/components/app/toggle-switch";
 import { BUTTON_TITLE_MAX, DM_TEXT_MAX, REPLY_MAX, type AutomationInput } from "@/lib/automation-schema";
 import { keywordSummary, TOGGLE_ERROR } from "@/lib/event-labels";
@@ -23,6 +32,7 @@ export type Draft = Omit<AutomationInput, "media"> & { media: PickedMedia | null
 const STEPS = ["게시물", "반응할 댓글", "공개 답글", "DM", "확인"] as const;
 const DEFAULT_REPLIES = ["{username} DM 확인해주세요!", "{username} DM으로 링크 보내드렸어요", "{username} 메시지함을 확인해주세요"];
 const SCOPE_LABEL = { specific: "특정 게시물", all: "모든 게시물", next: "다음에 올릴 게시물" } as const;
+const SAVE_FAILED = "저장하지 못했어요. 입력한 내용은 그대로 있으니 다시 시도해 주세요.";
 
 const input =
   "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -55,7 +65,7 @@ function OptionCard({
           <Check className="size-3.5 text-white" strokeWidth={3} aria-hidden />
         </span>
       ) : (
-        <span className="size-[22px] shrink-0 rounded-full border-2 border-[#CFC6BA]" />
+        <span className="size-[22px] shrink-0 rounded-full border-2 border-[#D3DBE5]" />
       )}
       <span className="flex flex-col gap-1.5">
         <span className="text-base font-bold">{title}</span>
@@ -84,6 +94,7 @@ export function AutomationWizard({
   const [pending, startTransition] = useTransition();
   const [keywordInput, setKeywordInput] = useState("");
   const lastReplyIndex = useRef(0);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [draft, setDraft] = useState<Draft>(
     initial ?? {
       igAccountId: accounts[0]?.id ?? "",
@@ -99,6 +110,9 @@ export function AutomationWizard({
       dmLinkUrl: "https://",
     },
   );
+  const [startDraft] = useState(() => JSON.stringify(draft));
+  const saved = useRef(false);
+  const dirty = JSON.stringify(draft) !== startDraft || keywordInput.trim() !== "";
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const closeHref = automationId ? `/app/automations/${automationId}` : "/app/automations";
   const account = accounts.find((a) => a.id === draft.igAccountId);
@@ -118,6 +132,22 @@ export function AutomationWizard({
     }
     if (i === 4 && !draft.name.trim()) return "자동화 이름을 입력해주세요";
     return null;
+  }
+
+  // 작성 중에 새로고침하거나 탭을 닫으면 브라우저가 한 번 더 묻는다
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      if (saved.current) return;
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  function close() {
+    if (dirty) setConfirmClose(true);
+    else router.push(closeHref);
   }
 
   function next() {
@@ -157,8 +187,15 @@ export function AutomationWizard({
     if (err) return void toast.error(err);
     startTransition(async () => {
       const payload = { ...draft, replyTexts: cleanReplies, keywords: draft.matchType === "any" ? [] : draft.keywords };
-      const res = await saveAutomationAction(payload, { id: automationId, activate });
+      let res: Awaited<ReturnType<typeof saveAutomationAction>>;
+      try {
+        res = await saveAutomationAction(payload, { id: automationId, activate });
+      } catch {
+        // 네트워크가 끊겨도 화면을 벗어나지 않아 입력이 남는다
+        return void toast.error(SAVE_FAILED);
+      }
       if (!res.ok) return void toast.error(res.error);
+      saved.current = true;
       if (activate && !res.activated && res.activationError) toast.warning(`저장했지만 켜지 못했어요. ${TOGGLE_ERROR[res.activationError]}`);
       else toast.success(activate ? "자동화를 켰어요" : "저장했어요");
       router.push(`/app/automations/${res.id}`);
@@ -170,19 +207,34 @@ export function AutomationWizard({
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/95 pl-2 pr-3 backdrop-blur">
         {step === 0 ? (
-          <Link href={closeHref} aria-label="뒤로" className="flex size-11 items-center justify-center">
+          <button type="button" onClick={close} aria-label="뒤로" className="flex size-11 items-center justify-center">
             <ChevronLeft className="size-[22px]" aria-hidden />
-          </Link>
+          </button>
         ) : (
           <button type="button" onClick={back} aria-label="이전 단계" className="flex size-11 items-center justify-center">
             <ChevronLeft className="size-[22px]" aria-hidden />
           </button>
         )}
         <span className="text-base font-bold">{automationId ? "자동화 수정" : "새 자동화"}</span>
-        <Link href={closeHref} className="flex h-11 items-center px-2 text-sm text-ink-2">
+        <button type="button" onClick={close} className="flex h-11 items-center px-2 text-sm text-ink-2">
           닫기
-        </Link>
+        </button>
       </header>
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>작성을 그만둘까요?</AlertDialogTitle>
+            <AlertDialogDescription>지금 나가면 입력한 내용이 저장되지 않아요.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>계속 작성</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => router.push(closeHref)}>
+              나가기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex flex-col gap-2 px-5 pt-4">
         <div className="flex justify-between text-[13px]">
@@ -293,7 +345,7 @@ export function AutomationWizard({
               <OptionCard
                 selected={draft.matchType === "any"}
                 title="모든 댓글"
-                description="키워드 없이 댓글을 단 모든 사람에게 보내요. 같은 사람에게는 한 번만 가요"
+                description="키워드 없이 댓글을 단 모든 사람에게 보내요. 같은 게시물에서는 한 사람에게 한 번만 가요"
                 onClick={() => set("matchType", "any")}
               />
             </div>
@@ -394,7 +446,7 @@ export function AutomationWizard({
                     <button
                       type="button"
                       onClick={() => set("replyTexts", [...draft.replyTexts, "{username} "])}
-                      className="flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-[#B9AE9F] px-3.5 text-sm font-semibold"
+                      className="flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-[#8793A3] px-3.5 text-sm font-semibold"
                     >
                       <Plus className="size-4" strokeWidth={2.4} aria-hidden />
                       문구 추가
@@ -505,7 +557,8 @@ export function AutomationWizard({
               ))}
             </dl>
             <p className="rounded-xl bg-neutral-soft px-3.5 py-3 text-[13px] leading-relaxed text-ink-2">
-              DM은 댓글 1개당 1번, 댓글 후 7일 안에만 보낼 수 있어요. 같은 사람에게는 한 번만 보내요.
+              인스타그램 규칙상 DM은 댓글 1개당 1번, 댓글 후 7일 안에만 보낼 수 있어요. 이 자동화는 게시물마다 한 사람에게 한
+              번만 보내요.
             </p>
           </>
         )}
