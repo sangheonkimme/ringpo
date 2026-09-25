@@ -64,7 +64,7 @@ describe("follow gate", () => {
     expect(graph.replies).toHaveLength(1);
     expect(graph.dms).toHaveLength(1);
     expect(graph.dms[0].message).toEqual({
-      kind: "gate",
+      kind: "gate_button",
       text: "팔로우하고 버튼을 눌러 주세요",
       buttonTitle: FOLLOW_GATE_BUTTON,
       payload: `fg:${gate.id}`,
@@ -76,11 +76,11 @@ describe("follow gate", () => {
     expect(usage.dmCount).toBe(1);
   });
 
-  it("falls back to a postback button when the quick reply is rejected", async () => {
+  it("falls back to a quick reply when the in-bubble button is rejected", async () => {
     const { ev } = await gatedWorld();
-    graph.dmError = (m) => (m.kind === "gate" ? new GraphApiError("invalid", 400, 100) : null);
+    graph.dmError = (m) => (m.kind === "gate_button" ? new GraphApiError("invalid", 400, 100) : null);
     await processCommentEvent(deps(), await claim(ev.id));
-    expect(graph.dms.map((d) => d.message.kind)).toEqual(["gate_button"]);
+    expect(graph.dms.map((d) => d.message.kind)).toEqual(["gate"]);
     expect((await row(ev.id)).status).toBe("awaiting_follow");
   });
 
@@ -109,10 +109,23 @@ describe("follow gate", () => {
 
     expect(outcome).toBe("not_following");
     expect(graph.messages).toHaveLength(1);
-    expect(graph.messages[0].message).toMatchObject({ kind: "gate", payload: `fg:${gate.id}` });
+    expect(graph.messages[0].message).toMatchObject({ kind: "gate_button", payload: `fg:${gate.id}` });
     expect((await row(ev.id)).status).toBe("awaiting_follow");
     const [after] = await getDb().select().from(followGates);
     expect(after).toMatchObject({ status: "waiting", checks: 1 });
+  });
+
+  it("asks for one more tap with a quick reply when Instagram refuses the follow lookup", async () => {
+    const { acct, ev } = await gatedWorld();
+    await processCommentEvent(deps(), await claim(ev.id));
+    const [gate] = await getDb().select().from(followGates);
+    graph.followError = new GraphApiError("User consent is required to access user profile", 400, 230);
+
+    const outcome = await handleFollowTap(deps(), { igUserId: acct.igUserId, senderId: "900", gateId: gate.id });
+
+    expect(outcome).toBe("needs_consent");
+    expect(graph.messages[0].message).toMatchObject({ kind: "gate", payload: `fg:${gate.id}` });
+    expect((await row(ev.id)).status).toBe("awaiting_follow");
   });
 
   it("ignores taps for another account's gate and taps after the link was sent", async () => {

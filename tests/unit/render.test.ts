@@ -34,7 +34,7 @@ describe("buildTextFallback", () => {
 });
 
 describe("brandingLine", () => {
-  it("mentions the service name", () => {
-    expect(brandingLine()).toContain("링포");
+  it("is a short promo line with an emoji instead of an em dash", () => {
+    expect(brandingLine()).toBe("💬 무료 댓글 자동 DM · 링포");
   });
 });

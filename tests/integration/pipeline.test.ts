@@ -71,7 +71,7 @@ describe("processCommentEvent", () => {
     expect(dm.igUserId).toBe(acct.igUserId);
     expect(dm.message).toMatchObject({ kind: "button", buttonTitle: "구매하기", url: "https://shop.example.com/p/1" });
     expect(dm.message.text).toContain("구매 링크 보내드려요");
-    expect(dm.message.text).toContain("링포 자동 발송");
+    expect(dm.message.text).toContain("무료 댓글 자동 DM · 링포");
 
     const row = await eventRow(ev.id);
     expect(row).toMatchObject({ status: "succeeded", automationId: auto.id, replyStatus: "sent", dmStatus: "sent", replyCommentId: "reply-1" });

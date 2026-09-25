@@ -31,6 +31,7 @@ export function buildTextFallback(text: string, buttonTitle: string, url: string
   return truncateUtf8(text, 1000 - encoder.encode(suffix).length) + suffix;
 }
 
+/** Free 플랜 DM 끝에 붙는 한 줄. 받는 사람에게 링포를 알리는 짧은 홍보 문구 */
 export function brandingLine(): string {
-  return `— ${site.name} 자동 발송`;
+  return `💬 무료 댓글 자동 DM · ${site.name}`;
 }

@@ -6,6 +6,7 @@ export class FakeGraphClient implements GraphClient {
   dms: { token: string; igUserId: string; commentId: string; message: PrivateReplyMessage }[] = [];
   messages: { token: string; igUserId: string; recipientId: string; message: PrivateReplyMessage }[] = [];
   followers = new Set<string>();
+  followError: unknown = null;
   subscribed: string[] = [];
   media: Record<string, MediaInfo> = {};
   profile: IgProfile = { id: "scoped-1", userId: "17841400000000001", username: "creator", accountType: "BUSINESS", profilePictureUrl: null };
@@ -48,6 +49,7 @@ export class FakeGraphClient implements GraphClient {
     return { messageId: `mid-${++this.seq}` };
   }
   async isFollower(_token: string, igsid: string) {
+    if (this.followError) throw this.followError;
     return this.followers.has(igsid);
   }
 }

@@ -11,19 +11,21 @@ import type { PipelineDeps } from "./process-comment";
 
 export const FOLLOW_GATE_BUTTON = "팔로우했어요";
 const RETRY_TEXT = "아직 팔로우가 확인되지 않았어요 🙏\n팔로우한 뒤 아래 버튼을 다시 눌러 주세요.";
+const CONSENT_TEXT = "팔로우를 확인하려면 아래 버튼을 한 번만 더 눌러 주세요 🙏";
 
-function gateMessage(text: string, gateId: string): PrivateReplyMessage {
-  return { kind: "gate", text, buttonTitle: FOLLOW_GATE_BUTTON, payload: `${FOLLOW_GATE_PAYLOAD_PREFIX}${gateId}` };
+/** 기본은 말풍선 안 버튼(postback). kind "gate"는 입력창 위에 뜨는 빠른 답장 */
+function gateMessage(text: string, gateId: string, kind: "gate" | "gate_button" = "gate_button"): PrivateReplyMessage {
+  return { kind, text, buttonTitle: FOLLOW_GATE_BUTTON, payload: `${FOLLOW_GATE_PAYLOAD_PREFIX}${gateId}` };
 }
 
-/** 빠른 답장이 거절되면(형식 오류) 같은 내용의 postback 버튼으로 다시 보낸다 */
+/** 말풍선 안 버튼이 거절되면(형식 오류) 같은 내용을 빠른 답장으로 다시 보낸다 */
 async function sendWithFallback(send: (m: PrivateReplyMessage) => Promise<{ messageId: string }>, message: PrivateReplyMessage) {
   try {
     return await send(message);
   } catch (e) {
     const c = classifyError(e);
-    if (message.kind !== "gate" || !(c.cls === "invalid_message" || c.code.startsWith("100"))) throw e;
-    return send({ ...message, kind: "gate_button" });
+    if (message.kind !== "gate_button" || !(c.cls === "invalid_message" || c.code.startsWith("100"))) throw e;
+    return send({ ...message, kind: "gate" });
   }
 }
 
@@ -39,7 +41,7 @@ export async function sendFollowGate(
   return sendWithFallback((m) => graph.sendPrivateReply(p.token, p.account.igUserId, p.event.commentId, m), gateMessage(text, gate.id));
 }
 
-export type FollowTapOutcome = "sent" | "not_following" | "ignored" | "failed";
+export type FollowTapOutcome = "sent" | "not_following" | "needs_consent" | "ignored" | "failed";
 
 /** '팔로우했어요'를 누른 사람의 팔로우를 확인해, 팔로우 중이면 링크 DM을 보내고 아니면 다시 안내한다 */
 export async function handleFollowTap(deps: PipelineDeps, tap: FollowTap): Promise<FollowTapOutcome> {
@@ -59,15 +61,23 @@ export async function handleFollowTap(deps: PipelineDeps, tap: FollowTap): Promi
     .set({ checks: sql`${followGates.checks} + 1`, senderId: tap.senderId })
     .where(eq(followGates.id, gate.id));
 
+  const send = (m: PrivateReplyMessage) => graph.sendMessage(token, account.igUserId, tap.senderId, m);
   let following: boolean;
   try {
     following = await graph.isFollower(token, tap.senderId);
   } catch (e) {
-    log.warn("follow check failed", { gateId: gate.id, code: classifyError(e).code });
-    return "failed";
+    const c = classifyError(e);
+    log.warn("follow check failed", { gateId: gate.id, code: c.code });
+    if (c.cls === "transient" || c.cls === "rate_limited") return "failed";
+    // 말풍선 버튼 탭이 '메시지를 보낸 것'으로 인정되지 않으면 조회가 거절된다. 빠른 답장은 메시지로 인정되므로 그걸로 한 번 더 받는다
+    try {
+      await send(gateMessage(CONSENT_TEXT, gate.id, "gate"));
+    } catch {
+      return "failed";
+    }
+    return "needs_consent";
   }
 
-  const send = (m: PrivateReplyMessage) => graph.sendMessage(token, account.igUserId, tap.senderId, m);
   if (!following) {
     try {
       await sendWithFallback(send, gateMessage(RETRY_TEXT, gate.id));
