@@ -2,7 +2,7 @@ export const site = {
   name: "링포",
   nameEn: "Ringpo",
   description: "댓글 키워드 하나로 공개 답글과 DM 링크를 자동 발송하는 인스타그램 자동화 도구",
-  supportEmail: "support@example.com",
+  supportEmail: "railit.biz@gmail.com",
   effectiveDate: "2026-10-01",
   hostingProvider: "",
   business: {
@@ -13,5 +13,5 @@ export const site = {
     address: "",
     phone: "",
   },
-  privacyOfficer: { name: "", email: "support@example.com" },
+  privacyOfficer: { name: "", email: "railit.biz@gmail.com" },
 } as const;
