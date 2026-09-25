@@ -15,7 +15,7 @@
 - [ ] 앱 게시(라이브) 상태 ✓ (완료)
 - [ ] 앱 설정 → 기본 설정: 아이콘, 개인정보처리방침, 약관, 데이터 삭제 콜백, 카테고리 ✓ (완료)
 - [ ] 개인정보처리방침·약관에 **사업자 정보와 실제 연락 이메일** 채우기 (지금은 `support@example.com`) ← 검수 전 필요
-- [ ] 검수자용 로그인 준비 (아래 4번)
+- [ ] 구글 로그인 켜기: Google Cloud에서 OAuth 클라이언트를 만들고 `deploy/.env`에 키 넣기 (검수자가 자기 구글 계정으로 로그인)
 - [ ] 비즈니스 인증: 제출 화면에서 요구하면 진행 (사업자등록증 필요)
 - [ ] 시연 영상 녹화 (아래 3번) — 1080p 이상, 브라우저 폭 1440px 이하
 
@@ -44,7 +44,7 @@
 | # | 화면 | 할 일 | Caption (영어 자막) |
 |---|---|---|---|
 | 1 | 링포 랜딩 (로그아웃 상태) | 오른쪽 위 "무료로 시작" | Ringpo — automatic replies and DMs for comments on your own Instagram posts. The UI is in Korean; captions explain each step. Tapping "Start free". |
-| 2 | 로그인 | 검수자 계정으로 로그인 | Logging in with the reviewer test account. |
+| 2 | 로그인 | "Google로 시작하기"로 로그인 | Logging in with Google ("Google로 시작하기" = "Continue with Google"). |
 | 3 | 시작하기 | "인스타그램으로 연결하기" | Step 1: "Connect Instagram". This opens the official Instagram Business Login. |
 | 4 | 인스타 로그인·동의 화면 | 권한 3개가 보이게 잠깐 멈춤 → "허용" | The user grants instagram_business_basic, instagram_business_manage_comments and instagram_business_manage_messages. |
 | 5 | 링포로 돌아옴 | "@계정 · 연결됨" 보이기 | instagram_business_basic: we show the connected account's username and profile. |
@@ -67,7 +67,7 @@
 ## 4. 검수자 안내 (영어, "검수 방법" 칸에 붙여넣기)
 
 > **How to test**
-> 1. Go to https://ringpo.srv1861800.hstgr.cloud/login and log in with the test account below.
+> 1. Go to https://ringpo.srv1861800.hstgr.cloud/login and tap "Google로 시작하기" (Continue with Google). Any Google account works; a Ringpo account is created on first login.
 > 2. On the "Get started" screen, tap "인스타그램으로 연결하기" (Connect Instagram) and authorize with an Instagram professional account.
 > 3. Tap "자동화 만들기" (Create automation). Pick a post, enter a keyword (e.g. "link"), keep the default public reply texts, enter a DM text and an https link, then tap "켜고 저장" (Turn on and save).
 > 4. From another Instagram account, comment the keyword on that post. Within seconds Ringpo posts a public reply and sends one DM with the link button to the commenter.
@@ -75,7 +75,7 @@
 >
 > The app UI is Korean. The screencast has English captions for every step.
 >
-> **Test account**: (검수자 로그인 방법이 정해지면 여기에 적어요)
+> **Test account**: Not needed. Log in with any Google account. Connecting Instagram requires an Instagram professional (Business or Creator) account; Instagram offers to switch a personal account during the connect flow.
 
 ## 5. 자주 거절되는 이유 (피하기)
 
@@ -83,4 +83,4 @@
 - 로그인 과정이 안 보임 → 1~5번 장면을 꼭 넣어요.
 - 영어 설명이 없음 → 모든 장면에 자막.
 - 설명과 실제 사용이 다름 → 2번 설명은 실제 기능과 맞춰 썼어요. 기능을 바꾸면 설명도 고쳐요.
-- 검수자가 로그인할 수 없음 → 4번 테스트 계정 준비.
+- 검수자가 로그인할 수 없음 → 구글 로그인을 켜고, Google Cloud 앱을 "프로덕션"으로 게시해 두기 (테스트 모드면 등록한 사람만 로그인돼요).
