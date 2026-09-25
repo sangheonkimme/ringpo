@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     "deploy/**",
     "coverage/**",
     ".superpowers/**",
+    // Figma 플러그인은 Figma 안에서만 도는 별도 런타임(figma 전역)이라 앱 lint 대상이 아니다
+    "tools/figma-ringpo-ds/**",
   ]),
 ]);
 
