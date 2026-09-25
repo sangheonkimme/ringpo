@@ -64,4 +64,10 @@ describe("wizard defaults", () => {
     expect(DEFAULT_BUTTON_TITLE.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
     for (const r of DEFAULT_REPLY_TEXTS) expect(r.length).toBeLessThanOrEqual(REPLY_MAX);
   });
+
+  it("gives each default reply its own emoji so rotated replies look less repetitive", () => {
+    const emojis = DEFAULT_REPLY_TEXTS.map((r) => r.match(/\p{Extended_Pictographic}/u)?.[0]);
+    expect(emojis.every(Boolean)).toBe(true);
+    expect(new Set(emojis).size).toBe(DEFAULT_REPLY_TEXTS.length);
+  });
 });
