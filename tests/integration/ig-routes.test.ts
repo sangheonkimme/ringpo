@@ -119,6 +119,13 @@ describe("meta callbacks", () => {
     expect(reqRow.status).toBe("completed");
   });
 
+  it("answers 400, not 500, to requests without a form body", async () => {
+    for (const [path, handler] of [["/api/meta/deauthorize", deauthPOST], ["/api/meta/data-deletion", dataDeletionPOST]] as const) {
+      const res = await handler(new Request(`${BASE}${path}`, { method: "POST" }));
+      expect(res.status).toBe(400);
+    }
+  });
+
   it("rejects unsigned callback requests", async () => {
     const res = await deauthPOST(formPost("/api/meta/deauthorize", { signed_request: signedRequest({ user_id: "1" }, "wrong") }));
     expect(res.status).toBe(400);

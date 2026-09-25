@@ -26,3 +26,12 @@ export function parseSignedRequest(
     return null;
   }
 }
+
+/** Meta 콜백 본문에서 signed_request를 꺼낸다. 폼이 아니거나 비어 있으면 빈 문자열(→ 400) */
+export async function readSignedRequest(req: Request): Promise<string> {
+  try {
+    return String((await req.formData()).get("signed_request") ?? "");
+  } catch {
+    return "";
+  }
+}

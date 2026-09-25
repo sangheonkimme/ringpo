@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/server/db/client";
 import { getEnv } from "@/server/env";
 import { handleDeauthorize } from "@/server/instagram/meta-callbacks";
-import { parseSignedRequest } from "@/server/instagram/signed-request";
+import { parseSignedRequest, readSignedRequest } from "@/server/instagram/signed-request";
 import { log } from "@/server/log";
 
 export async function POST(req: Request) {
   const env = getEnv();
-  const form = await req.formData();
-  const signed = parseSignedRequest(String(form.get("signed_request") ?? ""), [env.IG_APP_SECRET, env.META_APP_SECRET]);
+  const signed = parseSignedRequest(await readSignedRequest(req), [env.IG_APP_SECRET, env.META_APP_SECRET]);
   if (!signed) return NextResponse.json({ error: "invalid signed_request" }, { status: 400 });
   const count = await handleDeauthorize(getDb(), signed.userId);
   log.info("meta deauthorize", { accounts: count });
