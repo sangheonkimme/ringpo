@@ -18,12 +18,12 @@ export async function POST(req: Request) {
   const env = getEnv();
   const raw = await req.text();
   if (!verifyHubSignature(raw, req.headers.get("x-hub-signature-256"), [env.IG_APP_SECRET, env.META_APP_SECRET])) {
+    // 앱 시크릿이 어긋나면 Meta 알림이 전부 여기서 막히므로 운영 로그에 남긴다
+    log.warn("webhook signature rejected", { bytes: raw.length });
     return new Response("invalid signature", { status: 401 });
   }
   const comments = parseCommentWebhook(raw);
-  if (comments.length > 0) {
-    const queued = await ingestComments(getDb(), comments, new Date());
-    log.info("webhook received", { comments: comments.length, queued });
-  }
+  const queued = comments.length > 0 ? await ingestComments(getDb(), comments, new Date()) : 0;
+  log.info("webhook received", { comments: comments.length, queued });
   return new Response("ok", { status: 200 });
 }
