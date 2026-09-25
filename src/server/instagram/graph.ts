@@ -22,7 +22,11 @@ export interface MediaInfo {
 
 export type PrivateReplyMessage =
   | { kind: "button"; text: string; buttonTitle: string; url: string }
-  | { kind: "text"; text: string };
+  | { kind: "text"; text: string }
+  /** 팔로우 확인 안내: 빠른 답장 버튼(누르면 사용자가 메시지를 보낸 것으로 처리돼 팔로우 조회가 허용된다) */
+  | { kind: "gate"; text: string; buttonTitle: string; payload: string }
+  /** 빠른 답장이 거절될 때 쓰는 postback 버튼 */
+  | { kind: "gate_button"; text: string; buttonTitle: string; payload: string };
 
 export interface GraphClient {
   getMe(token: string): Promise<IgProfile>;
@@ -37,6 +41,41 @@ export interface GraphClient {
     commentId: string,
     message: PrivateReplyMessage,
   ): Promise<{ messageId: string }>;
+  /** 우리에게 메시지를 보낸(버튼을 누른) 사람에게 24시간 안에 보내는 일반 메시지 */
+  sendMessage(token: string, igUserId: string, recipientId: string, message: PrivateReplyMessage): Promise<{ messageId: string }>;
+  /** 그 사람이 비즈니스 계정을 팔로우하는지. 상대가 먼저 메시지를 보낸(버튼을 누른) 뒤에만 조회된다 */
+  isFollower(token: string, igsid: string): Promise<boolean>;
+}
+
+function messagePayload(message: PrivateReplyMessage) {
+  switch (message.kind) {
+    case "button":
+      return {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "button",
+            text: message.text,
+            buttons: [{ type: "web_url", url: message.url, title: message.buttonTitle }],
+          },
+        },
+      };
+    case "gate":
+      return { text: message.text, quick_replies: [{ content_type: "text", title: message.buttonTitle, payload: message.payload }] };
+    case "gate_button":
+      return {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "button",
+            text: message.text,
+            buttons: [{ type: "postback", title: message.buttonTitle, payload: message.payload }],
+          },
+        },
+      };
+    case "text":
+      return { text: message.text };
+  }
 }
 
 const MEDIA_FIELDS = "id,caption,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp";
@@ -124,7 +163,7 @@ export function createGraphClient(opts: {
     },
 
     async subscribeApp(token, igUserId) {
-      await request(withToken(`/${igUserId}/subscribed_apps`, token, { subscribed_fields: "comments" }), {
+      await request(withToken(`/${igUserId}/subscribed_apps`, token, { subscribed_fields: "comments,messages,messaging_postbacks" }), {
         method: "POST",
       });
     },
@@ -160,25 +199,26 @@ export function createGraphClient(opts: {
     },
 
     async sendPrivateReply(token, igUserId, commentId, message) {
-      const payload =
-        message.kind === "button"
-          ? {
-              attachment: {
-                type: "template",
-                payload: {
-                  template_type: "button",
-                  text: message.text,
-                  buttons: [{ type: "web_url", url: message.url, title: message.buttonTitle }],
-                },
-              },
-            }
-          : { text: message.text };
       const j = await request(`${base}/${igUserId}/messages`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ recipient: { comment_id: commentId }, message: payload }),
+        body: JSON.stringify({ recipient: { comment_id: commentId }, message: messagePayload(message) }),
       });
       return { messageId: String(j.message_id) };
+    },
+
+    async sendMessage(token, igUserId, recipientId, message) {
+      const j = await request(`${base}/${igUserId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient: { id: recipientId }, message: messagePayload(message) }),
+      });
+      return { messageId: String(j.message_id) };
+    },
+
+    async isFollower(token, igsid) {
+      const j = await request(withToken(`/${igsid}`, token, { fields: "is_user_follow_business" }), { method: "GET" });
+      return j.is_user_follow_business === true;
     },
   };
 }

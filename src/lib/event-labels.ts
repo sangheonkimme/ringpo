@@ -8,6 +8,7 @@ export const STATUS_LABEL: Record<EventStatus, string> = {
   failed: "실패",
   skipped: "건너뜀",
   expired: "기한 만료",
+  awaiting_follow: "팔로우 대기",
 };
 
 export const SKIP_LABEL: Record<SkipReason, string> = {

@@ -61,6 +61,55 @@ describe("createGraphClient", () => {
     expect(JSON.parse(String(f.mock.calls[0][1]?.body))).toEqual({ recipient: { comment_id: "c1" }, message: { text: "hello" } });
   });
 
+  it("sendPrivateReply sends a follow-gate quick reply with our payload", async () => {
+    const f = mockFetch(200, { message_id: "mid.2" });
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    await client.sendPrivateReply("tok", "ig1", "c1", { kind: "gate", text: "팔로우해 주세요", buttonTitle: "팔로우했어요", payload: "fg:abc" });
+    expect(JSON.parse(String(f.mock.calls[0][1]?.body))).toEqual({
+      recipient: { comment_id: "c1" },
+      message: { text: "팔로우해 주세요", quick_replies: [{ content_type: "text", title: "팔로우했어요", payload: "fg:abc" }] },
+    });
+  });
+
+  it("sendPrivateReply can fall back to a postback button for the follow gate", async () => {
+    const f = mockFetch(200, { message_id: "mid.3" });
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    await client.sendPrivateReply("tok", "ig1", "c1", { kind: "gate_button", text: "팔로우해 주세요", buttonTitle: "팔로우했어요", payload: "fg:abc" });
+    expect(JSON.parse(String(f.mock.calls[0][1]?.body)).message).toEqual({
+      attachment: {
+        type: "template",
+        payload: { template_type: "button", text: "팔로우해 주세요", buttons: [{ type: "postback", title: "팔로우했어요", payload: "fg:abc" }] },
+      },
+    });
+  });
+
+  it("sendMessage addresses a person who messaged us by their id", async () => {
+    const f = mockFetch(200, { message_id: "mid.4" });
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    await expect(client.sendMessage("tok", "ig1", "900", { kind: "text", text: "링크예요" })).resolves.toEqual({ messageId: "mid.4" });
+    const [url, init] = f.mock.calls[0];
+    expect(String(url)).toContain("/v26.0/ig1/messages");
+    expect(JSON.parse(String(init?.body))).toEqual({ recipient: { id: "900" }, message: { text: "링크예요" } });
+  });
+
+  it("isFollower reads is_user_follow_business", async () => {
+    const f = mockFetch(200, { is_user_follow_business: true, id: "900" });
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    await expect(client.isFollower("tok", "900")).resolves.toBe(true);
+    const url = new URL(String(f.mock.calls[0][0]));
+    expect(url.pathname).toBe("/v26.0/900");
+    expect(url.searchParams.get("fields")).toBe("is_user_follow_business");
+    const g = createGraphClient({ version: "v26.0", fetchFn: mockFetch(200, { id: "900" }) });
+    await expect(g.isFollower("tok", "900")).resolves.toBe(false);
+  });
+
+  it("subscribeApp also subscribes to message events for the follow gate", async () => {
+    const f = mockFetch(200, { success: true });
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    await client.subscribeApp("tok", "ig1");
+    expect(new URL(String(f.mock.calls[0][0])).searchParams.get("subscribed_fields")).toBe("comments,messages,messaging_postbacks");
+  });
+
   it("maps Graph error payloads to GraphApiError with code and subcode", async () => {
     const f = mockFetch(400, { error: { message: "limit", code: 613, error_subcode: 2534040 } });
     const client = createGraphClient({ version: "v26.0", fetchFn: f });

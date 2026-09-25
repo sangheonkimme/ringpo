@@ -28,6 +28,7 @@ const EVENT_TONE: Record<EventStatus, StatusTone> = {
   skipped: "neutral",
   pending: "neutral",
   processing: "neutral",
+  awaiting_follow: "neutral",
 };
 
 export function StatusBadge({ status }: { status: EventStatus }) {

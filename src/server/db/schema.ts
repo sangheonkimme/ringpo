@@ -137,6 +137,9 @@ export const automations = pgTable(
     dmText: text("dm_text").notNull(),
     dmButtonTitle: text("dm_button_title").notNull(),
     dmLinkUrl: text("dm_link_url").notNull(),
+    /** 켜면 링크 DM 대신 '팔로우했어요' 버튼이 달린 안내를 먼저 보내고, 팔로우가 확인되면 링크를 보낸다 */
+    followGate: boolean("follow_gate").notNull().default(false),
+    followGateText: text("follow_gate_text").notNull().default(""),
     isActive: boolean("is_active").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -168,6 +171,8 @@ export const EVENT_STATUSES = [
   "failed",
   "skipped",
   "expired",
+  // 팔로우 확인 안내를 보냈고 '팔로우했어요' 탭을 기다리는 중
+  "awaiting_follow",
 ] as const;
 export const SKIP_REASONS = [
   "self",
@@ -221,6 +226,29 @@ export const commentEvents = pgTable(
     index("comment_events_account_created_idx").on(t.igAccountId, t.createdAt),
     index("comment_events_reply_idx").on(t.replyCommentId),
   ],
+);
+
+export const FOLLOW_GATE_STATUSES = ["waiting", "sent"] as const;
+
+/** 팔로우 확인 대기. 버튼 payload(fg:<id>)로 탭한 사람과 댓글 이벤트를 잇는다 */
+export const followGates = pgTable(
+  "follow_gates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .unique()
+      .references(() => commentEvents.id, { onDelete: "cascade" }),
+    igAccountId: uuid("ig_account_id")
+      .notNull()
+      .references(() => igAccounts.id, { onDelete: "cascade" }),
+    status: text("status", { enum: FOLLOW_GATE_STATUSES }).notNull().default("waiting"),
+    checks: integer("checks").notNull().default(0),
+    senderId: text("sender_id"),
+    createdAt: createdAt(),
+    completedAt: tz("completed_at"),
+  },
+  (t) => [index("follow_gates_account_idx").on(t.igAccountId, t.status)],
 );
 
 export const deliveries = pgTable(

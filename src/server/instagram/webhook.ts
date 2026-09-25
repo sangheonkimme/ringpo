@@ -85,3 +85,50 @@ export function parseCommentWebhook(rawBody: string): ParsedComment[] {
   }
   return out;
 }
+
+/** '팔로우했어요' 버튼 응답의 payload 접두사. 뒤에 follow_gates.id(uuid)가 붙는다 */
+export const FOLLOW_GATE_PAYLOAD_PREFIX = "fg:";
+const GATE_PAYLOAD = /^fg:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export interface FollowTap {
+  /** 알림을 받은 비즈니스 계정의 인스타 사용자 ID */
+  igUserId: string;
+  /** 버튼을 누른 사람(IGSID) */
+  senderId: string;
+  gateId: string;
+}
+
+const messagingItem = z.object({
+  sender: z.object({ id }),
+  message: z
+    .object({ is_echo: z.boolean().optional(), quick_reply: z.object({ payload: z.string() }).optional() })
+    .optional(),
+  postback: z.object({ payload: z.string().optional() }).optional(),
+});
+
+const messagingEntry = z.object({ id, messaging: z.array(z.unknown()).optional() });
+
+/** 메시지 웹훅(messages·messaging_postbacks)에서 링포 팔로우 확인 버튼을 누른 것만 골라낸다 */
+export function parseFollowTaps(rawBody: string): FollowTap[] {
+  let json: unknown;
+  try {
+    json = parseJsonWithStringIds(rawBody);
+  } catch {
+    return [];
+  }
+  const payload = payloadSchema.safeParse(json);
+  if (!payload.success) return [];
+  const out: FollowTap[] = [];
+  for (const rawEntry of payload.data.entry) {
+    const entry = messagingEntry.safeParse(rawEntry);
+    if (!entry.success) continue;
+    for (const raw of entry.data.messaging ?? []) {
+      const item = messagingItem.safeParse(raw);
+      if (!item.success || item.data.message?.is_echo) continue;
+      const tapped = item.data.message?.quick_reply?.payload ?? item.data.postback?.payload ?? "";
+      const m = GATE_PAYLOAD.exec(tapped);
+      if (m) out.push({ igUserId: entry.data.id, senderId: item.data.sender.id, gateId: m[1].toLowerCase() });
+    }
+  }
+  return out;
+}

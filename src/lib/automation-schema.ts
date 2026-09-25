@@ -9,6 +9,8 @@ export const BUTTON_TITLE_MAX = 20;
 export const DEFAULT_REPLY_TEXTS = ["{username} DM 확인해주세요! 📩", "{username} DM으로 링크 보내드렸어요 💌", "{username} 메시지함을 확인해주세요 ✨"];
 export const DEFAULT_DM_TEXT = "댓글 남겨주셔서 고마워요! 요청하신 링크를 보내드려요. 아래 버튼을 눌러 확인해 주세요.";
 export const DEFAULT_BUTTON_TITLE = "링크 열기";
+export const FOLLOW_GATE_TEXT_MAX = 300;
+export const DEFAULT_FOLLOW_GATE_TEXT = "댓글 고마워요! 팔로우한 분께 링크를 보내드려요 😊\n팔로우하고 아래 [팔로우했어요] 버튼을 눌러 주세요.";
 
 const URL_IN_TEXT = /(https?:\/\/|www\.)\S+/i;
 

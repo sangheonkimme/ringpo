@@ -1,7 +1,11 @@
+import { decryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
 import { getEnv } from "@/server/env";
-import { parseCommentWebhook, verifyHubSignature } from "@/server/instagram/webhook";
+import { getGraphClient } from "@/server/instagram/client";
+import { parseCommentWebhook, parseFollowTaps, verifyHubSignature } from "@/server/instagram/webhook";
 import { log } from "@/server/log";
+import { handleFollowTap } from "@/server/pipeline/follow-gate";
+import type { PipelineDeps } from "@/server/pipeline/process-comment";
 import { ingestComments } from "@/server/queue/ingest";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +28,22 @@ export async function POST(req: Request) {
   }
   const comments = parseCommentWebhook(raw);
   const queued = comments.length > 0 ? await ingestComments(getDb(), comments, new Date()) : 0;
-  log.info("webhook received", { comments: comments.length, queued });
+  // '팔로우했어요' 버튼 응답은 바로 처리한다(팔로우 조회 1번 + 메시지 1번이라 짧다)
+  const taps = parseFollowTaps(raw);
+  const outcomes: string[] = [];
+  if (taps.length > 0) {
+    const deps: PipelineDeps = {
+      db: getDb(),
+      graph: getGraphClient(),
+      now: () => new Date(),
+      random: Math.random,
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      appUrl: env.APP_URL,
+      hourlyLimit: env.IG_PRIVATE_REPLY_HOURLY_LIMIT,
+      decryptToken: decryptSecret,
+    };
+    for (const tap of taps) outcomes.push(await handleFollowTap(deps, tap));
+  }
+  log.info("webhook received", { comments: comments.length, queued, followTaps: outcomes });
   return new Response("ok", { status: 200 });
 }

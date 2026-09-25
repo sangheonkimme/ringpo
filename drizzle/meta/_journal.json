@@ -8,6 +8,13 @@
       "when": 1790231214006,
       "tag": "0000_narrow_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790309840529,
+      "tag": "0001_follow_gate",
+      "breakpoints": true
     }
   ]
 }

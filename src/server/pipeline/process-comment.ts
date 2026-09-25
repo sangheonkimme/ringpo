@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Plan } from "@/lib/plans";
 import { rulesToBind, selectAutomation } from "@/server/automations/matcher";
-import { brandingLine, buildTextFallback, renderReply, truncateChars } from "@/server/automations/render";
+import { renderReply, truncateChars } from "@/server/automations/render";
 import { getUserPlan } from "@/server/billing/plan-of";
 import type { Db } from "@/server/db/client";
 import {
@@ -17,12 +17,13 @@ import {
 } from "@/server/db/schema";
 import { classifyError, type ClassifiedError } from "@/server/instagram/errors";
 import type { GraphClient } from "@/server/instagram/graph";
-import { getOrCreateEventLink } from "@/server/links";
 import { backoffDelayMs, MAX_ATTEMPTS } from "@/server/queue/backoff";
 import { finishEvent, requeueEvent, updateEvent, type EventPatch } from "@/server/queue/events";
 import { reserveSendSlot } from "@/server/ratelimit";
 import { releaseDm, reserveDm } from "@/server/usage";
 import { releaseDelivery, reserveDelivery } from "./deliveries";
+import { buildLinkDm } from "./dm-content";
+import { sendFollowGate } from "./follow-gate";
 
 export interface PipelineDeps {
   db: Db;
@@ -36,12 +37,11 @@ export interface PipelineDeps {
   onAuthFailure?: (account: IgAccount) => Promise<void>;
 }
 
-export type ProcessOutcome = "succeeded" | "partial" | "failed" | "skipped" | "expired" | "deferred" | "retry";
+export type ProcessOutcome = "succeeded" | "partial" | "failed" | "skipped" | "expired" | "deferred" | "retry" | "awaiting_follow";
 
 const SEND_WINDOW_MS = 7 * 86_400_000;
 const MAX_INLINE_WAIT_MS = 5_000;
 const RATE_LIMIT_RETRY_MS = 5 * 60_000;
-const BUTTON_TEXT_MAX = 640;
 
 interface Ctx {
   event: CommentEvent;
@@ -158,11 +158,20 @@ async function sendAndSettle(
   }
   if (replyStatus !== event.replyStatus) await updateEvent(db, event.id, { replyStatus });
 
-  if (dmStatus === null && replyError?.cls !== "auth") {
+  // 팔로우 확인을 켠 자동화는 링크 대신 '팔로우했어요' 안내를 보낸다. 안내가 이미 나갔으면(dmMessageId) 다시 보내지 않는다
+  const gated = automation.followGate;
+  let gateSent = gated && event.dmMessageId !== null && dmStatus === null;
+  if (dmStatus === null && !gateSent && replyError?.cls !== "auth") {
     try {
-      const res = await sendDm(deps, { account, automation, event, plan, token });
-      dmStatus = "sent";
-      await updateEvent(db, event.id, { dmStatus, dmMessageId: res.messageId });
+      if (gated) {
+        const res = await sendFollowGate(deps, { account, automation, event, token });
+        gateSent = true;
+        await updateEvent(db, event.id, { dmMessageId: res.messageId });
+      } else {
+        const res = await sendDm(deps, { account, automation, event, plan, token });
+        dmStatus = "sent";
+        await updateEvent(db, event.id, { dmStatus, dmMessageId: res.messageId });
+      }
     } catch (e) {
       dmError = classifyError(e);
       if (isFinalError(dmError)) {
@@ -195,6 +204,18 @@ async function sendAndSettle(
       );
       return "retry";
     }
+  }
+
+  if (gateSent) {
+    // 링크는 '팔로우했어요'를 누르고 팔로우가 확인되면 follow-gate에서 보낸다. DM 한도·중복 방지 예약은 유지한다
+    await finishEvent(
+      db,
+      event.id,
+      "awaiting_follow",
+      { replyStatus: replyStatus ?? "failed", usagePeriod: ctx.usagePeriod, errorCode: replyError?.code ?? null, errorMessage: replyError?.message ?? null },
+      deps.now(),
+    );
+    return "awaiting_follow";
   }
 
   return settle(deps, ctx, replyStatus ?? "failed", dmStatus ?? "failed", errors[0] ?? null);
@@ -338,29 +359,16 @@ async function sendDm(
   p: { account: IgAccount; automation: Automation; event: CommentEvent; plan: Plan; token: string },
 ): Promise<{ messageId: string }> {
   const { account, automation, event, plan, token } = p;
-  const url = plan.linkTracking
-    ? `${deps.appUrl}/l/${await getOrCreateEventLink(deps.db, {
-        eventId: event.id,
-        automationId: automation.id,
-        targetUrl: automation.dmLinkUrl,
-      })}`
-    : automation.dmLinkUrl;
-  const text = plan.branding ? `${automation.dmText}\n\n${brandingLine()}` : automation.dmText;
-  const textMessage = { kind: "text" as const, text: buildTextFallback(text, automation.dmButtonTitle, url) };
+  const dm = await buildLinkDm(deps, { automation, event, plan });
 
   if (account.dmFormat === "text") {
-    return deps.graph.sendPrivateReply(token, account.igUserId, event.commentId, textMessage);
+    return deps.graph.sendPrivateReply(token, account.igUserId, event.commentId, dm.text);
   }
   try {
-    return await deps.graph.sendPrivateReply(token, account.igUserId, event.commentId, {
-      kind: "button",
-      text: truncateChars(text, BUTTON_TEXT_MAX),
-      buttonTitle: automation.dmButtonTitle,
-      url,
-    });
+    return await deps.graph.sendPrivateReply(token, account.igUserId, event.commentId, dm.button);
   } catch (e) {
     if (classifyError(e).cls !== "invalid_message") throw e;
-    const res = await deps.graph.sendPrivateReply(token, account.igUserId, event.commentId, textMessage);
+    const res = await deps.graph.sendPrivateReply(token, account.igUserId, event.commentId, dm.text);
     await deps.db.update(igAccounts).set({ dmFormat: "text" }).where(eq(igAccounts.id, account.id));
     return res;
   }
