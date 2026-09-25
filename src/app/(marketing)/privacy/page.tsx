@@ -105,7 +105,7 @@ export default function PrivacyPage() {
             <td>
               <Placeholder value={site.hostingProvider} label="서버 호스팅 업체" />
             </td>
-            <td>서버·데이터베이스 운영</td>
+            <td>서버·데이터베이스 운영 (이전 항목: 위 수집 항목 전부, 이전 시점: 서비스 이용 시 네트워크 전송)</td>
           </tr>
         </tbody>
       </table>
