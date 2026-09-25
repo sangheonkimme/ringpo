@@ -38,7 +38,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
       {sp.connected && <p className="rounded-2xl bg-success-soft p-4 text-sm text-success-ink">인스타그램 계정이 연결됐어요!</p>}
 
       <OnboardingSteps
-        accounts={d.accounts.map((a) => ({ id: a.id, username: a.username, status: a.status }))}
+        accounts={d.accounts.map((a) => ({ id: a.id, username: a.username, status: a.status, dmBlocked: a.dmBlocked }))}
         connected={connected}
         hasAutomation={autos.length > 0}
       />

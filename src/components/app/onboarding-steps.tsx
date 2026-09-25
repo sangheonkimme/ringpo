@@ -1,56 +1,7 @@
-"use client";
-
-import { Check, Link2, Lock } from "lucide-react";
+import { Check, Link2, Lock, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
 import { MESSAGE_ACCESS_STEPS, setupProgress, type StepState } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
-
-const KEY = "ringpo:setup-checklist";
-const EVENT = "ringpo:setup-checklist";
-
-interface Checks {
-  messageAccess: boolean;
-}
-
-// 브라우저 저장소가 막혀 있어도(사생활 보호 모드 등) 체크는 동작하도록 메모리에도 둔다
-let memory = "";
-
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb);
-  window.addEventListener(EVENT, cb);
-  return () => {
-    window.removeEventListener("storage", cb);
-    window.removeEventListener(EVENT, cb);
-  };
-}
-
-function readRaw(): string {
-  try {
-    return localStorage.getItem(KEY) ?? memory;
-  } catch {
-    return memory;
-  }
-}
-
-function parse(raw: string): Checks {
-  try {
-    const v = JSON.parse(raw) as Partial<Checks>;
-    return { messageAccess: v.messageAccess === true };
-  } catch {
-    return { messageAccess: false };
-  }
-}
-
-function save(next: Checks) {
-  memory = JSON.stringify(next);
-  try {
-    localStorage.setItem(KEY, memory);
-  } catch {
-    // 메모리 값으로 계속 동작한다
-  }
-  window.dispatchEvent(new Event(EVENT));
-}
 
 function StepBadge({ state, n }: { state: StepState; n: number }) {
   if (state === "done") {
@@ -84,42 +35,7 @@ function stepCard(state: StepState) {
     "flex flex-col gap-3.5 rounded-[18px] p-5",
     state === "current" && "border-2 border-foreground bg-card",
     (state === "done" || state === "upcoming") && "border bg-card",
-    state === "locked" && "border border-dashed border-[#D3DBE5]",
-  );
-}
-
-function ChecklistItem(props: {
-  id: string;
-  title: string;
-  hint: string;
-  steps: string[];
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  const { id, title, hint, steps, checked, onChange } = props;
-  return (
-    <div className={cn("flex flex-col gap-3 rounded-xl p-3.5", checked ? "bg-success-soft/60" : "bg-background")}>
-      <label htmlFor={id} className="flex cursor-pointer items-start gap-3">
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 size-5 shrink-0 accent-foreground"
-        />
-        <span className="flex flex-col gap-0.5">
-          <span className="text-[15px] font-semibold">{title}</span>
-          <span className="text-[13px] leading-relaxed text-ink-2">{hint}</span>
-        </span>
-      </label>
-      {!checked && (
-        <ol className="ml-8 flex list-decimal flex-col gap-1.5 pl-4 text-sm leading-relaxed text-ink-2">
-          {steps.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-      )}
-    </div>
+    state === "locked" && "border border-dashed border-input",
   );
 }
 
@@ -128,13 +44,12 @@ export function OnboardingSteps({
   connected,
   hasAutomation,
 }: {
-  accounts: { id: string; username: string; status: string }[];
+  accounts: { id: string; username: string; status: string; dmBlocked: boolean }[];
   connected: boolean;
   hasAutomation: boolean;
 }) {
-  const raw = useSyncExternalStore(subscribe, readRaw, () => "");
-  const checks = parse(raw);
-  const p = setupProgress({ connected, hasAutomation, ...checks });
+  const dmBlocked = accounts.some((a) => a.status === "active" && a.dmBlocked);
+  const p = setupProgress({ connected, dmBlocked, hasAutomation });
   const [s1, s2, s3] = p.steps;
   const firstOpen = p.steps.indexOf("current");
 
@@ -185,17 +100,28 @@ export function OnboardingSteps({
       <section className={stepCard(s2)}>
         <div className="flex items-center gap-3">
           <StepBadge state={s2} n={2} />
-          <h2 className="text-[17px] font-bold">인스타 앱에서 ‘메시지 접근 허용’ 켜기</h2>
+          <h2 className="text-[17px] font-bold">메시지 접근 허용</h2>
         </div>
-        <ChecklistItem
-          id="check-message-access"
-          title="‘메시지 접근 허용’을 켰어요"
-          hint="꺼져 있으면 댓글 단 사람에게 DM이 나가지 않아요. 인스타그램 앱에서 한 번만 켜 두면 돼요."
-          steps={MESSAGE_ACCESS_STEPS}
-          checked={checks.messageAccess}
-          onChange={(v) => save({ ...checks, messageAccess: v })}
-        />
-        <p className="text-xs leading-relaxed text-muted-foreground">메뉴 이름은 앱 버전에 따라 조금 다를 수 있어요.</p>
+        {!connected && (
+          <p className="text-sm leading-[1.7] text-ink-2">
+            연결 창에 나오는 <b>‘메시지 액세스 허용’</b>을 켠 채로 허용을 누르면 자동으로 끝나요. 꺼져 있으면 DM이 나가지 않아요.
+          </p>
+        )}
+        {s2 === "done" && <p className="text-sm leading-[1.7] text-ink-2">연결할 때 켜졌어요. 인스타 설정에서 끄면 DM이 나가지 않으니 켜 두세요.</p>}
+        {dmBlocked && (
+          <div className="flex flex-col gap-3 rounded-xl bg-warning-soft p-3.5 text-warning-ink">
+            <p className="flex gap-2 text-sm font-semibold">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+              ‘메시지 접근 허용’이 꺼져 있어서 DM을 보내지 못했어요
+            </p>
+            <ol className="ml-6 flex list-decimal flex-col gap-1.5 pl-1 text-sm leading-relaxed">
+              {MESSAGE_ACCESS_STEPS.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ol>
+            <p className="text-xs leading-relaxed">켜고 나면 다음 DM부터 정상으로 나가요. 메뉴 이름은 앱 버전에 따라 조금 다를 수 있어요.</p>
+          </div>
+        )}
       </section>
 
       <section className={stepCard(s3)}>

@@ -2,21 +2,24 @@ export type StepState = "done" | "current" | "upcoming" | "locked";
 
 export interface SetupInput {
   connected: boolean;
-  messageAccess: boolean;
+  /** 최근 DM이 '메시지 접근 허용 꺼짐'으로 실패한 연결 계정이 있다 */
+  dmBlocked: boolean;
   hasAutomation: boolean;
 }
 
 /**
  * 시작하기 3단계: 인스타 연결 → 메시지 접근 허용 → 첫 자동화.
- * 개인 계정이면 인스타 공식 연결 창이 중간에 프로페셔널 전환을 직접 물어보므로 따로 안내하지 않는다.
+ * 인스타 공식 연결 창이 프로페셔널 전환과 '메시지 액세스 허용'을 직접 처리하므로,
+ * 메시지 접근은 연결되면 완료로 보고 실제로 DM이 막혔을 때만 다시 안내한다.
  */
 export function setupProgress(i: SetupInput) {
+  const messageOk = i.connected && !i.dmBlocked;
   const steps: [StepState, StepState, StepState] = [
     i.connected ? "done" : "current",
-    i.messageAccess ? "done" : i.connected ? "current" : "upcoming",
-    !i.connected ? "locked" : i.hasAutomation ? "done" : i.messageAccess ? "current" : "upcoming",
+    !i.connected ? "upcoming" : messageOk ? "done" : "current",
+    !i.connected ? "locked" : i.hasAutomation ? "done" : messageOk ? "current" : "upcoming",
   ];
-  return { steps, doneCount: [i.connected, i.messageAccess, i.hasAutomation].filter(Boolean).length };
+  return { steps, doneCount: [i.connected, messageOk, i.hasAutomation].filter(Boolean).length };
 }
 
 /** 인스타 앱 안의 메뉴 경로. 앱 버전에 따라 이름이 조금 다를 수 있다. 프로페셔널 전환은 연결이 거절됐을 때만 안내한다 */
