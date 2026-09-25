@@ -201,7 +201,7 @@ export default function LandingPage() {
         </div>
         <PricingCards />
         <p className="text-center text-[13px] leading-[1.7] text-muted-foreground md:text-sm">
-          DM 한도는 매월 1일(한국 시간)에 초기화돼요 · 상위 플랜 변경은 즉시, 하위 플랜 변경과 해지는 결제 기간이 끝날 때 적용돼요
+          DM 한도는 매월 1일(한국 시간)에 초기화돼요 · Pro는 결제 즉시 시작되고, 해지는 결제 기간이 끝날 때 적용돼요 · 여러 계정용 요금제는 준비 중이에요
         </p>
       </section>
 

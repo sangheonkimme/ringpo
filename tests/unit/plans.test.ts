@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { effectivePlan } from "@/server/billing/plan-of";
-import { formatKrw, isUpgrade, PLANS } from "@/lib/plans";
+import { canSubscribe, formatKrw, isUpgrade, OFFERED_PAID_PLAN_IDS, PLANS } from "@/lib/plans";
 import { usagePeriod } from "@/server/usage";
 
 describe("plans", () => {
@@ -13,6 +13,15 @@ describe("plans", () => {
     expect(isUpgrade("free", "pro")).toBe(true);
     expect(isUpgrade("pro", "agency")).toBe(true);
     expect(isUpgrade("agency", "pro")).toBe(false);
+  });
+  it("sells only Pro to new subscribers", () => {
+    expect(OFFERED_PAID_PLAN_IDS).toEqual(["pro"]);
+    expect(canSubscribe("pro", "free")).toBe(true);
+    expect(canSubscribe("agency", "free")).toBe(false);
+    expect(canSubscribe("agency", "pro")).toBe(false);
+  });
+  it("lets an existing Agency subscriber keep the plan (e.g. change card)", () => {
+    expect(canSubscribe("agency", "agency")).toBe(true);
   });
   it("formats KRW", () => {
     expect(formatKrw(59000)).toBe("59,000원");

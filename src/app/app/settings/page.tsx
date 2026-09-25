@@ -67,11 +67,7 @@ export default async function SettingsPage() {
         ) : (
           plan.id !== "agency" && (
             <p className="text-[13px] leading-relaxed text-muted-foreground">
-              계정을 더 연결하려면{" "}
-              <Link href="/app/billing" className="underline">
-                Agency 플랜
-              </Link>
-              이 필요해요.
+              지금은 인스타 계정을 1개만 연결할 수 있어요. 여러 계정용 요금제는 준비 중이에요.
             </p>
           )
         )}

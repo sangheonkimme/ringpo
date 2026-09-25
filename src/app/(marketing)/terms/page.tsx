@@ -17,7 +17,7 @@ export default function TermsPage() {
         <li>&ldquo;회원&rdquo;이란 이 약관에 동의하고 서비스에 가입한 자를 말합니다.</li>
         <li>&ldquo;연동 계정&rdquo;이란 회원이 서비스에 연결한 인스타그램 비즈니스 또는 크리에이터 계정을 말합니다.</li>
         <li>&ldquo;자동화&rdquo;란 연동 계정의 게시물에 특정 키워드 댓글이 달릴 때 공개 답글과 DM을 자동 발송하도록 회원이 설정한 규칙을 말합니다.</li>
-        <li>&ldquo;유료 플랜&rdquo;이란 월 단위로 요금을 정기 결제하고 이용하는 Pro, Agency 플랜을 말합니다.</li>
+        <li>&ldquo;유료 플랜&rdquo;이란 월 단위로 요금을 정기 결제하고 이용하는 Pro 플랜을 말합니다.</li>
       </ol>
       <h2>제3조 (약관의 효력과 변경)</h2>
       <p>

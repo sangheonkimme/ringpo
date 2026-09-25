@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { canSubscribe } from "@/lib/plans";
 import { createBillingDeps } from "@/server/billing/deps";
 import { billingConfigured } from "@/server/billing/gateway";
+import { getUserPlan } from "@/server/billing/plan-of";
 import { subscribe } from "@/server/billing/subscriptions";
 import { getDb } from "@/server/db/client";
 import { errorFields, log } from "@/server/log";
@@ -20,6 +22,10 @@ export async function POST(req: Request) {
   if (!billingConfigured()) return NextResponse.json({ ok: false, error: "결제 설정이 아직 준비되지 않았어요" }, { status: 503 });
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "잘못된 요청이에요" }, { status: 400 });
+  const current = await getUserPlan(getDb(), user.id);
+  if (!canSubscribe(parsed.data.plan, current.id)) {
+    return NextResponse.json({ ok: false, error: "지금은 가입할 수 없는 플랜이에요" }, { status: 400 });
+  }
   try {
     const res = await subscribe(createBillingDeps(getDb()), { userId: user.id, email: user.email, ...parsed.data });
     return NextResponse.json(res, { status: res.ok ? 200 : 400 });

@@ -19,18 +19,11 @@ const CARDS: { id: PlanId; tagline: string; features: string[]; minus?: string; 
     cta: "Pro 시작하기",
     href: "/app/billing",
   },
-  {
-    id: "agency",
-    tagline: "여러 계정을 운영하는 팀·에이전시",
-    features: ["인스타 계정 5개", "자동화 무제한", "월 DM 50,000건", "링크 클릭 추적", "서비스 표시 제거"],
-    cta: "Agency 시작하기",
-    href: "/app/billing",
-  },
 ];
 
 export function PricingCards() {
   return (
-    <div className="grid gap-5 md:grid-cols-3 md:gap-6">
+    <div className="mx-auto grid w-full max-w-4xl gap-5 md:grid-cols-2 md:gap-6">
       {CARDS.map((c) => {
         const plan = PLANS[c.id];
         const featured = c.id === "pro";

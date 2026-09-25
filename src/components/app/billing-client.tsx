@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { cancelSubscriptionAction, resumeSubscriptionAction, scheduleDowngradeAction } from "@/app/app/billing/actions";
-import { formatKrw, isUpgrade, PLANS, type PaidPlanId, type PlanId } from "@/lib/plans";
+import { canSubscribe, formatKrw, isUpgrade, PAID_PLAN_IDS, PLANS, type PaidPlanId, type PlanId } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 export interface BillingClientProps {
@@ -81,7 +81,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
 
   return (
     <div className="flex flex-col gap-4">
-      {(["pro", "agency"] as const).map((id) => {
+      {PAID_PLAN_IDS.filter((id) => canSubscribe(id, current.paidActive ? current.plan : "free")).map((id) => {
         const plan = PLANS[id];
         const isCurrent = current.paidActive && current.plan === id;
         const upgrade = !current.paidActive || isUpgrade(current.plan, id);
