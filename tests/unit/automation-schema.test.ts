@@ -71,3 +71,15 @@ describe("wizard defaults", () => {
     expect(new Set(emojis).size).toBe(DEFAULT_REPLY_TEXTS.length);
   });
 });
+
+describe("follow gate input", () => {
+  it("defaults to off with an empty custom text", () => {
+    const r = automationInputSchema.parse(valid);
+    expect(r.followGate).toBe(false);
+    expect(r.followGateText).toBe("");
+  });
+  it("accepts a custom gate text within the limit and rejects a too long one", () => {
+    expect(automationInputSchema.parse({ ...valid, followGate: true, followGateText: "팔로우하고 눌러 주세요" }).followGateText).toBe("팔로우하고 눌러 주세요");
+    expect(issues({ ...valid, followGate: true, followGateText: "가".repeat(301) })).toContain("안내 문구는 300자까지 쓸 수 있어요");
+  });
+});

@@ -123,6 +123,10 @@ export default async function AutomationDetailPage({ params }: { params: Promise
             <dd className="whitespace-pre-wrap leading-relaxed">{auto.dmText}</dd>
           </div>
           <div className="flex gap-3">
+            <dt className="w-16 shrink-0 text-muted-foreground">팔로우</dt>
+            <dd className="leading-relaxed">{auto.followGate ? "팔로워에게만 링크 보내기 · 먼저 ‘팔로우했어요’ 안내" : "확인 안 함"}</dd>
+          </div>
+          <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-muted-foreground">링크</dt>
             <dd className="min-w-0 break-all leading-relaxed">
               {auto.dmButtonTitle} → {auto.dmLinkUrl.replace(/^https:\/\//, "")}

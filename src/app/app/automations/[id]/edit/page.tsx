@@ -1,3 +1,4 @@
+import { DEFAULT_FOLLOW_GATE_TEXT } from "@/lib/automation-schema";
 import { and, eq, ne } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { AutomationWizard } from "@/components/app/automation-wizard";
@@ -43,6 +44,8 @@ export default async function EditAutomationPage({ params }: { params: Promise<{
         dmText: auto.dmText,
         dmButtonTitle: auto.dmButtonTitle,
         dmLinkUrl: auto.dmLinkUrl,
+        followGate: auto.followGate,
+        followGateText: auto.followGateText || DEFAULT_FOLLOW_GATE_TEXT,
       }}
     />
   );

@@ -22,7 +22,9 @@ import {
   BUTTON_TITLE_MAX,
   DEFAULT_BUTTON_TITLE,
   DEFAULT_DM_TEXT,
+  DEFAULT_FOLLOW_GATE_TEXT,
   DEFAULT_REPLY_TEXTS,
+  FOLLOW_GATE_TEXT_MAX,
   DM_TEXT_MAX,
   REPLY_MAX,
   type AutomationInput,
@@ -116,6 +118,8 @@ export function AutomationWizard({
       dmText: DEFAULT_DM_TEXT,
       dmButtonTitle: DEFAULT_BUTTON_TITLE,
       dmLinkUrl: "https://",
+      followGate: false,
+      followGateText: DEFAULT_FOLLOW_GATE_TEXT,
     },
   );
   const [startDraft] = useState(() => JSON.stringify(draft));
@@ -163,8 +167,9 @@ export function AutomationWizard({
     restored.current = true;
     if (!stored) return;
     const { draft: kept, step: keptStep } = stored;
+    // 예전에 보관한 초안에 없는 항목(예: 팔로우 확인)은 기본값으로 채운다
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저 저장소는 마운트 뒤에만 읽을 수 있다
-    setDraft(kept);
+    setDraft({ ...(JSON.parse(startDraft) as Draft), ...kept });
     setStep(Math.min(Math.max(keptStep, 0), STEPS.length - 1));
     toast.info("작성 중이던 내용을 불러왔어요", {
       action: {
@@ -576,6 +581,37 @@ export function AutomationWizard({
                 {draft.dmButtonTitle || "버튼"}
               </span>
             </div>
+            <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[15px] font-bold">팔로워에게만 링크 보내기</span>
+                  <span className="text-[13px] leading-relaxed text-muted-foreground">
+                    켜면 먼저 ‘팔로우했어요’ 버튼이 달린 안내를 보내고, 버튼을 눌렀을 때 팔로우가 확인되면 링크를 보내요. 이미 팔로우한
+                    사람도 버튼을 한 번 눌러야 해요.
+                  </span>
+                </div>
+                <ToggleSwitch checked={draft.followGate} onChange={(v) => set("followGate", v)} label="팔로워에게만 링크 보내기" />
+              </div>
+              {draft.followGate && (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="gate" className="text-sm font-semibold">
+                    먼저 보낼 안내
+                  </label>
+                  <textarea
+                    id="gate"
+                    rows={4}
+                    maxLength={FOLLOW_GATE_TEXT_MAX}
+                    value={draft.followGateText}
+                    placeholder={DEFAULT_FOLLOW_GATE_TEXT}
+                    onChange={(e) => set("followGateText", e.target.value)}
+                    className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    버튼 문구는 ‘팔로우했어요’로 고정이에요. 팔로우가 안 돼 있으면 “아직 팔로우가 확인되지 않았어요”라고 다시 안내해요.
+                  </span>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -595,6 +631,7 @@ export function AutomationWizard({
               buttonTitle={draft.dmButtonTitle}
               branding={branding}
               username={account?.username ?? "나"}
+              gate={draft.followGate ? draft.followGateText.trim() || DEFAULT_FOLLOW_GATE_TEXT : null}
             />
             <dl className="flex flex-col gap-3 rounded-2xl border bg-card p-4 text-sm">
               {[
@@ -602,6 +639,7 @@ export function AutomationWizard({
                 ["반응", keywordSummary(draft.keywords, draft.matchType)],
                 ["공개 답글", draft.replyEnabled ? `문구 ${cleanReplies.length}개${cleanReplies.length > 1 ? " 무작위" : ""}` : "보내지 않음"],
                 ["링크", draft.dmLinkUrl.replace(/^https:\/\//, "")],
+                ["팔로우 확인", draft.followGate ? "켬 · 팔로워에게만 링크" : "끔"],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3">
                   <dt className="shrink-0 text-muted-foreground">{k}</dt>

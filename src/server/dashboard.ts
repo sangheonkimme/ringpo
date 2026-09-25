@@ -12,7 +12,7 @@ export interface AutomationStats {
   partial: number;
   /** 실패·기한 만료 */
   failed: number;
-  /** 대기·처리 중 */
+  /** 대기·처리 중·팔로우 대기 */
   pending: number;
   /** 건너뜀(이미 보낸 사람·한도 초과·자동화 꺼짐 등). 반응한 댓글 = 보냄 + 대기 + 실패 + 건너뜀 */
   skipped: number;
@@ -48,7 +48,7 @@ async function statsByAutomation(db: Db, automationIds: string[]): Promise<Map<s
       succeeded: sql<number>`(count(*) filter (where ${commentEvents.status} = 'succeeded'))::int`,
       partial: sql<number>`(count(*) filter (where ${commentEvents.status} = 'partial'))::int`,
       failed: sql<number>`(count(*) filter (where ${commentEvents.status} in ('failed', 'expired')))::int`,
-      pending: sql<number>`(count(*) filter (where ${commentEvents.status} in ('pending', 'processing')))::int`,
+      pending: sql<number>`(count(*) filter (where ${commentEvents.status} in ('pending', 'processing', 'awaiting_follow')))::int`,
       skipped: sql<number>`(count(*) filter (where ${commentEvents.status} = 'skipped'))::int`,
     })
     .from(commentEvents)

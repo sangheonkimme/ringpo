@@ -20,6 +20,8 @@ function input(igAccountId: string, overrides: Partial<AutomationInput> = {}): A
     dmText: "링크",
     dmButtonTitle: "구매",
     dmLinkUrl: "https://shop.example.com",
+    followGate: false,
+    followGateText: "",
     ...overrides,
   };
 }
@@ -35,6 +37,14 @@ describe("create/update automation", () => {
     if (!res.ok) throw new Error("unreachable");
     const row = await getAutomation(getDb(), u.id, res.id);
     expect(row).toMatchObject({ keywords: ["공구", "링크"], mediaId: "m1", mediaPermalink: "https://p", isActive: true });
+  });
+
+  it("saves the follow gate setting and its text", async () => {
+    const u = await createUser();
+    const acct = await createIgAccount(u.id);
+    const res = await createAutomation(getDb(), u.id, input(acct.id, { followGate: true, followGateText: "팔로우하고 눌러 주세요" }), opts);
+    if (!res.ok) throw new Error("unreachable");
+    expect(await getAutomation(getDb(), u.id, res.id)).toMatchObject({ followGate: true, followGateText: "팔로우하고 눌러 주세요" });
   });
 
   it("saves but does not activate beyond the free plan limit", async () => {

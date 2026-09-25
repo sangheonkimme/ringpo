@@ -48,6 +48,8 @@ export const automationInputSchema = z
       .min(1, "버튼 문구를 입력해주세요")
       .max(BUTTON_TITLE_MAX, `버튼 문구는 ${BUTTON_TITLE_MAX}자까지 쓸 수 있어요`),
     dmLinkUrl: z.url({ protocol: /^https$/, error: "https:// 로 시작하는 링크를 입력해주세요" }),
+    followGate: z.boolean().default(false),
+    followGateText: z.string().trim().max(FOLLOW_GATE_TEXT_MAX, `안내 문구는 ${FOLLOW_GATE_TEXT_MAX}자까지 쓸 수 있어요`).default(""),
   })
   .superRefine((v, ctx) => {
     if (v.mediaScope === "specific" && !v.media) {

@@ -5,6 +5,7 @@ export function MessagePreview({
   buttonTitle,
   branding,
   username,
+  gate = null,
 }: {
   keyword: string;
   reply: string | null;
@@ -12,6 +13,8 @@ export function MessagePreview({
   buttonTitle: string;
   branding: string | null;
   username: string;
+  /** 팔로우 확인을 켰으면 먼저 보낼 안내 */
+  gate?: string | null;
 }) {
   return (
     <section className="overflow-hidden rounded-[18px] border bg-card">
@@ -35,6 +38,13 @@ export function MessagePreview({
       </div>
       <div className="flex flex-col gap-2.5 bg-[#F6F8FA] p-4">
         <span className="text-xs font-semibold text-muted-foreground">2. 댓글 단 사람에게 DM</span>
+        {gate && (
+          <>
+            <p className="max-w-[88%] whitespace-pre-wrap rounded-[16px_16px_16px_6px] bg-bubble px-3.5 py-3 text-sm leading-relaxed">{gate}</p>
+            <span className="flex h-[34px] w-fit items-center rounded-full border bg-card px-3.5 text-[13px] font-semibold">팔로우했어요</span>
+            <span className="text-xs font-semibold text-muted-foreground">3. 버튼을 누르고 팔로우가 확인되면</span>
+          </>
+        )}
         <p className="max-w-[88%] whitespace-pre-wrap rounded-[16px_16px_16px_6px] bg-bubble px-3.5 py-3 text-sm leading-relaxed">
           {dmText || "DM 내용"}
           {branding && <span className="mt-2 block text-xs text-muted-foreground">{branding}</span>}

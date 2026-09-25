@@ -114,6 +114,8 @@ function toColumns(input: AutomationInput) {
     dmText: input.dmText,
     dmButtonTitle: input.dmButtonTitle,
     dmLinkUrl: input.dmLinkUrl,
+    followGate: input.followGate,
+    followGateText: input.followGateText,
   };
 }
 
