@@ -5,7 +5,8 @@ set -eu
 cd "$(dirname "$0")/.."
 git pull --ff-only
 tag="ringpo:$(git rev-parse --short HEAD)"
-docker build -t "$tag" .
+site_url="$(grep '^APP_URL=' deploy/.env | cut -d= -f2-)"
+docker build --build-arg SITE_URL="$site_url" -t "$tag" .
 cd deploy
 sed -i "s|^IMAGE=.*|IMAGE=$tag|" .env
 docker compose up -d --remove-orphans

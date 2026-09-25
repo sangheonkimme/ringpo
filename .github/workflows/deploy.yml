@@ -37,6 +37,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            SITE_URL=${{ vars.APP_URL }}
           tags: |
             ${{ steps.meta.outputs.image }}
             ${{ steps.meta.outputs.latest }}
