@@ -27,6 +27,7 @@ import {
   REPLY_MAX,
   type AutomationInput,
 } from "@/lib/automation-schema";
+import { draftKey, parseStoredDraft, serializeDraft } from "@/lib/draft-storage";
 import { keywordSummary, TOGGLE_ERROR } from "@/lib/event-labels";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export type Draft = Omit<AutomationInput, "media"> & { media: PickedMedia | null
 
 const STEPS = ["게시물", "반응할 댓글", "공개 답글", "DM", "확인"] as const;
 const SCOPE_LABEL = { specific: "특정 게시물", all: "모든 게시물", next: "다음에 올릴 게시물" } as const;
-const SAVE_FAILED = "저장하지 못했어요. 입력한 내용은 그대로 있으니 다시 시도해 주세요.";
+const SAVE_FAILED = "저장하지 못했어요. 앱이 새로 배포됐을 수 있어요. 새로고침해도 입력한 내용은 그대로 남아요.";
 
 const input =
   "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -119,6 +120,8 @@ export function AutomationWizard({
   );
   const [startDraft] = useState(() => JSON.stringify(draft));
   const saved = useRef(false);
+  const restored = useRef(false);
+  const storageKey = draftKey(automationId);
   const dirty = JSON.stringify(draft) !== startDraft || keywordInput.trim() !== "";
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const closeHref = automationId ? `/app/automations/${automationId}` : "/app/automations";
@@ -141,16 +144,52 @@ export function AutomationWizard({
     return null;
   }
 
-  // 작성 중에 새로고침하거나 탭을 닫으면 브라우저가 한 번 더 묻는다
+  function forgetDraft() {
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // 저장소를 못 쓰는 환경이면 보관도 안 된 상태다
+    }
+  }
+
+  // 새로고침·배포·탭 닫기 뒤에 다시 열면 보관해 둔 초안을 되살린다. 서버 렌더와 어긋나지 않게 화면이 뜬 뒤에 읽는다
   useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => {
-      if (saved.current) return;
-      e.preventDefault();
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+    let stored: { draft: Draft; step: number } | null = null;
+    try {
+      stored = parseStoredDraft<Draft>(localStorage.getItem(storageKey), new Date());
+    } catch {
+      stored = null;
+    }
+    restored.current = true;
+    if (!stored) return;
+    const { draft: kept, step: keptStep } = stored;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저 저장소는 마운트 뒤에만 읽을 수 있다
+    setDraft(kept);
+    setStep(Math.min(Math.max(keptStep, 0), STEPS.length - 1));
+    toast.info("작성 중이던 내용을 불러왔어요", {
+      action: {
+        label: "새로 시작",
+        onClick: () => {
+          forgetDraft();
+          setDraft(JSON.parse(startDraft) as Draft);
+          setStep(0);
+        },
+      },
+    });
+    // 초안은 처음 한 번만 되살린다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  // 입력할 때마다 초안을 보관한다(24시간). 저장에 성공하거나 '나가기'를 고르면 지운다
+  useEffect(() => {
+    if (!restored.current || saved.current) return;
+    try {
+      if (dirty) localStorage.setItem(storageKey, serializeDraft(draft, step, new Date()));
+      else localStorage.removeItem(storageKey);
+    } catch {
+      // 저장소를 못 쓰면 보관 없이 계속한다
+    }
+  }, [draft, step, dirty, storageKey]);
 
   function close() {
     if (dirty) setConfirmClose(true);
@@ -198,11 +237,12 @@ export function AutomationWizard({
       try {
         res = await saveAutomationAction(payload, { id: automationId, activate });
       } catch {
-        // 네트워크가 끊겨도 화면을 벗어나지 않아 입력이 남는다
-        return void toast.error(SAVE_FAILED);
+        // 배포로 서버 쪽 저장 함수가 바뀌었거나 네트워크가 끊긴 경우. 초안은 이미 보관돼 있다
+        return void toast.error(SAVE_FAILED, { duration: 15_000, action: { label: "새로고침", onClick: () => window.location.reload() } });
       }
       if (!res.ok) return void toast.error(res.error);
       saved.current = true;
+      forgetDraft();
       if (activate && !res.activated && res.activationError) toast.warning(`저장했지만 켜지 못했어요. ${TOGGLE_ERROR[res.activationError]}`);
       else toast.success(activate ? "자동화를 켰어요" : "저장했어요");
       router.push(`/app/automations/${res.id}`);
@@ -236,7 +276,13 @@ export function AutomationWizard({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>계속 작성</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => router.push(closeHref)}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                forgetDraft();
+                router.push(closeHref);
+              }}
+            >
               나가기
             </AlertDialogAction>
           </AlertDialogFooter>
