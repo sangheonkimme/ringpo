@@ -18,7 +18,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ToggleSwitch } from "@/components/app/toggle-switch";
-import { BUTTON_TITLE_MAX, DM_TEXT_MAX, REPLY_MAX, type AutomationInput } from "@/lib/automation-schema";
+import {
+  BUTTON_TITLE_MAX,
+  DEFAULT_BUTTON_TITLE,
+  DEFAULT_DM_TEXT,
+  DEFAULT_REPLY_TEXTS,
+  DM_TEXT_MAX,
+  REPLY_MAX,
+  type AutomationInput,
+} from "@/lib/automation-schema";
 import { keywordSummary, TOGGLE_ERROR } from "@/lib/event-labels";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +38,6 @@ export interface WizardAccount {
 export type Draft = Omit<AutomationInput, "media"> & { media: PickedMedia | null };
 
 const STEPS = ["게시물", "반응할 댓글", "공개 답글", "DM", "확인"] as const;
-const DEFAULT_REPLIES = ["{username} DM 확인해주세요!", "{username} DM으로 링크 보내드렸어요", "{username} 메시지함을 확인해주세요"];
 const SCOPE_LABEL = { specific: "특정 게시물", all: "모든 게시물", next: "다음에 올릴 게시물" } as const;
 const SAVE_FAILED = "저장하지 못했어요. 입력한 내용은 그대로 있으니 다시 시도해 주세요.";
 
@@ -104,9 +111,9 @@ export function AutomationWizard({
       keywords: [],
       matchType: "contains",
       replyEnabled: true,
-      replyTexts: DEFAULT_REPLIES,
-      dmText: "",
-      dmButtonTitle: "링크 열기",
+      replyTexts: DEFAULT_REPLY_TEXTS,
+      dmText: DEFAULT_DM_TEXT,
+      dmButtonTitle: DEFAULT_BUTTON_TITLE,
       dmLinkUrl: "https://",
     },
   );
@@ -483,7 +490,7 @@ export function AutomationWizard({
                 rows={4}
                 maxLength={DM_TEXT_MAX}
                 value={draft.dmText}
-                placeholder="요청하신 공구 링크 보내드려요. 오늘 자정까지 특가예요."
+                placeholder="예: 요청하신 공구 링크 보내드려요. 오늘 자정까지 특가예요."
                 onChange={(e) => set("dmText", e.target.value)}
                 className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />

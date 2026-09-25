@@ -5,6 +5,11 @@ export const REPLY_MAX = 300;
 export const DM_TEXT_MAX = 600;
 export const BUTTON_TITLE_MAX = 20;
 
+/** 새 자동화에 미리 채워 두는 문구. 빈칸 대신 바로 보낼 수 있는 문장을 넣고 사용자가 고쳐 쓴다 */
+export const DEFAULT_REPLY_TEXTS = ["{username} DM 확인해주세요!", "{username} DM으로 링크 보내드렸어요", "{username} 메시지함을 확인해주세요"];
+export const DEFAULT_DM_TEXT = "댓글 남겨주셔서 고마워요! 요청하신 링크를 보내드려요. 아래 버튼을 눌러 확인해 주세요.";
+export const DEFAULT_BUTTON_TITLE = "링크 열기";
+
 const URL_IN_TEXT = /(https?:\/\/|www\.)\S+/i;
 
 const replyText = z

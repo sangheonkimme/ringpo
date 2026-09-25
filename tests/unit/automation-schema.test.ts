@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { automationInputSchema } from "@/lib/automation-schema";
+import {
+  automationInputSchema,
+  BUTTON_TITLE_MAX,
+  DEFAULT_BUTTON_TITLE,
+  DEFAULT_DM_TEXT,
+  DEFAULT_REPLY_TEXTS,
+  DM_TEXT_MAX,
+  REPLY_MAX,
+} from "@/lib/automation-schema";
 
 const valid = {
   igAccountId: "5f0c7c1e-1d2b-4c3a-9e8f-0a1b2c3d4e5f",
@@ -46,5 +54,14 @@ describe("automationInputSchema", () => {
     expect(issues({ ...valid, keywords: [] })).toContain("키워드를 1개 이상 입력해주세요");
     expect(automationInputSchema.safeParse({ ...valid, dmButtonTitle: "가".repeat(21) }).success).toBe(false);
     expect(automationInputSchema.safeParse({ ...valid, dmText: "가".repeat(601) }).success).toBe(false);
+  });
+});
+
+describe("wizard defaults", () => {
+  it("prefills real sentences that fit the input limits", () => {
+    expect(DEFAULT_DM_TEXT.length).toBeGreaterThan(10);
+    expect(DEFAULT_DM_TEXT.length).toBeLessThanOrEqual(DM_TEXT_MAX);
+    expect(DEFAULT_BUTTON_TITLE.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
+    for (const r of DEFAULT_REPLY_TEXTS) expect(r.length).toBeLessThanOrEqual(REPLY_MAX);
   });
 });
