@@ -1,0 +1,91 @@
+name: ringpo
+
+x-app: &app
+  image: ${IMAGE:?IMAGE is required}
+  env_file: ${ENV_FILE:-.env}
+  environment:
+    DATABASE_URL: postgres://igc:${POSTGRES_PASSWORD}@postgres:5432/igc
+  networks: [internal]
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: igc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: igc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U igc -d igc"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+
+  migrate:
+    <<: *app
+    command: ["node", "dist/migrate.mjs"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal, traefik]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:?TRAEFIK_NETWORK is required}
+      - traefik.http.routers.ringpo.rule=Host(`${APP_DOMAIN:?APP_DOMAIN is required}`)
+      - traefik.http.routers.ringpo.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+      - traefik.http.routers.ringpo.tls=true
+      - traefik.http.routers.ringpo.tls.certresolver=${TRAEFIK_CERTRESOLVER:?TRAEFIK_CERTRESOLVER is required}
+      - traefik.http.services.ringpo.loadbalancer.server.port=3000
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker.mjs"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: igc
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: igc
+      TZ: Asia/Seoul
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+volumes:
+  pgdata: {}
+
+networks:
+  internal: {}
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK}
