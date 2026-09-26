@@ -9,7 +9,7 @@ export const site = {
     companyName: "레일릿",
     ceo: "김상헌",
     registrationNumber: "491-12-02435",
-    mailOrderNumber: "",
+    mailOrderNumber: "제2023-서울강남-01759호",
     address: "경기도 성남시 수정구 남문로113번길 4-1(태평동)",
     phone: "",
   },
