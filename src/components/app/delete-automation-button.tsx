@@ -29,7 +29,7 @@ export function DeleteAutomationButton({ id }: { id: string }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction disabled={pending} onClick={() => startTransition(() => deleteAutomationAction(id))}>
+            <AlertDialogAction variant="destructive" disabled={pending} onClick={() => startTransition(() => deleteAutomationAction(id))}>
               삭제
             </AlertDialogAction>
           </AlertDialogFooter>

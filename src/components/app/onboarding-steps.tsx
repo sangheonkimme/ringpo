@@ -2,6 +2,7 @@ import { Check, Link2, Lock, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { MESSAGE_ACCESS_STEPS, setupProgress, type StepState } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
+import { ToneBadge } from "./status-badge";
 
 function StepBadge({ state, n }: { state: StepState; n: number }) {
   if (state === "done") {
@@ -32,7 +33,7 @@ function StepBadge({ state, n }: { state: StepState; n: number }) {
 
 function stepCard(state: StepState) {
   return cn(
-    "flex flex-col gap-3.5 rounded-[18px] p-5",
+    "flex flex-col gap-3 rounded-2xl p-5",
     state === "current" && "border-2 border-foreground bg-card",
     (state === "done" || state === "upcoming") && "border bg-card",
     state === "locked" && "border border-dashed border-input",
@@ -64,20 +65,21 @@ export function OnboardingSteps({
       <section className={stepCard(s1)}>
         <div className="flex items-center gap-3">
           <StepBadge state={s1} n={1} />
-          <h2 className="text-[17px] font-bold">인스타그램 연결</h2>
+          <h2 className="text-base font-bold">인스타그램 연결</h2>
         </div>
         {accounts.length > 0 && (
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex flex-col gap-2 text-sm">
             {accounts.map((a) => (
-              <li key={a.id}>
-                @{a.username} · {a.status === "active" ? "연결됨" : "다시 연결 필요"}
+              <li key={a.id} className="flex items-center gap-2">
+                <span className="min-w-0 truncate">@{a.username}</span>
+                {a.status === "active" ? <ToneBadge tone="success">연결됨</ToneBadge> : <ToneBadge tone="danger">다시 연결 필요</ToneBadge>}
               </li>
             ))}
           </ul>
         )}
         <p className="text-sm leading-[1.7] text-ink-2">인스타그램 공식 로그인 창에서 ‘허용’만 누르면 끝나요. 비밀번호는 저장하지 않아요.</p>
         {!connected && (
-          <p className="rounded-xl bg-accent px-3.5 py-3 text-[13px] leading-relaxed">
+          <p className="rounded-xl bg-accent px-3.5 py-3 text-[13px] leading-normal">
             개인 계정이면 연결 중에 인스타그램이 <b>‘프로페셔널 계정으로 변경하시겠어요?’</b>라고 물어요. <b>변경</b>을 누르면 무료로 바로
             전환돼요.
           </p>
@@ -92,7 +94,7 @@ export function OnboardingSteps({
           <Link2 className="size-[18px]" aria-hidden />
           {connected ? "다른 계정 연결 · 다시 연결" : "인스타그램으로 연결하기"}
         </a>
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-xs leading-normal text-muted-foreground">
           연결하면 댓글 읽기·답글 달기·메시지 보내기 권한을 사용해요. 계정이 공개 상태여야 댓글 알림을 받아요.
         </p>
       </section>
@@ -100,7 +102,7 @@ export function OnboardingSteps({
       <section className={stepCard(s2)}>
         <div className="flex items-center gap-3">
           <StepBadge state={s2} n={2} />
-          <h2 className="text-[17px] font-bold">메시지 접근 허용</h2>
+          <h2 className="text-base font-bold">메시지 접근 허용</h2>
         </div>
         {!connected && (
           <p className="text-sm leading-[1.7] text-ink-2">
@@ -114,12 +116,12 @@ export function OnboardingSteps({
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
               ‘메시지 접근 허용’이 꺼져 있어서 DM을 보내지 못했어요
             </p>
-            <ol className="ml-6 flex list-decimal flex-col gap-1.5 pl-1 text-sm leading-relaxed">
+            <ol className="ml-6 flex list-decimal flex-col gap-1.5 pl-1 text-sm leading-[1.7]">
               {MESSAGE_ACCESS_STEPS.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ol>
-            <p className="text-xs leading-relaxed">켜고 나면 다음 DM부터 정상으로 나가요. 메뉴 이름은 앱 버전에 따라 조금 다를 수 있어요.</p>
+            <p className="text-xs leading-normal">켜고 나면 다음 DM부터 정상으로 나가요. 메뉴 이름은 앱 버전에 따라 조금 다를 수 있어요.</p>
           </div>
         )}
       </section>
@@ -127,10 +129,10 @@ export function OnboardingSteps({
       <section className={stepCard(s3)}>
         <div className="flex items-center gap-3">
           <StepBadge state={s3} n={3} />
-          <h2 className={cn("text-[17px] font-bold", s3 === "locked" && "text-muted-foreground")}>첫 자동화 만들기</h2>
+          <h2 className={cn("text-base font-bold", s3 === "locked" && "text-muted-foreground")}>첫 자동화 만들기</h2>
         </div>
         {s3 === "locked" ? (
-          <p className="text-sm leading-relaxed text-muted-foreground">인스타그램을 연결하면 열려요.</p>
+          <p className="text-sm leading-[1.7] text-muted-foreground">인스타그램을 연결하면 열려요.</p>
         ) : (
           <Link
             href="/app/automations/new"

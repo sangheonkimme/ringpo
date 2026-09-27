@@ -13,14 +13,14 @@ export function MediaThumb({
 }) {
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className={cn("shrink-0 rounded-[10px] object-cover", className)} />;
+    return <img src={url} alt="" className={cn("shrink-0 rounded-xl object-cover", className)} />;
   }
   const Icon = scope === "next" ? Clock : scope === "all" ? LayoutGrid : null;
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-[10px]",
-        scope === "next" ? "bg-[#F3FBDF]" : scope === "all" ? "bg-[#E6EBF0]" : "bg-[#E6EBF0]",
+        "flex shrink-0 items-center justify-center rounded-xl",
+        scope === "next" ? "bg-accent" : "bg-border",
         className,
       )}
     >

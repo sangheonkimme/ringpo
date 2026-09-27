@@ -23,7 +23,7 @@ export function DisconnectButton({ accountId, username }: { accountId: string; u
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-11 shrink-0 rounded-[10px] border border-input bg-card px-3.5 text-sm font-semibold"
+        className="h-11 shrink-0 rounded-xl border border-input bg-card px-5 text-[15px] font-semibold"
       >
         연결 해제
       </button>
@@ -37,6 +37,7 @@ export function DisconnectButton({ accountId, username }: { accountId: string; u
             <AlertDialogCancel>취소</AlertDialogCancel>
             <Button
               variant="destructive"
+              size="touch"
               disabled={pending}
               onClick={() =>
                 startTransition(async () => {
@@ -61,7 +62,7 @@ export function DeleteAccountButton() {
   const [pending, startTransition] = useTransition();
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="h-11 self-start text-sm font-semibold text-destructive">
+      <button type="button" onClick={() => setOpen(true)} className="h-11 self-start text-[15px] font-semibold text-destructive">
         회원 탈퇴
       </button>
       <AlertDialog open={open} onOpenChange={setOpen}>
@@ -72,11 +73,12 @@ export function DeleteAccountButton() {
               연결된 인스타 계정, 자동화, 발송 기록이 모두 삭제되고 정기결제가 중단돼요. 결제 기록은 법령에 따라 5년간 보관돼요. 계속하려면 &lsquo;탈퇴&rsquo;를 입력하세요.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="탈퇴" />
+          <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="탈퇴" className="h-[52px] rounded-xl bg-card px-4 text-base" />
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <Button
               variant="destructive"
+              size="touch"
               disabled={pending || confirm.trim() !== "탈퇴"}
               onClick={() =>
                 startTransition(async () => {

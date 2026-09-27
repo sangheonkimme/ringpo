@@ -48,7 +48,7 @@ export default async function AutomationDetailPage({ params }: { params: Promise
     <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <h1 className="truncate font-display text-[26px] font-extrabold tracking-[-0.03em]">{auto.name}</h1>
+          <h1 className="truncate font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">{auto.name}</h1>
           <span className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
             {acct && <AutomationStatusBadge isActive={auto.isActive} mediaScope={auto.mediaScope} accountStatus={acct.status} />}@{acct?.username} ·{" "}
             {created} 만듦
@@ -57,22 +57,22 @@ export default async function AutomationDetailPage({ params }: { params: Promise
         <AutomationToggle id={auto.id} active={auto.isActive} label={auto.name} />
       </div>
 
-      <section aria-labelledby="stats-title" className="flex flex-col gap-2.5">
+      <section aria-labelledby="stats-title" className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
-          <h2 id="stats-title" className="text-base font-bold">
+          <h2 id="stats-title" className="text-lg font-bold">
             통계
           </h2>
           <span className="text-xs text-muted-foreground">{created}부터 지금까지</span>
         </div>
         <dl className="grid grid-cols-3 gap-2 text-center">
           {cells.map(([k, v, dark]) => (
-            <div key={k} className={cn("rounded-[14px] py-3.5", dark ? "bg-primary text-primary-foreground" : "border bg-card")}>
+            <div key={k} className={cn("rounded-xl py-3.5", dark ? "bg-primary text-primary-foreground" : "border bg-card")}>
               <dt className={cn("text-xs", dark ? "text-primary-foreground/75" : "text-muted-foreground")}>{k}</dt>
               <dd className="mt-1 font-display text-[22px] font-extrabold">{v}</dd>
             </div>
           ))}
         </dl>
-        <ul className="flex flex-col gap-1 text-xs leading-relaxed text-muted-foreground">
+        <ul className="flex flex-col gap-1 text-[13px] leading-normal text-muted-foreground">
           <li>반응한 댓글은 보냄 · 대기 · 실패 · 건너뜀을 모두 더한 수예요.</li>
           {stats.partial > 0 && <li>보냄에는 DM만 가고 공개 답글은 실패한 ‘일부 발송’ {stats.partial.toLocaleString()}건이 들어 있어요.</li>}
           {plan.linkTracking && (
@@ -83,8 +83,8 @@ export default async function AutomationDetailPage({ params }: { params: Promise
         </ul>
       </section>
 
-      <section className="flex flex-col gap-3.5 rounded-2xl border bg-card p-[18px]">
-        <h2 className="text-base font-bold">설정</h2>
+      <section className="flex flex-col gap-3.5 rounded-2xl border bg-card p-5">
+        <h2 className="text-lg font-bold">설정</h2>
         <div className="flex items-center gap-3">
           <MediaThumb url={auto.mediaThumbnailUrl} scope={auto.mediaScope} className="size-14" />
           <div className="flex min-w-0 flex-col gap-1">
@@ -120,15 +120,15 @@ export default async function AutomationDetailPage({ params }: { params: Promise
           </div>
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-muted-foreground">DM</dt>
-            <dd className="whitespace-pre-wrap leading-relaxed">{auto.dmText}</dd>
+            <dd className="whitespace-pre-wrap leading-[1.7]">{auto.dmText}</dd>
           </div>
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-muted-foreground">팔로우</dt>
-            <dd className="leading-relaxed">{auto.followGate ? "팔로워에게만 링크 보내기 · 먼저 ‘팔로우했어요’ 안내" : "확인 안 함"}</dd>
+            <dd className="leading-[1.7]">{auto.followGate ? "팔로워에게만 링크 보내기 · 먼저 ‘팔로우했어요’ 안내" : "확인 안 함"}</dd>
           </div>
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-muted-foreground">링크</dt>
-            <dd className="min-w-0 break-all leading-relaxed">
+            <dd className="min-w-0 break-all leading-[1.7]">
               {auto.dmButtonTitle} → {auto.dmLinkUrl.replace(/^https:\/\//, "")}
             </dd>
           </div>

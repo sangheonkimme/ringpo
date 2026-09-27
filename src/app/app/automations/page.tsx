@@ -16,10 +16,10 @@ export default async function AutomationsPage() {
   const user = await requireUser();
   const autos = await listAutomations(getDb(), user.id);
   return (
-    <main className="flex flex-col gap-4 px-5 pb-28 pt-5">
+    <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em]">자동화</h1>
-        <Link href="/app/automations/new" className="flex h-11 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-white">
+        <h1 className="font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">자동화</h1>
+        <Link href="/app/automations/new" className="flex h-11 items-center gap-1.5 rounded-xl bg-foreground px-5 text-[15px] font-semibold text-white">
           <Plus className="size-4" strokeWidth={2.4} aria-hidden />새 자동화
         </Link>
       </div>
@@ -44,7 +44,7 @@ export default async function AutomationsPage() {
           ))}
         </ul>
       )}
-      <p className="text-[13px] leading-relaxed text-muted-foreground">
+      <p className="text-[13px] leading-normal text-muted-foreground">
         댓글 하나에는 자동화 하나만 반응해요. 특정 게시물용이 먼저, 같은 범위에선 키워드 자동화가 ‘모든 댓글’보다 먼저예요.
       </p>
     </main>

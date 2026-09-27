@@ -12,10 +12,10 @@ export default async function LoginPage() {
   if (await getSessionUser()) redirect("/app");
   const env = getEnv();
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col gap-10 px-6 pb-10 pt-16">
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col gap-10 px-5 pb-10 pt-16">
       <div className="flex flex-col items-center gap-5 text-center">
         <Logo href="/" size="lg" />
-        <h1 className="font-display text-[30px] font-extrabold leading-[1.3] tracking-[-0.03em]">
+        <h1 className="font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">
           댓글 하나로
           <br />
           DM 링크까지, 자동으로
@@ -26,7 +26,7 @@ export default async function LoginPage() {
         kakao={Boolean(env.KAKAO_CLIENT_ID && env.KAKAO_CLIENT_SECRET)}
         google={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
       />
-      <p className="mt-auto text-center text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-auto text-center text-xs leading-normal text-muted-foreground">
         로그인하면{" "}
         <Link href="/terms" className="underline">
           이용약관

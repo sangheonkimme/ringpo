@@ -1,6 +1,7 @@
 import { and, asc, eq, ne } from "drizzle-orm";
 import Link from "next/link";
 import { DeleteAccountButton, DisconnectButton } from "@/components/app/settings-actions";
+import { ToneBadge } from "@/components/app/status-badge";
 import { getUserPlan } from "@/server/billing/plan-of";
 import { getDb } from "@/server/db/client";
 import { account, igAccounts } from "@/server/db/schema";
@@ -22,10 +23,10 @@ export default async function SettingsPage() {
   const plan = await getUserPlan(db, user.id);
 
   return (
-    <main className="flex flex-col gap-4 px-5 pb-28 pt-5">
-      <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em]">설정</h1>
+    <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
+      <h1 className="font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">설정</h1>
 
-      <section className="flex flex-col gap-3.5 rounded-[18px] border bg-card p-[18px]">
+      <section className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-bold">인스타그램 계정</h2>
           <span className="text-[13px] text-muted-foreground">
@@ -39,20 +40,24 @@ export default async function SettingsPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={a.profilePictureUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
               ) : (
-                <span className="size-10 shrink-0 rounded-full bg-[#E6EBF0]" />
+                <span className="size-10 shrink-0 rounded-full bg-accent" />
               )}
               <div className="flex min-w-0 flex-col gap-[3px]">
                 <span className="truncate text-[15px] font-bold">@{a.username}</span>
                 {a.status === "active" ? (
-                  <span className="self-start rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success-ink">연결됨</span>
+                  <ToneBadge tone="success" className="self-start">
+                    연결됨
+                  </ToneBadge>
                 ) : (
-                  <span className="self-start rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger-ink">다시 연결 필요</span>
+                  <ToneBadge tone="danger" className="self-start">
+                    다시 연결 필요
+                  </ToneBadge>
                 )}
               </div>
             </div>
             <div className="flex shrink-0 gap-2">
               {a.status !== "active" && (
-                <a href="/api/instagram/connect" className="flex h-11 items-center rounded-[10px] bg-foreground px-3.5 text-sm font-semibold text-white">
+                <a href="/api/instagram/connect" className="flex h-11 items-center rounded-xl bg-foreground px-5 text-[15px] font-semibold text-white">
                   다시 연결
                 </a>
               )}
@@ -66,14 +71,14 @@ export default async function SettingsPage() {
           </a>
         ) : (
           plan.id !== "agency" && (
-            <p className="text-[13px] leading-relaxed text-muted-foreground">
+            <p className="text-[13px] leading-normal text-muted-foreground">
               지금은 인스타 계정을 1개만 연결할 수 있어요. 여러 계정용 요금제는 준비 중이에요.
             </p>
           )
         )}
       </section>
 
-      <section className="flex flex-col gap-3 rounded-[18px] border bg-card p-[18px]">
+      <section className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
         <h2 className="text-base font-bold">내 계정</h2>
         <p className="text-sm text-ink-2">
           {user.email}

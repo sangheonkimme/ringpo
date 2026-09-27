@@ -7,7 +7,7 @@ import { EventList } from "@/components/app/event-list";
 import { MediaThumb } from "@/components/app/media-thumb";
 import { QuotaBanner } from "@/components/app/quota-banner";
 import { ReauthBanner } from "@/components/app/reauth-banner";
-import { AutomationStatusBadge } from "@/components/app/status-badge";
+import { AutomationStatusBadge, ToneBadge } from "@/components/app/status-badge";
 import { cn } from "@/lib/utils";
 import { getDb } from "@/server/db/client";
 import { getDashboard } from "@/server/dashboard";
@@ -53,23 +53,24 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-2.5">
           {primary.profilePictureUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={primary.profilePictureUrl} alt="" className="size-10 rounded-full border-2 border-white object-cover shadow-[0_0_0_1px_var(--border)]" />
+            <img src={primary.profilePictureUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
           ) : (
-            <span className="size-10 rounded-full border-2 border-white bg-accent shadow-[0_0_0_1px_var(--border)]" />
+            <span className="size-10 shrink-0 rounded-full bg-accent" />
           )}
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-[3px]">
             <span className="text-base font-bold">@{primary.username}</span>
             {primary.status === "active" ? (
-              <span className="flex items-center gap-1.5 text-[13px] text-success-ink">
-                <span className="size-[7px] rounded-full bg-success" />
+              <ToneBadge tone="success" className="self-start">
                 연결됨
-              </span>
+              </ToneBadge>
             ) : (
-              <span className="text-[13px] text-danger-ink">다시 연결 필요</span>
+              <ToneBadge tone="danger" className="self-start">
+                다시 연결 필요
+              </ToneBadge>
             )}
           </div>
         </div>
-        <span className="rounded-full bg-foreground px-3 py-1 text-xs font-bold text-white">{d.plan.name}</span>
+        <span className="rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-white">{d.plan.name}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -106,7 +107,7 @@ export default async function DashboardPage() {
             <h2 className="text-lg font-bold">자동화</h2>
             {d.automations.length > 0 && <span className="text-xs text-muted-foreground">통계는 만든 뒤 전체 기간</span>}
           </div>
-          <Link href="/app/automations/new" className="flex h-10 items-center gap-1.5 rounded-[10px] bg-foreground px-3.5 text-sm font-semibold text-white">
+          <Link href="/app/automations/new" className="flex h-11 items-center gap-1.5 rounded-xl bg-foreground px-5 text-[15px] font-semibold text-white">
             <Plus className="size-4" strokeWidth={2.4} aria-hidden />새 자동화
           </Link>
         </div>
@@ -116,7 +117,7 @@ export default async function DashboardPage() {
           d.automations.map((a) => {
             const last = d.plan.linkTracking ? ["클릭", a.stats.clicks] : ["대기", a.stats.pending];
             return (
-              <Link key={a.id} href={`/app/automations/${a.id}`} className="flex flex-col gap-3.5 rounded-2xl border bg-card p-4">
+              <Link key={a.id} href={`/app/automations/${a.id}`} className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
                 <div className="flex items-center gap-3">
                   <MediaThumb url={a.mediaThumbnailUrl} scope={a.mediaScope} className="size-12" />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -138,7 +139,7 @@ export default async function DashboardPage() {
                     ["실패", a.stats.failed],
                     last,
                   ].map(([k, v]) => (
-                    <div key={k} className="rounded-[10px] bg-background py-2">
+                    <div key={k} className="rounded-xl bg-background py-2">
                       <dt className="text-[11px] text-muted-foreground">{k}</dt>
                       <dd className="mt-0.5 text-base font-bold">{Number(v).toLocaleString()}</dd>
                     </div>

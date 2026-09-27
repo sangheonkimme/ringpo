@@ -15,13 +15,13 @@ export function SiteHeader() {
         <Logo href="/" size="responsive" />
         <nav aria-label="사이트 메뉴" className="flex items-center gap-1">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className="hidden px-4 py-3 text-[15px] font-medium hover:text-brand-ink md:block">
+            <Link key={l.href} href={l.href} className="hidden px-4 py-3 text-[15px] font-medium hover:text-ink-2 md:block">
               {l.label}
             </Link>
           ))}
           <Link
             href="/login"
-            className="ml-2 flex h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground md:px-[22px] md:text-[15px]"
+            className="ml-2 flex h-11 items-center rounded-xl bg-primary px-5 text-[15px] font-semibold text-primary-foreground"
           >
             무료로 시작
           </Link>

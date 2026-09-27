@@ -10,7 +10,7 @@ export function QuotaBanner({ usage, limit, now }: { usage: number; limit: numbe
       <Gauge className="mt-0.5 size-[18px] shrink-0" aria-hidden />
       <div className="flex flex-col gap-1">
         <p className="font-semibold">이번 달 DM {limit.toLocaleString()}건을 모두 썼어요</p>
-        <p className="leading-relaxed">
+        <p className="leading-[1.7]">
           지금 들어오는 댓글에는 답글과 DM을 보내지 않고 건너뛰어요. {nextMonthStartKst(now)}에 다시 보내기 시작해요.{" "}
           <Link href="/app/billing" className="font-semibold underline">
             플랜 올리기

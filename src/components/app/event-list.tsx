@@ -6,7 +6,7 @@ import { StatusBadge } from "./status-badge";
 
 export function EventList({ events, showAutomation = true }: { events: EventRow[]; showAutomation?: boolean }) {
   if (events.length === 0) {
-    return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">아직 발송 기록이 없어요</p>;
+    return <p className="rounded-2xl border border-dashed border-input p-6 text-center text-sm text-ink-2">아직 발송 기록이 없어요</p>;
   }
   const now = new Date();
   return (

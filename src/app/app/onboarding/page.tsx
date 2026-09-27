@@ -25,10 +25,10 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const connected = d.accounts.some((a) => a.status === "active");
 
   return (
-    <main className="flex flex-col gap-4 px-5 pb-28 pt-6">
+    <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
       <div className="flex flex-col gap-2">
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.03em]">3단계로 시작해요</h1>
-        <p className="text-[15px] leading-relaxed text-ink-2">인스타 계정을 연결하면 바로 첫 자동화를 만들 수 있어요.</p>
+        <h1 className="font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">3단계로 시작해요</h1>
+        <p className="text-[15px] leading-[1.7] text-ink-2">인스타 계정을 연결하면 바로 첫 자동화를 만들 수 있어요.</p>
       </div>
       {sp.error && ERRORS[sp.error] && (
         <p role="alert" className="rounded-2xl bg-danger-soft p-4 text-sm text-danger-ink">

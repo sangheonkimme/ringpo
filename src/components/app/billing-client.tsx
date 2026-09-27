@@ -33,7 +33,7 @@ function newIssueId(): string {
   return `issue_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const field = "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const field = "h-[52px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring";
 
 export function BillingClient({ storeId, channelKey, appUrl, user, current }: BillingClientProps) {
   const router = useRouter();
@@ -87,12 +87,12 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
         const upgrade = !current.paidActive || isUpgrade(current.plan, id);
         const open = selected === id;
         return (
-          <section key={id} className={cn("flex flex-col gap-3 rounded-[18px] bg-card p-[18px]", isCurrent ? "border-2 border-foreground" : "border")}>
+          <section key={id} className={cn("flex flex-col gap-3 rounded-2xl bg-card p-5", isCurrent ? "border-2 border-foreground" : "border")}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">{plan.name}</h2>
               <span className="text-[15px] font-semibold">{formatKrw(plan.priceKrw)} / 월</span>
             </div>
-            <p className="text-[13px] leading-relaxed text-muted-foreground">{SUMMARY[id]}</p>
+            <p className="text-[13px] leading-normal text-muted-foreground">{SUMMARY[id]}</p>
             {open && (
               <div className="flex flex-col gap-3.5">
                 <div className="flex flex-col gap-2">
@@ -116,7 +116,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
                     className={field}
                   />
                 </div>
-                <p className="rounded-xl bg-background px-3.5 py-3 text-[13px] leading-relaxed text-ink-2">
+                <p className="rounded-xl bg-background px-3.5 py-3.5 text-[13px] leading-normal text-ink-2">
                   {isCurrent
                     ? "새 카드를 등록하면 다음 결제부터 새 카드로 청구돼요."
                     : current.paidActive
@@ -132,7 +132,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
                     type="button"
                     disabled={pending}
                     onClick={() => setSelected(null)}
-                    className="h-[52px] rounded-xl border-[1.5px] border-foreground px-[18px] text-[15px] font-semibold disabled:opacity-60"
+                    className="h-[54px] rounded-xl border-[1.5px] border-foreground px-5 text-base font-semibold disabled:opacity-60"
                   >
                     취소
                   </button>
@@ -140,7 +140,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
                     type="button"
                     disabled={pending}
                     onClick={() => startTransition(() => registerAndPay(id))}
-                    className="h-[52px] flex-1 rounded-xl bg-foreground text-[15px] font-semibold text-white disabled:opacity-60"
+                    className="h-[54px] flex-1 rounded-xl bg-foreground text-base font-semibold text-white disabled:opacity-60"
                   >
                     {isCurrent ? "새 카드 등록" : `${formatKrw(plan.priceKrw)} 결제하고 ${current.paidActive ? `${plan.name}로 변경` : `${plan.name} 시작`}`}
                   </button>
@@ -180,7 +180,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
       {current.paidActive && (
         <div className="text-center">
           {current.cancelAtPeriodEnd ? (
-            <button type="button" disabled={pending} onClick={() => act(resumeSubscriptionAction, "해지를 취소했어요")} className="h-11 px-3 text-sm font-semibold underline">
+            <button type="button" disabled={pending} onClick={() => act(resumeSubscriptionAction, "해지를 취소했어요")} className="h-11 rounded-xl px-5 text-[15px] font-semibold underline">
               해지 취소하고 계속 이용하기
             </button>
           ) : (
@@ -188,7 +188,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
               type="button"
               disabled={pending}
               onClick={() => act(cancelSubscriptionAction, "현재 결제 기간이 끝나면 해지돼요")}
-              className="h-11 px-3 text-sm text-muted-foreground underline"
+              className="h-11 rounded-xl px-5 text-[15px] font-semibold text-muted-foreground underline"
             >
               구독 해지
             </button>

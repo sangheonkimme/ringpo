@@ -82,23 +82,25 @@ export function LoginForm({ kakao, google }: { kakao: boolean; google: boolean }
         </div>
       )}
       <form onSubmit={sendLink} className="flex flex-col gap-3">
-        <label htmlFor="login-email" className="text-sm font-semibold">
-          이메일
-        </label>
-        <input
-          id="login-email"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="h-[52px] rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
+        <div className="flex flex-col gap-2">
+          <label htmlFor="login-email" className="text-sm font-semibold">
+            이메일
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-[52px] rounded-xl border border-input bg-card px-4 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
         <button
           type="submit"
           disabled={pending}
-          className="h-[54px] rounded-xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-60"
+          className="h-[54px] rounded-xl bg-foreground text-base font-semibold text-white disabled:opacity-60"
         >
           이메일로 로그인 링크 받기
         </button>

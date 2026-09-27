@@ -10,11 +10,11 @@ export function DmAccessBanner({ accounts }: { accounts: { username: string; sta
       <MessageSquareOff className="mt-0.5 size-[18px] shrink-0" aria-hidden />
       <div className="flex flex-col gap-2">
         <p className="font-semibold">DM이 막혀 있어요</p>
-        <p className="leading-relaxed">
+        <p className="leading-[1.7]">
           {blocked.map((a) => `@${a.username}`).join(", ")} 계정에서 ‘메시지 접근 허용’이 꺼져 있어서 DM을 보내지 못했어요. 인스타 앱에서
           켜 주세요.
         </p>
-        <ol className="flex list-decimal flex-col gap-1 pl-5 leading-relaxed">
+        <ol className="flex list-decimal flex-col gap-1 pl-5 leading-[1.7]">
           {MESSAGE_ACCESS_STEPS.map((s) => (
             <li key={s}>{s}</li>
           ))}

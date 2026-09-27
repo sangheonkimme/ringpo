@@ -71,7 +71,7 @@ export default function LandingPage() {
     <>
       <section className={`${container} grid items-center gap-12 pb-12 pt-10 md:grid-cols-2 md:gap-14 md:pb-[104px] md:pt-[88px]`}>
         <div className="flex flex-col gap-5 md:gap-7">
-          <p className="flex items-center gap-2.5 text-sm font-semibold text-ink-2 md:text-[15px]">
+          <p className="flex items-center gap-2.5 text-sm font-semibold text-muted-foreground md:text-[15px]">
             <span className="size-2 rounded-full bg-brand" />
             인스타그램 댓글 자동 DM
           </p>
@@ -90,14 +90,14 @@ export default function LandingPage() {
           <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-3">
             <Link
               href="/login"
-              className="flex h-[54px] items-center justify-center gap-2.5 rounded-[14px] bg-primary px-7 text-base font-semibold text-primary-foreground md:h-[58px] md:text-[17px]"
+              className="flex h-[54px] items-center justify-center gap-2.5 rounded-xl bg-primary px-7 text-base font-semibold text-primary-foreground md:h-[58px] md:rounded-2xl md:text-[17px]"
             >
               무료로 시작하기
               <ArrowRight className="size-5" aria-hidden />
             </Link>
             <Link
               href="#pricing"
-              className="flex h-[54px] items-center justify-center rounded-[14px] border-[1.5px] border-foreground px-6 text-base font-semibold md:h-[58px] md:text-[17px]"
+              className="flex h-[54px] items-center justify-center rounded-xl border-[1.5px] border-foreground px-6 text-base font-semibold md:h-[58px] md:rounded-2xl md:text-[17px]"
             >
               요금 보기
             </Link>
@@ -110,7 +110,7 @@ export default function LandingPage() {
       </section>
 
       <section className="border-y bg-card">
-        <div className={`${container} flex flex-col gap-8 py-14 md:gap-12 md:py-24`}>
+        <div className={`${container} flex flex-col gap-8 py-14 md:gap-12 md:py-28`}>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-10">
             <h2 className={h2}>
               공구부터 자료 배포까지,
@@ -123,7 +123,7 @@ export default function LandingPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-3 md:gap-6">
             {personas.map((p) => (
-              <article key={p.who} className="flex flex-col gap-4 rounded-[20px] bg-background p-6 md:gap-[18px] md:p-7">
+              <article key={p.who} className="flex flex-col gap-4 rounded-2xl bg-background p-6 md:gap-[18px] md:rounded-3xl md:p-7">
                 <p className="text-sm font-semibold text-muted-foreground">{p.who}</p>
                 <h3 className="font-display text-[22px] font-bold leading-[1.35] tracking-[-0.02em] md:text-[26px]">
                   {p.title[0]}
@@ -159,7 +159,7 @@ export default function LandingPage() {
               </span>
               <div className="flex flex-col gap-1.5 md:gap-2.5">
                 <h3 className="text-lg font-bold md:text-2xl">{s.title}</h3>
-                <p className="text-[15px] leading-[1.65] text-ink-2 md:text-[17px] md:leading-[1.7]">{s.body}</p>
+                <p className="text-[15px] leading-[1.7] text-ink-2 md:text-[17px]">{s.body}</p>
               </div>
             </li>
           ))}
@@ -167,15 +167,15 @@ export default function LandingPage() {
       </section>
 
       <section className="bg-foreground text-background">
-        <div className={`${container} flex flex-col gap-6 py-14 md:gap-14 md:py-[104px]`}>
+        <div className={`${container} flex flex-col gap-6 py-14 md:gap-14 md:py-28`}>
           <h2 className={h2}>댓글 이벤트에 필요한 것만 담았어요</h2>
           <div className="grid gap-3 md:grid-cols-3 md:gap-5">
             {features.map(({ icon: Icon, title, body, pro }) => (
-              <div key={title} className="flex gap-3.5 rounded-2xl border border-[#304B68] bg-[#20354F] p-[18px] md:flex-col md:rounded-[20px] md:p-7">
+              <div key={title} className="flex gap-3.5 rounded-2xl border border-ink-700 bg-sidebar-accent p-[18px] md:flex-col md:rounded-3xl md:p-7">
                 <div className="flex items-start justify-between">
                   <Icon className="size-6 shrink-0 text-brand md:size-7" aria-hidden />
                   {pro && (
-                    <span className="hidden rounded-full border border-[#304B68] px-2.5 py-0.5 text-xs font-semibold text-[#D3DBE5] md:inline">Pro</span>
+                    <span className="hidden rounded-full border border-ink-700 px-2.5 py-0.5 text-xs font-semibold text-input md:inline">Pro</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-1 md:gap-3.5">
@@ -183,7 +183,7 @@ export default function LandingPage() {
                     {title}
                     {pro && <span className="md:hidden"> · Pro</span>}
                   </h3>
-                  <p className="text-sm leading-relaxed text-[#D3DBE5] md:text-[15px] md:leading-[1.7]">{body}</p>
+                  <p className="text-sm leading-[1.7] text-input md:text-[15px]">{body}</p>
                 </div>
               </div>
             ))}
@@ -192,21 +192,21 @@ export default function LandingPage() {
       </section>
 
       <section id="pricing" className={`${container} flex flex-col gap-10 py-14 md:gap-12 md:py-28`}>
-        <div className="flex flex-col gap-2 md:items-center md:gap-3.5 md:text-center">
+        <div className="flex flex-col gap-3 md:items-center md:gap-4 md:text-center">
           <p className="text-sm font-semibold text-muted-foreground md:text-[15px]">요금</p>
           <h2 className={h2}>필요한 만큼만 쓰세요</h2>
-          <p className="text-sm leading-relaxed text-ink-2 md:text-[17px]">
+          <p className="text-[15px] leading-[1.7] text-ink-2 md:text-[17px]">
             모든 플랜은 월 단위 자동 결제이며 언제든 해지할 수 있어요. 금액은 VAT 포함이에요.
           </p>
         </div>
         <PricingCards />
-        <p className="text-center text-[13px] leading-[1.7] text-muted-foreground md:text-sm">
+        <p className="text-center text-[13px] leading-normal text-muted-foreground md:text-sm md:leading-[1.7]">
           DM 한도는 매월 1일(한국 시간)에 초기화돼요 · Pro는 결제 즉시 시작되고, 해지는 결제 기간이 끝날 때 적용돼요 · 여러 계정용 요금제는 준비 중이에요
         </p>
       </section>
 
       <section id="faq" className="border-t bg-card">
-        <div className={`${container} grid gap-2 py-12 md:grid-cols-12 md:gap-6 md:py-[104px]`}>
+        <div className={`${container} grid gap-2 py-14 md:grid-cols-12 md:gap-6 md:py-28`}>
           <h2 className={`${h2} mb-2 md:col-span-4`}>
             자주 묻는
             <br className="hidden md:block" /> 질문
@@ -223,7 +223,7 @@ export default function LandingPage() {
       </section>
 
       <section className="bg-brand">
-        <div className={`${container} flex flex-col gap-5 py-12 md:flex-row md:items-center md:justify-between md:gap-10 md:py-24`}>
+        <div className={`${container} flex flex-col gap-5 py-14 md:flex-row md:items-center md:justify-between md:gap-10 md:py-28`}>
           <h2 className="font-display text-[30px] font-extrabold leading-[1.25] tracking-[-0.035em] text-foreground md:text-[56px] md:leading-[1.15]">
             다음 공구 게시물부터,
             <br />
@@ -231,7 +231,7 @@ export default function LandingPage() {
           </h2>
           <Link
             href="/login"
-            className="flex h-[54px] shrink-0 items-center justify-center gap-2.5 rounded-[14px] bg-foreground px-8 text-base font-semibold text-white md:h-16 md:rounded-2xl md:text-lg"
+            className="flex h-[54px] shrink-0 items-center justify-center gap-2.5 rounded-xl bg-foreground px-8 text-base font-semibold text-white md:h-[58px] md:rounded-2xl md:text-[17px]"
           >
             무료로 시작하기
             <ArrowRight className="size-5" aria-hidden />

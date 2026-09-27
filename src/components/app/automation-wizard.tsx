@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { saveAutomationAction } from "@/app/app/automations/actions";
 import { MediaPicker, type PickedMedia } from "@/components/app/media-picker";
-import { MessagePreview } from "@/components/app/message-preview";
+import { DmBubble, MessagePreview } from "@/components/app/message-preview";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +45,7 @@ const SCOPE_LABEL = { specific: "특정 게시물", all: "모든 게시물", nex
 const SAVE_FAILED = "저장하지 못했어요. 앱이 새로 배포됐을 수 있어요. 새로고침해도 입력한 내용은 그대로 남아요.";
 
 const input =
-  "h-[50px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "h-[52px] w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function OptionCard({
   selected,
@@ -66,20 +66,20 @@ function OptionCard({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "flex w-full items-start gap-3.5 rounded-[14px] border-2 bg-card p-4 text-left",
+        "flex w-full items-start gap-3.5 rounded-xl border-2 bg-card p-4 text-left",
         selected ? "border-foreground" : "border-border",
       )}
     >
       {selected ? (
-        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-foreground">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground">
           <Check className="size-3.5 text-white" strokeWidth={3} aria-hidden />
         </span>
       ) : (
-        <span className="size-[22px] shrink-0 rounded-full border-2 border-[#D3DBE5]" />
+        <span className="size-6 shrink-0 rounded-full border-2 border-input" />
       )}
       <span className="flex flex-col gap-1.5">
         <span className="text-base font-bold">{title}</span>
-        <span className="text-[13px] leading-relaxed text-muted-foreground">{description}</span>
+        <span className="text-[13px] leading-normal text-muted-foreground">{description}</span>
         {children}
       </span>
     </button>
@@ -340,7 +340,7 @@ export function AutomationWizard({
                 </div>
               </div>
             )}
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               <OptionCard
                 selected={draft.mediaScope === "specific"}
                 title="특정 게시물·릴스"
@@ -363,7 +363,7 @@ export function AutomationWizard({
             {draft.mediaScope === "specific" && draft.igAccountId && (
               <div className="flex flex-col gap-3">
                 <div className="mt-2 flex items-center justify-between">
-                  <h2 className="text-[15px] font-bold">게시물 선택</h2>
+                  <h2 className="text-sm font-semibold">게시물 선택</h2>
                   <span className="text-[13px] text-muted-foreground">최근 게시물</span>
                 </div>
                 <MediaPicker key={draft.igAccountId} accountId={draft.igAccountId} value={draft.media} onChange={(m) => set("media", m)} />
@@ -379,7 +379,7 @@ export function AutomationWizard({
               <br />
               반응할까요?
             </h1>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               <OptionCard
                 selected={draft.matchType === "contains"}
                 title="키워드가 들어간 댓글"
@@ -408,7 +408,7 @@ export function AutomationWizard({
               />
             </div>
             {draft.matchType !== "any" && (
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2">
                 <label htmlFor="kw" className="text-sm font-semibold">
                   반응할 키워드
                 </label>
@@ -425,9 +425,9 @@ export function AutomationWizard({
                         addKeyword();
                       }
                     }}
-                    className={cn(input, "h-[52px] min-w-0 flex-1 text-base")}
+                    className={cn(input, "min-w-0 flex-1")}
                   />
-                  <button type="button" onClick={addKeyword} className="h-[52px] rounded-xl border-[1.5px] border-foreground bg-card px-[18px] text-[15px] font-semibold">
+                  <button type="button" onClick={addKeyword} className="h-[52px] rounded-xl border-[1.5px] border-foreground bg-card px-5 text-[15px] font-semibold">
                     추가
                   </button>
                 </div>
@@ -448,7 +448,7 @@ export function AutomationWizard({
                 </div>
               </div>
             )}
-            <p className="rounded-xl bg-neutral-soft px-3.5 py-3 text-[13px] leading-relaxed text-ink-2">
+            <p className="rounded-xl bg-neutral-soft px-3.5 py-3.5 text-[13px] leading-normal text-ink-2">
               영문 대소문자, 전각 문자(ＬＩＮＫ), 띄어쓰기 차이는 구분하지 않아요. ‘모든 댓글’을 고르면 키워드 입력은 필요 없어요.
             </p>
           </>
@@ -461,15 +461,15 @@ export function AutomationWizard({
               <br />
               달아둘까요?
             </h1>
-            <div className="flex items-center justify-between gap-3 rounded-[14px] border bg-card py-3.5 pl-4 pr-2">
+            <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-4">
               <span className="flex flex-col gap-0.5">
                 <span className="text-[15px] font-bold">공개 답글 달기</span>
-                <span className="text-[13px] text-muted-foreground">다른 팔로워에게도 DM이 간다는 걸 보여줘요</span>
+                <span className="text-[13px] leading-normal text-muted-foreground">다른 팔로워에게도 DM이 간다는 걸 보여줘요</span>
               </span>
               <ToggleSwitch checked={draft.replyEnabled} onChange={(v) => set("replyEnabled", v)} label="공개 답글 달기" />
             </div>
             {draft.replyEnabled && (
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between">
                   <h2 className="text-sm font-semibold">답글 문구</h2>
                   <span className="text-xs text-muted-foreground">
@@ -504,20 +504,20 @@ export function AutomationWizard({
                     <button
                       type="button"
                       onClick={() => set("replyTexts", [...draft.replyTexts, "{username} "])}
-                      className="flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-[#8793A3] px-3.5 text-sm font-semibold"
+                      className="flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-[#8793A3] px-5 text-[15px] font-semibold"
                     >
                       <Plus className="size-4" strokeWidth={2.4} aria-hidden />
                       문구 추가
                     </button>
                   )}
-                  <button type="button" onClick={insertUsername} className="h-11 rounded-xl bg-neutral-soft px-3.5 text-sm font-semibold">
+                  <button type="button" onClick={insertUsername} className="h-11 rounded-xl bg-neutral-soft px-5 text-[15px] font-semibold">
                     {"{username}"} 넣기
                   </button>
                 </div>
                 {cleanReplies.length < 3 && <p className="text-xs text-warning-ink">문구를 3개 이상 넣는 걸 권장해요.</p>}
               </div>
             )}
-            <ul className="flex list-disc flex-col gap-1.5 rounded-xl bg-neutral-soft py-3.5 pl-8 pr-3.5 text-[13px] leading-relaxed text-ink-2">
+            <ul className="flex list-disc flex-col gap-1.5 rounded-xl bg-neutral-soft py-3.5 pl-8 pr-3.5 text-[13px] leading-normal text-ink-2">
               <li>{"{username}"}은 댓글 단 사람의 @아이디로 바뀌어요.</li>
               <li>같은 문구만 반복하면 스팸으로 보일 수 있어 3개 이상을 권장해요.</li>
               <li>공개 답글에는 링크를 넣을 수 없어요. 링크는 DM으로 보내요.</li>
@@ -543,7 +543,7 @@ export function AutomationWizard({
                 value={draft.dmText}
                 placeholder="예: 요청하신 공구 링크 보내드려요. 오늘 자정까지 특가예요."
                 onChange={(e) => set("dmText", e.target.value)}
-                className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-[1.6] outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <span className="self-end text-xs text-muted-foreground">
                 {Array.from(draft.dmText).length} / {DM_TEXT_MAX}
@@ -571,21 +571,15 @@ export function AutomationWizard({
                 )}
               </span>
             </div>
-            <div className="flex flex-col gap-2.5 rounded-2xl border bg-card p-4">
-              <span className="text-xs font-semibold text-muted-foreground">받는 사람 화면 미리보기</span>
-              <p className="max-w-[88%] whitespace-pre-wrap rounded-[16px_16px_16px_6px] bg-bubble px-3.5 py-3 text-sm leading-relaxed">
-                {draft.dmText || "DM 내용"}
-                {branding && <span className="mt-2 block text-xs text-muted-foreground">{branding}</span>}
-              </p>
-              <span className="flex h-[42px] max-w-[88%] items-center justify-center rounded-[10px] border text-sm font-semibold">
-                {draft.dmButtonTitle || "버튼"}
-              </span>
-            </div>
             <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-muted-foreground">받는 사람 화면 미리보기</span>
+              <DmBubble text={draft.dmText || "DM 내용"} buttonTitle={draft.dmButtonTitle || "버튼"} branding={branding} />
+            </div>
+            <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-[15px] font-bold">팔로워에게만 링크 보내기</span>
-                  <span className="text-[13px] leading-relaxed text-muted-foreground">
+                  <span className="text-[13px] leading-normal text-muted-foreground">
                     켜면 먼저 ‘팔로우했어요’ 버튼이 달린 안내를 보내고, 버튼을 눌렀을 때 팔로우가 확인되면 링크를 보내요. 이미 팔로우한
                     사람도 버튼을 한 번 눌러야 해요.
                   </span>
@@ -604,9 +598,9 @@ export function AutomationWizard({
                     value={draft.followGateText}
                     placeholder={DEFAULT_FOLLOW_GATE_TEXT}
                     onChange={(e) => set("followGateText", e.target.value)}
-                    className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="resize-none rounded-xl border border-input bg-card px-4 py-3.5 text-base leading-[1.6] outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                  <span className="text-xs leading-relaxed text-muted-foreground">
+                  <span className="text-xs leading-normal text-muted-foreground">
                     버튼 문구는 ‘팔로우했어요’로 고정이에요. 팔로우가 안 돼 있으면 “아직 팔로우가 확인되지 않았어요”라고 다시 안내해요.
                   </span>
                 </div>
@@ -647,7 +641,7 @@ export function AutomationWizard({
                 </div>
               ))}
             </dl>
-            <p className="rounded-xl bg-neutral-soft px-3.5 py-3 text-[13px] leading-relaxed text-ink-2">
+            <p className="rounded-xl bg-neutral-soft px-3.5 py-3.5 text-[13px] leading-normal text-ink-2">
               인스타그램 규칙상 DM은 댓글 1개당 1번, 댓글 후 7일 안에만 보낼 수 있어요. 이 자동화는 게시물마다 한 사람에게 한
               번만 보내요.
             </p>
@@ -663,7 +657,7 @@ export function AutomationWizard({
                 type="button"
                 disabled={pending}
                 onClick={() => save(false)}
-                className="h-[54px] rounded-[14px] border-[1.5px] border-foreground px-5 text-base font-semibold disabled:opacity-60"
+                className="h-[54px] rounded-xl border-[1.5px] border-foreground px-5 text-base font-semibold disabled:opacity-60"
               >
                 저장만
               </button>
@@ -671,7 +665,7 @@ export function AutomationWizard({
                 type="button"
                 disabled={pending}
                 onClick={() => save(true)}
-                className="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-[14px] bg-foreground text-base font-semibold text-white disabled:opacity-60"
+                className="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-xl bg-foreground text-base font-semibold text-white disabled:opacity-60"
               >
                 <span className="size-2 rounded-full bg-brand" />
                 켜고 저장
@@ -680,11 +674,11 @@ export function AutomationWizard({
           ) : (
             <>
               {step > 0 && (
-                <button type="button" onClick={back} className="h-[54px] rounded-[14px] border-[1.5px] border-foreground px-[22px] text-base font-semibold">
+                <button type="button" onClick={back} className="h-[54px] rounded-xl border-[1.5px] border-foreground px-5 text-base font-semibold">
                   이전
                 </button>
               )}
-              <button type="button" onClick={next} className="h-[54px] flex-1 rounded-[14px] bg-foreground text-base font-semibold text-white">
+              <button type="button" onClick={next} className="h-[54px] flex-1 rounded-xl bg-foreground text-base font-semibold text-white">
                 다음
               </button>
             </>
