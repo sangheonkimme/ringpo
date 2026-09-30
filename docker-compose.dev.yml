@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: igc_dev
+    ports:
+      - "54329:5432"
+    volumes:
+      - igc-dev-pg:/var/lib/postgresql/data
+      - ./scripts/dev-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+volumes:
+  igc-dev-pg: {}
