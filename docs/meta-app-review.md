@@ -83,9 +83,10 @@
 ## 진행 상황 (2026-09-30)
 
 - 앱 검수 요청서: 권한 3개(`instagram_business_basic`, `instagram_business_manage_comments`, `instagram_business_manage_messages`)만 담음. 허용되는 사용 방법·데이터 처리·검수자 지침 작성 완료, 영상 업로드 완료
-- 검수용 테스트 게시물: https://www.instagram.com/p/Dd1UjTtE7ZV/ (@dailybuilder.b, "link 자동화" 켜짐, 팔로우 확인 끔). 검수가 끝날 때까지 끄거나 지우지 않는다
+- 검수용 테스트 게시물: https://www.instagram.com/p/Dd1UjTtE7ZV/ (@dailybuilder.b, "link 자동화" 켜짐, 팔로우 확인 끔). 검수가 끝났으므로 이제 바꾸거나 지워도 된다
 - 비즈니스 인증: 비즈니스 포트폴리오 "레일릿" 인증됨 (영문 사업자등록증명 + 부가가치세 신고서로 제출)
-- **앱 검수 제출 완료 (2026-09-30): 검토 진행 중.** Meta 안내상 대부분 20일 이내
+- 앱 검수 제출 (2026-09-30)
+- **승인 (2026-10-12): 권한 3개 모두 승인됨.** 테스터가 아닌 일반 사용자도 인스타그램을 연결할 수 있다
 - 시연 영상: `~/Documents/01_레일릿/10_링포/03_앱 검수/링포_Meta앱검수_시연영상_최종_영어자막.mp4`
 
 ## 5. 자주 거절되는 이유 (피하기)
