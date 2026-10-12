@@ -3,7 +3,7 @@
   "attachments": {},
   "boards": {
     "AutomationDetail.dc.html": {
-      "h": 1440,
+      "h": 1500,
       "title": "자동화 상세",
       "w": 390,
       "x": 3990,
@@ -17,21 +17,22 @@
       "y": 0
     },
     "Billing.dc.html": {
-      "h": 1560,
+      "h": 1032,
       "title": "결제",
       "w": 390,
       "x": 2110,
-      "y": 3540
+      "y": 3600,
+      "is_interactive": true
     },
     "Dashboard.dc.html": {
-      "h": 1500,
+      "h": 1360,
       "title": "홈",
       "w": 390,
       "x": 3050,
       "y": 0
     },
     "LandingMobile.dc.html": {
-      "h": 4900,
+      "h": 6253,
       "title": "랜딩 · 모바일",
       "w": 390,
       "x": 1520,
@@ -45,14 +46,14 @@
       "y": 0
     },
     "Main.dc.html": {
-      "h": 5400,
+      "h": 5219,
       "title": "랜딩 · 데스크톱",
       "w": 1440,
       "x": 0,
       "y": 0
     },
     "Onboarding.dc.html": {
-      "h": 1180,
+      "h": 1100,
       "title": "온보딩",
       "w": 390,
       "x": 2580,
@@ -63,10 +64,10 @@
       "title": "설정",
       "w": 390,
       "x": 2580,
-      "y": 3540
+      "y": 3600
     },
     "WizardDm.dc.html": {
-      "h": 900,
+      "h": 1490,
       "title": "④ DM",
       "w": 390,
       "x": 3520,
@@ -80,7 +81,7 @@
       "y": 1960
     },
     "WizardMedia.dc.html": {
-      "h": 1080,
+      "h": 1040,
       "title": "① 게시물",
       "w": 390,
       "x": 2110,
@@ -94,7 +95,7 @@
       "y": 1960
     },
     "WizardReview.dc.html": {
-      "h": 1120,
+      "h": 1360,
       "title": "⑤ 확인",
       "w": 390,
       "x": 3990,
@@ -116,7 +117,7 @@
       "text": "앱 — 결제와 설정",
       "w": 240,
       "x": 2110,
-      "y": 3280
+      "y": 3340
     },
     "appHome": {
       "kind": "title1",
@@ -160,5 +161,5 @@
     "Settings.dc.html"
   ],
   "pages": [],
-  "title": "리치업 전체 시안"
+  "title": "링포 전체 시안"
 }

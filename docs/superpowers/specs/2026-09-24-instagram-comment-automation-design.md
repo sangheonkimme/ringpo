@@ -1,8 +1,8 @@
-# 리치업(ReachUp) — 인스타그램 댓글 자동응답 서비스 설계 (MVP)
+# 링포(Ringpo) — 인스타그램 댓글 자동응답 서비스 설계 (MVP)
 
 - 작성일: 2026-09-24
 - 원본 PRD: https://claude.ai/code/artifact/d85fc834-d9f1-43d0-b5a4-82be95dfff3e
-- 서비스명: 리치업(ReachUp). 도메인 후보는 reachup.kr, reachup.co.kr(2026-09-24 whois 기준 미등록)
+- 서비스명: 링포(Ringpo). 도메인 후보는 ringpo.kr, ringpo.co.kr, getringpo.com(2026-09-24 whois 기준 미등록, ringpo.com은 등록됨). GitHub 저장소는 `ringpo`
 - 디자인 시안: https://claude.ai/artifact/SRaJbXr46m8aYjGvgcjn16 (소스 사본 `docs/design/`)
 - 범위: PRD P0(F1~F6) + F7(링크 클릭 추적) + 정기결제 + 랜딩·법적 페이지·Meta 콜백
 
@@ -91,7 +91,7 @@ src/
       health/               헬스체크
     l/[code]/               단축 링크 리다이렉트 (F7)
     data-deletion/[code]/   삭제 요청 상태 페이지
-  server/                   서버 전용 도메인 로직 ("server-only")
+  server/                   서버 전용 도메인 로직 (`server-only` 패키지는 쓰지 않는다. 워커 번들과 Vitest가 같은 모듈을 불러오기 때문이다)
     db/                     schema.ts, client.ts, migrate.ts
     auth.ts                 Better Auth 인스턴스
     env.ts                  zod 환경변수 검증
@@ -225,6 +225,7 @@ DM 발송 전 `UPDATE ... SET dm_count = dm_count + 1 WHERE dm_count < :limit RE
 | pending_plan | text null | 기간 종료 시 전환할 하위 플랜 |
 | retry_count | int | 갱신 결제 실패 횟수 |
 | next_retry_at | timestamptz null | |
+| billing_locked_until | timestamptz null | 청구 리스(2분). 같은 구독의 청구를 직렬화한다 (7.8 참고) |
 | created_at, updated_at | timestamptz | |
 
 구독 행이 없으면 Free로 취급한다.
@@ -236,7 +237,7 @@ DM 발송 전 `UPDATE ... SET dm_count = dm_count + 1 WHERE dm_count < :limit RE
 `id`, `confirmation_code` UNIQUE, `ig_user_id`, `status`(`received`/`completed`), `created_at`, `completed_at`.
 
 ### `worker_heartbeats`
-`worker_id` PK, `beat_at`. `/api/health`가 마지막 하트비트가 60초 이내인지 확인한다.
+`worker_id` PK, `beat_at`. `/api/health?strict=1`이 마지막 하트비트가 60초 이내인지 확인한다 (11 참고).
 
 ## 6. 플랜
 
@@ -363,7 +364,10 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
    - 모바일은 `redirectUrl=/app/billing/complete?plan=...`로 돌아오고, 쿼리의 `billingKey`/`code`/`message`를 읽는다.
 2. **`POST /api/billing/subscribe` {plan, billingKey}**
    - 서버가 `GET /billing-keys/{billingKey}`로 `status == ISSUED`이고 `customer.id == user.id`인지 검증한다.
-   - `paymentId = sub_{subId8}_{YYYYMMDD}_{attempt}` 형식(`[A-Za-z0-9_-]` 6~40자)으로 `payments`에 `pending` 행을 만들고, 빌링키로 즉시 결제한다.
+   - 먼저 응답이 유실된 이전 첫 결제(`pending`)가 있으면 결제 조회로 결과를 맞춘다. 이미 `PAID`면 새로 청구하지 않고, 아직 진행 중이면 "잠시 후 다시" 안내만 한다(이중 청구 방지).
+   - `paymentId = new_{subId12}_{YYYYMMDD}_{attempt}` 형식(`[A-Za-z0-9_-]` 6~40자, 갱신은 `sub_` 접두사)으로 `payments`에 `pending` 행을 만든다.
+   - 청구 전에 빌링키를 구독에 암호화 저장한다. 응답이 유실돼 웹훅으로만 활성화돼도 갱신 결제를 할 수 있게 하기 위해서다. 결제가 거절되면 이전 카드로 되돌린다.
+   - 빌링키로 즉시 결제한다. 결과를 알 수 없는 오류면 "결제 결과를 확인하지 못했어요"로 안내하고 웹훅이나 다음 시도가 결과를 맞춘다.
    - 결제 응답과 결제 조회(`GET /payments/{id}`)로 `PAID`를 확인한다.
    - 확인되면 구독을 활성화한다: `current_period_end` = 지금 + 1개월(말일 보정), 빌링키 암호화 저장.
    - 기존 유료 구독이 있으면 기존 빌링키를 삭제한다.
@@ -380,7 +384,7 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
    - `Webhook.verify(secret, rawBody, Object.fromEntries(req.headers))`로 Standard Webhooks 서명을 검증한다.
    - `Transaction.Paid`/`Transaction.Failed`면 `GET /payments/{id}`로 재조회해 `payments` 상태를 맞춘다(첫 결제 응답 유실 대비). 금액(`amount.total`)도 대조한다.
    - 알 수 없는 type은 200으로 무시한다. 멱등하게 처리한다.
-7. **동시성**: 같은 구독의 청구는 `pg_advisory_xact_lock`으로 직렬화한다. paymentId는 (기간 종료일, 시도 번호)로 결정적으로 만든다. 같은 시도가 두 번 실행돼도 포트원이 `ALREADY_PAID`(409)로 막으므로, 이 경우 결제 조회로 성공 처리한다.
+7. **동시성**: 같은 구독의 청구는 `subscriptions.billing_locked_until` 리스(2분)로 직렬화한다. 트랜잭션 잠금 대신 리스를 쓰는 이유는 외부 결제 호출 전에 결제 행(`payments`)을 먼저 커밋해야 하기 때문이다. paymentId는 (기간 종료일, 시도 번호)로 결정적으로 만든다. 같은 시도가 두 번 실행돼도 포트원이 `ALREADY_PAID`(409)로 막으므로, 이 경우 결제 조회로 성공 처리한다.
 8. **정기결제 주체**: 포트원 결제 예약 API 대신 워커가 직접 청구한다. 포트원도 실패 재시도는 가맹점이 구현하도록 안내하므로, 상태를 우리 DB 한 곳이 소유하는 편이 단순하다.
 9. **테스트/라이브**:
    - 테스트는 포트원 콘솔의 테스트 채널(KG이니시스 `INIBillTst` 또는 토스페이먼츠 `iamporttest_4`)을 쓴다. 이니시스 테스트 결제는 실제로 승인된 뒤 당일 밤 자동 취소된다.
@@ -422,7 +426,7 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 | `/pricing` | 플랜 비교표, 결제·환불 정책 요약 |
 | `/terms`, `/privacy`, `/refund` | 이용약관, 개인정보처리방침(수집 항목·목적·보유기간·처리위탁: Meta, 포트원/PG, Resend·파기·권리·책임자), 환불 정책 |
 | `/login` | 카카오·구글 버튼 + 이메일 매직링크 |
-| `/app/onboarding` | 1) 프로페셔널 계정 확인·전환 가이드 2) 인스타 연결 버튼 3) 첫 자동화 만들기로 이동 |
+| `/app/onboarding` | 1) 인스타 앱 설정 체크리스트(프로페셔널 전환, ‘메시지 접근 허용’; 체크 상태는 브라우저에 저장, 연결되면 전환은 자동 확인) 2) 인스타 연결 버튼 3) 첫 자동화 만들기로 이동 |
 | `/app` | 대시보드: 연결 계정 상태, 이번 달 DM 사용량/한도, 발송 대기 N건, 자동화별 트리거·성공·부분·실패·클릭(Pro+) 카드, 최근 이벤트 20건(실패 사유 표시) |
 | `/app/automations` | 목록 + 활성 토글 |
 | `/app/automations/new` | 위자드 5단계: 게시물 선택(최근 게시물 그리드 / 전체 / 다음 게시물) → 반응할 댓글(키워드 포함 / 키워드만 / 모든 댓글, 키워드 칩 입력) → 공개 답글 문구(최대 5개, 3개 미만이면 권장 경고, `{username}` 삽입 버튼) → DM(본문, 버튼 라벨, 링크) → 미리보기(DM 말풍선 목업) 후 활성화 |
@@ -431,7 +435,7 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 | `/app/settings` | 인스타 계정 목록·연결 해제·재연결, 회원 탈퇴 |
 | `/data-deletion/[code]` | 삭제 요청 상태 |
 
-사업자 정보(상호, 대표자, 사업자등록번호, 통신판매업 신고번호, 주소, 연락처)와 서비스명은 `src/lib/site.ts`에서 관리한다. 값은 운영자가 채운다. PG 심사와 Meta 검수 전에 반드시 입력해야 하며, 비어 있으면 빌드 시 경고한다.
+사업자 정보(상호, 대표자, 사업자등록번호, 통신판매업 신고번호, 주소, 연락처)와 서비스명은 `src/lib/site.ts`에서 관리한다. 값은 운영자가 채운다. PG 심사와 Meta 검수 전에 반드시 입력해야 한다. 비어 있는 항목은 법적 페이지에 노란 "[… 입력 필요]"로 표시해 운영자가 바로 알아차리게 하고, 푸터에서는 숨긴다.
 
 ## 9. 보안
 
@@ -451,7 +455,7 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 - **이메일:** `RESEND_API_KEY`, `EMAIL_FROM`
 - **Instagram:** `IG_APP_ID`, `IG_APP_SECRET`, `META_APP_SECRET`(선택, 서명 이중 검증용), `IG_WEBHOOK_VERIFY_TOKEN`, `IG_GRAPH_API_VERSION`(기본 `v26.0`), `IG_PRIVATE_REPLY_HOURLY_LIMIT`(기본 700)
 - **암호화·워커:** `ENCRYPTION_KEY`, `WORKER_CONCURRENCY`
-- **포트원:** `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`, `NEXT_PUBLIC_PORTONE_STORE_ID`, `NEXT_PUBLIC_PORTONE_CHANNEL_KEY`
+- **포트원:** `PORTONE_STORE_ID`, `PORTONE_CHANNEL_KEY`, `PORTONE_API_SECRET`, `PORTONE_WEBHOOK_SECRET`. `NEXT_PUBLIC_*` 변수는 쓰지 않는다. 결제 화면은 서버 컴포넌트가 `PORTONE_STORE_ID`/`PORTONE_CHANNEL_KEY`를 props로 넘긴다. 그래서 이미지 하나를 env만 바꿔 어느 환경에나 배포할 수 있다
 - **배포 전용:** `APP_DOMAIN`, `TRAEFIK_NETWORK`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER`, `POSTGRES_PASSWORD`, `IMAGE`
 
 소셜 로그인 키가 비어 있으면 해당 버튼을 숨긴다(카카오 비즈앱 전환 전 개발 편의).
@@ -460,7 +464,8 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 
 - **Dockerfile**(멀티스테이지, `node:24-alpine`):
   - deps → build(`next build` standalone, 워커와 마이그레이터를 esbuild로 `dist/`에 번들) → runtime(non-root).
-  - 엔트리 커맨드: `web` = `node server.js`, `worker` = `node dist/worker.js`, `migrate` = `node dist/migrate.js`.
+  - 엔트리 커맨드: `web` = `node server.js`, `worker` = `node dist/worker.mjs`, `migrate` = `node dist/migrate.mjs`.
+  - 이미지는 env 없이 빌드한다. 그래서 env를 읽는 페이지는 prerender 대상이 아니어야 한다(세션 확인은 `headers()`를 먼저 호출하고, `sitemap.xml`은 요청 시점에 `APP_URL`을 읽는다).
 - **`deploy/docker-compose.yml`**:
   - `postgres`(healthcheck `pg_isready`), `migrate`(depends_on postgres healthy)
   - `web`, `worker`(depends_on migrate `service_completed_successfully`), `backup`
@@ -469,7 +474,8 @@ Graph API 오류(`error.code`, `error.error_subcode`)를 분류한다. 구현은
 - **배포**(`.github/workflows/deploy.yml`, main push):
   - CI 통과 후 이미지를 `ghcr.io/{owner}/{repo}:{sha}`와 `:latest`로 푸시한다.
   - SSH(`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`)로 접속해 `IMAGE` 태그를 갱신하고 `docker compose pull && docker compose up -d`를 실행한다.
-  - `/api/health` 응답을 확인한다.
+  - `/api/health?strict=1` 응답을 확인한다.
+- **헬스체크**: `/api/health`는 DB만 확인한다(컨테이너 healthcheck용). Traefik은 unhealthy 컨테이너를 라우팅에서 빼므로, 워커가 잠시 멈췄다고 웹까지 내려가면 안 된다. `?strict=1`일 때만 워커 하트비트(60초 이내)도 확인해 배포 검증과 외부 모니터링에 쓴다.
 - **VPS 준비**(1회, 문서화): 디렉터리 `/opt/{app}`, `.env` 작성, GHCR 로그인(read:packages 토큰), DNS A 레코드.
 - **백업**: `backup.sh`가 매일 03:00 KST에 `pg_dump -Fc`를 실행하고 7일 보관한다. 외부 저장소 업로드는 선택(문서화만).
 
