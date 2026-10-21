@@ -2,16 +2,17 @@ import { performance } from "node:perf_hooks";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { sendJitter } from "@/lib/campaign-rate";
 import type { Db, Executor } from "@/server/db/client";
-import { accountSendControls, campaigns, campaignDeliveries, campaignParticipants, commentEvents, conversationStates, dmJobs, igAccounts, privateReplyClaims, sendAttempts, sendBuckets, type Campaign, type CampaignParticipant, type CommentEvent, type DmJob, type SendAttempt } from "@/server/db/schema";
+import { accountSendControls, campaigns, campaignDeliveries, campaignParticipants, commentEvents, conversationStates, dmJobs, igAccounts, messageEvents, privateReplyClaims, sendAttempts, sendBuckets, type Campaign, type CampaignParticipant, type CommentEvent, type DmJob, type SendAttempt } from "@/server/db/schema";
 import type { GraphClient, GraphReplyResult, GraphSendResult, PrivateReplyMessage } from "@/server/instagram/graph";
 import type { GraphRateHint } from "@/server/instagram/rate-hints";
 import { SendDeferredError, SendRejectedError, SendUncertainError } from "@/server/queue/send-errors";
 import { backoffDelayMs } from "@/server/queue/backoff";
-import { campaignsEnabled } from "./access";
+import { CampaignError, campaignsEnabled, requireCampaignFeature } from "./access";
 import { acquireSendPermit, databaseNow, observeRateHint, recordSendHealth, releaseSendLease, sendPolicy, type SendPolicy } from "./send-budget";
 import { classifyCampaignSendError, type SendFailure } from "./send-errors";
 import { effectiveCampaignState } from "./state";
 import { legacySendGuard } from "./legacy-guard";
+import { checkCampaignFollower, type FollowDecision } from "./follow-profile";
 
 export interface RenderContext { job: DmJob; campaign: Campaign; participant: CampaignParticipant; event: CommentEvent | null }
 export interface DispatchDeps {
@@ -35,7 +36,7 @@ async function finishWithoutSend(db: Executor, job: DmJob, status: "waiting" | "
 }
 
 /** Campaign -> job -> channel locks. Claim uses SKIP LOCKED and never waits for job locks. */
-export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob): Promise<Prepared | string> {
+export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, follow?: { decision: FollowDecision; checkedAt: Date; version: number }): Promise<Prepared | string> {
   const [mode] = await deps.db.select({ enabled: accountSendControls.lastObservedEnabled }).from(accountSendControls).where(eq(accountSendControls.igAccountId, leased.igAccountId));
   // A campaign may be the first write after reactivation; do not rely on another legacy event to warm up.
   if (mode && !mode.enabled) await legacySendGuard(deps.db, leased.igAccountId, await (deps.clock ?? databaseNow)(deps.db));
@@ -61,6 +62,13 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob): Pr
     }
     if (!account?.accessTokenEnc || account.status !== "active") {
       await finishWithoutSend(tx, job, "waiting", now, "account_inactive", new Date(now.getTime() + 60_000)); return "held";
+    }
+    try {
+      if (campaign.followOnly || ["follow_link", "follow_reminder", "follow_request"].includes(job.kind)) await requireCampaignFeature(tx, campaign.userId, "campaign.follow_gate");
+      if (["opening_link", "expiry_fallback"].includes(job.kind) || (job.channel === "private_reply" && event?.matchedRule === "notification")) await requireCampaignFeature(tx, campaign.userId, "campaign.scheduled_dm");
+    } catch (error) {
+      if (!(error instanceof CampaignError) || error.code !== "entitlement") throw error;
+      await finishWithoutSend(tx, job, "held", now, "entitlement"); return "held";
     }
     const state = effectiveCampaignState(campaign, now);
     if (campaign.archivedAt || state === "settled" || (["closed", "sold_out"].includes(state) && job.kind !== "closed_notice")) {
@@ -96,6 +104,15 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob): Pr
       if (!conversation?.lastUserInteractionAt || conversation.lastUserInteractionAt > now || conversation.lastUserInteractionAt.getTime() + (policy.message_window_seconds - policy.message_safety_seconds) * 1000 <= now.getTime()) {
         await finishWithoutSend(tx, job, "expired", now, "message_window_closed"); return "expired";
       }
+      const [source] = job.sourceMessageEventId ? await tx.select().from(messageEvents).where(and(eq(messageEvents.id, job.sourceMessageEventId), eq(messageEvents.igAccountId, job.igAccountId), eq(messageEvents.peerId, participant.commenterIgId))) : [];
+      // A fresh unrelated conversation cannot revive a stale or deleted source response.
+      if (!source || source.deletedAt || !source.occurredAt || source.occurredAt > now || !["message", "postback"].includes(source.kind) || (source.kind === "message" && !source.userMessageEvidence) || source.occurredAt.getTime() + (policy.message_window_seconds - policy.message_safety_seconds) * 1000 <= now.getTime()) {
+        await finishWithoutSend(tx, job, "expired", now, "source_message_unavailable"); return "expired";
+      }
+      const anchor = Math.min(source.occurredAt.getTime(), conversation.lastUserInteractionAt.getTime());
+      job.deadlineAt = new Date(Math.min(job.deadlineAt.getTime(), anchor + (policy.message_window_seconds - policy.message_safety_seconds) * 1000));
+      job.hardExpiresAt = new Date(Math.min(job.hardExpiresAt.getTime(), anchor + policy.message_window_seconds * 1000));
+      await tx.update(dmJobs).set({ deadlineAt: job.deadlineAt, hardExpiresAt: job.hardExpiresAt }).where(fence(job));
       if (conversation.automationPausedUntil && conversation.automationPausedUntil > now) {
         await finishWithoutSend(tx, job, "waiting", now, "human_handoff", conversation.automationPausedUntil); return "held";
       }
@@ -111,10 +128,21 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob): Pr
       await tx.update(sendBuckets).set({ nextEligibleAt: sql`greatest(${sendBuckets.nextEligibleAt}, ${job.jitterUntil.toISOString()}::timestamptz)` }).where(and(eq(sendBuckets.igAccountId, job.igAccountId), eq(sendBuckets.channel, job.channel)));
       return "waiting";
     }
-    // A comment alone does not authorize a profile lookup. The first contact requests a response.
+    // A comment alone does not authorize a profile lookup. Reuse only a recent lookup made outside this transaction.
     if (campaign.followOnly && job.channel === "private_reply" && ["opening_link", "instant_link"].includes(job.kind)) {
-      job.kind = "follow_request";
-      await tx.update(dmJobs).set({ kind: job.kind }).where(fence(job));
+      const decision = follow && follow.version === campaign.version && follow.checkedAt <= now && now.getTime() - follow.checkedAt.getTime() <= policy.dispatch_lease_seconds * 1000 ? follow.decision : null;
+      if (decision?.kind === "retry") {
+        const attempts = job.followCheckAttempts + (decision.code === "api_cooldown" ? 0 : 1);
+        await tx.update(dmJobs).set({ followCheckAttempts: attempts }).where(fence(job));
+        await finishWithoutSend(tx, job, attempts >= policy.max_attempts ? "failed" : "waiting", now, decision.code, decision.nextAt);
+        return attempts >= policy.max_attempts ? "failed" : "waiting";
+      }
+      if (decision?.kind === "blocked") { await finishWithoutSend(tx, job, "held", now, decision.code); return "held"; }
+      const [consent] = decision && ["following", "fail_open"].includes(decision.kind) ? await tx.select({ at: conversationStates.consentAt }).from(conversationStates).where(and(eq(conversationStates.igAccountId, job.igAccountId), eq(conversationStates.senderId, participant.commenterIgId))) : [];
+      if (!decision || !["following", "fail_open"].includes(decision.kind) || !consent?.at || consent.at > now) {
+        job.kind = "follow_request";
+        await tx.update(dmJobs).set({ kind: job.kind }).where(fence(job));
+      }
     }
     const payload = await deps.render(tx, { job, campaign, participant, event: event ?? null });
     if (!payload) { await finishWithoutSend(tx, job, "canceled", now, "empty_template"); return "canceled"; }
@@ -213,7 +241,21 @@ export async function settleCampaignSend(deps: DispatchDeps, prepared: Prepared,
 }
 
 export async function dispatchCampaignJob(deps: DispatchDeps, job: DmJob): Promise<string> {
-  const prepared = await prepareCampaignSend(deps, job);
+  let follow: { decision: FollowDecision; checkedAt: Date; version: number } | undefined;
+  if (job.channel === "private_reply" && ["opening_link", "instant_link"].includes(job.kind) && job.jitterUntil) {
+    const [context] = await deps.db.select({ campaign: campaigns, account: igAccounts, participant: campaignParticipants }).from(campaigns)
+      .innerJoin(igAccounts, eq(igAccounts.id, campaigns.igAccountId)).innerJoin(campaignParticipants, eq(campaignParticipants.campaignId, campaigns.id))
+      .where(and(eq(campaigns.id, job.campaignId), eq(campaigns.followOnly, true), eq(campaignParticipants.id, job.participantId)));
+    if (context && !context.campaign.archivedAt) {
+      const now = await (deps.clock ?? databaseNow)(deps.db);
+      if (job.jitterUntil <= now && job.deadlineAt > now && job.leaseUntil && job.leaseUntil > now && effectiveCampaignState(context.campaign, now) === "open" && await campaignsEnabled(deps.db, job.igAccountId)) {
+        const monotonic = performance.now();
+        const decision = await checkCampaignFollower({ ...deps, now: () => new Date(now.getTime() + Math.ceil(performance.now() - monotonic)) }, context.account, context.participant.commenterIgId, context.campaign.followFailurePolicy);
+        follow = { decision, checkedAt: now, version: context.campaign.version };
+      }
+    }
+  }
+  const prepared = await prepareCampaignSend(deps, job, follow);
   if (typeof prepared === "string") return prepared;
   return settleCampaignSend(deps, prepared, await invokePreparedSend(prepared, deps.graph));
 }

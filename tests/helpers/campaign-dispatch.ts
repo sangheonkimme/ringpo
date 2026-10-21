@@ -2,13 +2,15 @@ import { createHash, randomUUID } from "node:crypto";
 import { DEFAULT_CAMPAIGN_TEMPLATES } from "@/lib/campaign-schema";
 import { encryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
-import { campaignDeliveries, campaignParticipants, campaigns, commentEvents, dmJobs, igAccounts, privateReplyClaims, user } from "@/server/db/schema";
+import { campaignDeliveries, campaignParticipants, campaigns, commentEvents, dmJobs, igAccounts, privateReplyClaims, subscriptions, user } from "@/server/db/schema";
 
 /** Seed a dispatch-only benchmark; webhook/routing load has a separate end-to-end test. */
 export async function seedDispatchLoad(accounts: number, count: number, now: Date, rate = 400, includePublic = false) {
   const db = getDb();
   const owners = Array.from({ length: accounts }, (_, i) => ({ id: randomUUID(), name: "발송 부하 테스트", email: `send-${i}@test.local` }));
   await db.insert(user).values(owners);
+  // Scheduled opening DMs require the same entitlement at dispatch as at campaign creation.
+  await db.insert(subscriptions).values(owners.map((owner) => ({ userId: owner.id, plan: "pro" as const, status: "active" as const })));
   const accountRows = owners.map((owner, i) => ({ id: randomUUID(), userId: owner.id, igUserId: `1784${i}`, username: `fixture${i}`, accountType: "BUSINESS", accessTokenEnc: encryptSecret("fixture-only") }));
   await db.insert(igAccounts).values(accountRows);
   const campaignRows = accountRows.map((account) => ({ id: randomUUID(), userId: account.userId, igAccountId: account.id, title: "발송 부하", slug: randomUUID(), status: "open" as const, publishedAt: now, openAt: now, closeAt: new Date(now.getTime() + 2 * 86_400_000), notificationKeywords: ["알림"], linkKeywords: ["링크"], templates: DEFAULT_CAMPAIGN_TEMPLATES, hourlyRate: rate }));

@@ -1,6 +1,6 @@
 # 공구 캠페인 운영 절차
 
-작성일: 2026-10-21. 구현 단계: **M1-4b 기존 자동화 공통 예산·발송 확인 필요 복구**. 운영 배포 전이다. 발송 엔진은 모의 API로 검증하며, 실제 캠페인 송신 루프 연결은 M1-4c의 팔로우 응답 수신과 함께 진행한다. 그 전에는 운영 계정에서 플래그를 켜지 않는다. 리포트는 M2 범위다.
+작성일: 2026-10-21. 구현 단계: **M1-4c 영속 메시지 수신·캠페인 팔로우 후속 처리 모듈**. 운영 배포 전이다. 발송 엔진은 모의 API로 검증하며, 실제 webhook/worker 연결과 기존 팔로우 일반 DM의 공통 예산 adapter는 M1-4d에서 함께 연결한다. 그 전에는 운영 계정에서 플래그를 켜지 않는다. 리포트는 M2 범위다.
 
 ## 기능 플래그와 롤백
 
@@ -79,6 +79,19 @@ WHERE status = 'campaign_failed' GROUP BY error_code;
 ## 검증과 250계정 수용량
 
 재현 명령은 [M1-1 검증 결과](evidence/m1-1.md), [M1-2 검증 결과](evidence/m1-2.md), [M1-3 검증 결과](evidence/m1-3.md)에 기록한다. 테스트 DB는 기존 통합 테스트에서 스키마를 초기화하므로 운영 연결 문자열을 사용하지 않는다. 250개 계정의 상태 전환/잡 생성 시험은 발송 throughput 시험과 구별한다. 실제 API 요청 없이 PostgreSQL만 측정한 결과를 전체 서비스 수용량 보장으로 해석하지 않는다.
+
+## 메시지 수신·팔로우 응답 (M1-4c 모듈)
+
+`message_events`는 서명 검증 뒤 사용할 영속 수신함이다. 실제 webhook/worker 연결은 M1-4d에서 제공한다. `user_message_evidence`가 있는 Meta 작성 시각만 동의/대화 창의 근거가 되며 postback은 그 자체로 창을 열지 않는다. 여러 캠페인/기존 gate가 모호하면 `ambiguous_follow_context`로 남기고 임의로 링크를 보내지 않는다.
+
+`profile_field_missing`은 비팔로워 확정이 아니다. 권한/필드/토큰을 확인하고, 이를 fail-open 대상이나 성공으로 일괄 변경하지 않는다. `profile_fail_open:*`는 동의 후 일시 장애에 대한 셀러 설정 적용이다. 모든 일반 DM은 원래 source의 deadline도 검사하므로 새 메시지가 왔다고 옛 잡의 시각을 SQL로 연장하지 않는다. 실제 새 팔로우 확인 응답은 **발송 시도 0회인 만료/취소 잡**만 새 잡으로 대체할 수 있고 원래 만료 이력은 보존된다. unknown/이미 시도한 잡은 대체하지 않는다.
+
+```sql
+SELECT status, last_error_code, count(*) FROM message_events GROUP BY status, last_error_code;
+SELECT kind, status, count(*) FROM dm_jobs WHERE channel = 'message' GROUP BY kind, status;
+```
+
+`0007` down은 수신/조회 이력이 있으면 거부한다. 메시지 원문/peer ID를 브랜드 리포트나 공개 응답에 내보내지 않는다. 계정 삭제 callback의 기존 계정 삭제 transaction에 연결된 FK cascade로 수신함/동의 상태도 제거된다.
 
 
 ## 발송 일시정지·속도·확인 필요 (M1-3)

@@ -7,6 +7,8 @@ export class FakeGraphClient implements GraphClient {
   messages: { token: string; igUserId: string; recipientId: string; message: PrivateReplyMessage }[] = [];
   followers = new Set<string>();
   followError: unknown = null;
+  followReads = 0;
+  missingFollowField = false;
   subscribed: string[] = [];
   media: Record<string, MediaInfo> = {};
   comments: Record<string, CommentInfo> = {};
@@ -61,5 +63,9 @@ export class FakeGraphClient implements GraphClient {
   async isFollower(_token: string, igsid: string) {
     if (this.followError) throw this.followError;
     return this.followers.has(igsid);
+  }
+  async getFollowerProfile(token: string, igsid: string) {
+    this.followReads++;
+    return { following: this.missingFollowField ? null : await this.isFollower(token, igsid) };
   }
 }

@@ -525,6 +525,8 @@ export const dmJobs = pgTable("dm_jobs", {
   igAccountId: uuid("ig_account_id").notNull(),
   participantId: uuid("participant_id").notNull(),
   sourceEventId: uuid("source_event_id").references(() => commentEvents.id, { onDelete: "cascade" }),
+  sourceMessageEventId: uuid("source_message_event_id").references(() => messageEvents.id, { onDelete: "cascade" }),
+  followCheckAttempts: integer("follow_check_attempts").notNull().default(0),
   channel: text("channel", { enum: SEND_CHANNELS }).notNull(),
   kind: text("kind", { enum: CAMPAIGN_JOB_KINDS }).notNull(),
   status: text("status", { enum: CAMPAIGN_JOB_STATES }).notNull().default("waiting"),
@@ -670,6 +672,41 @@ export const conversationStates = pgTable("conversation_states", {
   currentCampaignId: uuid("current_campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
   updatedAt: updatedAt(),
 }, (t) => [primaryKey({ columns: [t.igAccountId, t.senderId] })]);
+
+/** Durable signed webhook inbox. Raw text can be scrubbed without deleting deduplication evidence. */
+export const messageEvents = pgTable("message_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  peerId: text("peer_id").notNull(),
+  eventKey: text("event_key").notNull(),
+  providerMessageId: text("provider_message_id"),
+  kind: text("kind", { enum: ["message", "postback", "echo", "deleted"] }).notNull(),
+  occurredAt: tz("occurred_at"),
+  receivedAt: tz("received_at").notNull(),
+  userMessageEvidence: boolean("user_message_evidence").notNull(),
+  text: text("text").notNull().default(""),
+  payload: text("payload"),
+  replyToMessageId: text("reply_to_message_id"),
+  deletedAt: tz("deleted_at"),
+  status: text("status", { enum: ["pending", "leased", "routed", "ignored", "failed"] }).notNull().default("pending"),
+  nextAttemptAt: tz("next_attempt_at").notNull(),
+  leaseUntil: tz("lease_until"),
+  leaseVersion: integer("lease_version").notNull().default(0),
+  attempts: integer("attempts").notNull().default(0),
+  lastErrorCode: text("last_error_code"),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  completedAt: tz("completed_at"),
+}, (t) => [
+  unique("message_events_delivery_key").on(t.igAccountId, t.eventKey),
+  index("message_events_due_idx").on(t.nextAttemptAt).where(sql`${t.status} = 'pending'`),
+  index("message_events_lease_idx").on(t.leaseUntil).where(sql`${t.status} = 'leased'`),
+  index("message_events_peer_idx").on(t.igAccountId, t.peerId, t.receivedAt),
+  index("message_events_provider_idx").on(t.igAccountId, t.providerMessageId),
+  check("message_events_kind_check", sql`${t.kind} in ('message','postback','echo','deleted')`),
+  check("message_events_status_check", sql`${t.status} in ('pending','leased','routed','ignored','failed')`),
+  check("message_events_evidence_check", sql`not ${t.userMessageEvidence} or (${t.kind} = 'message' and ${t.occurredAt} is not null)`),
+]);
+export type MessageEvent = typeof messageEvents.$inferSelect;
 
 export const accountSendAuditEvents = pgTable("account_send_audit_events", {
   id: uuid("id").primaryKey().defaultRandom(),
