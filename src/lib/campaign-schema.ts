@@ -79,3 +79,8 @@ export function campaignUtcFromKst(value: string): string {
 export function campaignKstInput(date: Date): string {
   return new Date(date.getTime() + 9 * 3_600_000).toISOString().slice(0, 16);
 }
+
+/** A minute-precision editor must not silently change seconds recorded by a manual OPEN transition. */
+export function campaignEditedTime(value: string, original?: string): string {
+  return original && campaignKstInput(new Date(original)) === value ? original : campaignUtcFromKst(value);
+}
