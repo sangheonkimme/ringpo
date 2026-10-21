@@ -32,6 +32,7 @@ export interface CommentInfo {
 
 export interface GraphSendResult { messageId: string; rateHint?: GraphRateHint }
 export interface GraphReplyResult { id: string; rateHint?: GraphRateHint }
+export interface FollowerProfile { following: boolean | null; rateHint?: GraphRateHint }
 
 export type PrivateReplyMessage =
   | { kind: "button"; text: string; buttonTitle: string; url: string }
@@ -59,6 +60,8 @@ export interface GraphClient {
   sendMessage(token: string, igUserId: string, recipientId: string, message: PrivateReplyMessage): Promise<GraphSendResult>;
   /** 그 사람이 비즈니스 계정을 팔로우하는지. 상대가 먼저 메시지를 보낸(버튼을 누른) 뒤에만 조회된다 */
   isFollower(token: string, igsid: string): Promise<boolean>;
+  /** Strict campaign lookup: a missing field is unknown, never a negative follower result. */
+  getFollowerProfile(token: string, igsid: string): Promise<FollowerProfile>;
 }
 
 function messagePayload(message: PrivateReplyMessage) {
@@ -246,6 +249,11 @@ export function createGraphClient(opts: {
     async isFollower(token, igsid) {
       const j = await request(withToken(`/${igsid}`, token, { fields: "is_user_follow_business" }), { method: "GET" });
       return j.is_user_follow_business === true;
+    },
+
+    async getFollowerProfile(token, igsid) {
+      const j = await request(withToken(`/${igsid}`, token, { fields: "is_user_follow_business" }), { method: "GET" });
+      return withHint({ following: typeof j.is_user_follow_business === "boolean" ? j.is_user_follow_business : null }, j);
     },
   };
 }

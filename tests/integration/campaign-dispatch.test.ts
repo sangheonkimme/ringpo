@@ -137,6 +137,13 @@ describe("campaign send dispatch", () => {
     w.advance(7 * 86_400_000); expect(await expireCampaignJobs(w.db, w.now())).toBe(2);
   });
 
+  it("rechecks scheduled-DM entitlement at send time after a plan downgrade", async () => {
+    const w = await world(1, 400, true);
+    w.setNow(new Date("2026-10-22T00:00:00Z")); await setPlan(w.user.id, "free");
+    expect(await w.tick()).toContain("held"); expect(w.graph.dms).toHaveLength(0);
+    expect((await w.db.select().from(dmJobs).where(eq(dmJobs.channel, "private_reply")))[0].lastErrorCode).toBe("entitlement");
+  });
+
   it("stops public replies on repeated DM errors and a late in-flight public success cannot clear that stop", async () => {
     const w = await world(); await w.tick(); w.advance(3000);
     const jobs = await w.claim();

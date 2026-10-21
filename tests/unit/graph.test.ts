@@ -121,6 +121,11 @@ describe("createGraphClient", () => {
     await expect(g.isFollower("tok", "900")).resolves.toBe(false);
   });
 
+  it.each([true, false, null])("strict follower lookup preserves missing field as unknown: %s", async (following) => {
+    const client = createGraphClient({ version: "v26.0", fetchFn: mockFetch(200, following === null ? { id: "900" } : { is_user_follow_business: following }) });
+    expect((await client.getFollowerProfile("tok", "900")).following).toBe(following);
+  });
+
   it("subscribeApp also subscribes to message events for the follow gate", async () => {
     const f = mockFetch(200, { success: true });
     const client = createGraphClient({ version: "v26.0", fetchFn: f });

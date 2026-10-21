@@ -50,6 +50,13 @@
       "when": 1792570047258,
       "tag": "0006_gonggu_shared_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792572325826,
+      "tag": "0007_gonggu_message_inbox",
+      "breakpoints": true
     }
   ]
 }
