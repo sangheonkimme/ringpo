@@ -17,6 +17,11 @@ export class StaleSendLeaseError extends Error {
   constructor() { super("Send source lease is stale"); this.name = "StaleSendLeaseError"; }
 }
 
+/** A flag transition transferred a legacy webhook action to the durable inbox without making a write. */
+export class SendHandoffError extends Error {
+  constructor() { super("Send transferred to durable inbox"); this.name = "SendHandoffError"; }
+}
+
 export function isSendControlError(error: unknown) {
   return error instanceof SendDeferredError || error instanceof SendUncertainError || error instanceof StaleSendLeaseError;
 }

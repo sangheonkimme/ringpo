@@ -43,6 +43,8 @@ export async function routeCampaignFollowMessage(deps: MessageRouterDeps, messag
     await finishMessageEvent(db, message, deps.now(), "ignored", "ambiguous_follow_context"); return "ambiguous";
   }
   const selected = candidates[0];
+  const [bound] = await db.update(messageEvents).set({ campaignId: selected.campaign.id }).where(and(messageLeaseFence(message), sql`${messageEvents.legacyEventId} is null`)).returning({ id: messageEvents.id });
+  if (!bound) return "stale_lease";
   const policy = await sendPolicy(db);
   const hardExpiresAt = message.occurredAt && new Date(message.occurredAt.getTime() + policy.message_window_seconds * 1000);
   const deadlineAt = hardExpiresAt && new Date(hardExpiresAt.getTime() - policy.message_safety_seconds * 1000);

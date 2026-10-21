@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { and, desc, eq } from "drizzle-orm";
-import { sendJitter } from "@/lib/campaign-rate";
+import { LEGACY_HANDOFF_PERMIT_MS, sendJitter } from "@/lib/campaign-rate";
 import type { Executor } from "@/server/db/client";
 import { campaignNotificationOutbox, commentEvents, followGates, igAccounts, privateReplyClaims, sendAttempts, type CommentEvent, type SendAttempt } from "@/server/db/schema";
 import { legacyReadPause, legacySendGuard } from "@/server/campaigns/legacy-guard";
 import { acquireSendPermit, databaseNow, observeRateHint, recordSendHealth, releaseSendLease, sendPolicy, type SendPolicy } from "@/server/campaigns/send-budget";
-import { classifyCampaignSendError, type SendFailure } from "@/server/campaigns/send-errors";
+import { invokeBudgetedWrite, type BudgetedWriteResult } from "@/server/campaigns/send-call";
 import { classifyError, GraphApiError } from "@/server/instagram/errors";
 import type { GraphClient, PrivateReplyMessage } from "@/server/instagram/graph";
 import type { GraphRateHint } from "@/server/instagram/rate-hints";
@@ -21,14 +21,15 @@ type Clock = (db: Executor) => Promise<Date>;
 interface AdapterDeps extends PipelineDeps { clock?: Clock }
 interface Prepared { attempt: SendAttempt; policy: SendPolicy; clockStarted: number; hardExpiresAt: Date }
 type PreparedResult = Prepared | { cached: string } | { error: Error };
-type CallResult = { state: "accepted"; id: string; rateHint?: GraphRateHint; invokedAt: Date } | { state: "error"; failure: SendFailure; invokedAt: Date } | { state: "not_invoked" };
+type CallResult = BudgetedWriteResult;
 const logicalKey = (event: CommentEvent, channel: Channel) => `legacy:${event.id}:${channel}`;
 
 async function acceptedEventPatch(tx: Executor, event: CommentEvent, channel: Channel, id: string) {
   if (channel === "public_reply") await tx.update(commentEvents).set({ replyStatus: "sent", replyCommentId: id }).where(eq(commentEvents.id, event.id));
   else {
-    const [gate] = await tx.select({ id: followGates.id }).from(followGates).where(eq(followGates.eventId, event.id));
-    await tx.update(commentEvents).set({ dmMessageId: id, dmStatus: gate ? null : "sent", dmReservedAt: null }).where(eq(commentEvents.id, event.id));
+    const [gate] = await tx.select({ id: followGates.id, status: followGates.status }).from(followGates).where(eq(followGates.eventId, event.id));
+    // An accepted ordinary follow link can precede a slower public reply. Never restore its earlier gate message over it.
+    if (gate?.status !== "sent") await tx.update(commentEvents).set({ dmMessageId: id, dmStatus: gate ? null : "sent", dmReservedAt: null }).where(eq(commentEvents.id, event.id));
     await tx.update(privateReplyClaims).set({ state: "sent" }).where(eq(privateReplyClaims.legacyEventId, event.id));
   }
 }
@@ -129,7 +130,7 @@ async function settle(deps: AdapterDeps, guard: LegacyGuard, prepared: Prepared,
     if (!attempt) return new StaleSendLeaseError();
     if (!event || event.status !== "processing" || event.sendLeaseVersion !== attempt.leaseVersion || !event.lockedAt || event.lockedAt.getTime() + LEGACY_EVENT_LEASE_MS <= now.getTime() || attempt.state !== "sending") {
       if (!attempt.lateResult && result.state === "error" && result.failure.protection) await recordSendHealth(tx, attempt, result.failure, now, prepared.policy);
-      await tx.update(sendAttempts).set({ lateResult: result.state === "accepted" ? { state: "accepted", providerMessageId: result.id } : { state: result.state } }).where(eq(sendAttempts.id, attempt.id));
+      await tx.update(sendAttempts).set({ lateResult: result.state === "accepted" ? { state: "accepted", providerMessageId: result.providerMessageId } : { state: result.state } }).where(eq(sendAttempts.id, attempt.id));
       return new StaleSendLeaseError();
     }
     if (result.state === "not_invoked") {
@@ -138,8 +139,8 @@ async function settle(deps: AdapterDeps, guard: LegacyGuard, prepared: Prepared,
       return new SendDeferredError(new Date(now.getTime() + 1000), "permit_elapsed");
     }
     if (result.state === "accepted") {
-      await tx.update(sendAttempts).set({ state: "accepted", providerMessageId: result.id, invokedAt: result.invokedAt, finishedAt: now, payload: null }).where(eq(sendAttempts.id, attempt.id));
-      await acceptedEventPatch(tx, event, attempt.channel as Channel, result.id);
+      await tx.update(sendAttempts).set({ state: "accepted", providerMessageId: result.providerMessageId, invokedAt: result.invokedAt, finishedAt: now, payload: null }).where(eq(sendAttempts.id, attempt.id));
+      await acceptedEventPatch(tx, event, attempt.channel as Channel, result.providerMessageId);
       await observeRateHint(tx, event.igAccountId, result.rateHint, now);
       await recordSendHealth(tx, attempt, null, now, prepared.policy);
       return null;
@@ -164,33 +165,26 @@ async function settle(deps: AdapterDeps, guard: LegacyGuard, prepared: Prepared,
 
 export function guardedLegacyGraph(deps: AdapterDeps, guard: LegacyGuard): GraphClient {
   async function send(channel: Channel, payload: PrivateReplyMessage, invoke: () => Promise<{ id: string; rateHint?: GraphRateHint }>): Promise<{ id: string; rateHint?: GraphRateHint }> {
-    const now = await (deps.clock ?? databaseNow)(deps.db);
-    const decision = await legacySendGuard(deps.db, guard.event.igAccountId, now, { ignoreCurrentEventId: guard.active ? guard.event.id : undefined, force: guard.active });
-    if (!decision.guarded) return invoke();
+    for (;;) {
+      const checkedAt = performance.now();
+      const now = await (deps.clock ?? databaseNow)(deps.db);
+      const decision = await legacySendGuard(deps.db, guard.event.igAccountId, now, { ignoreCurrentEventId: guard.active ? guard.event.id : undefined, force: guard.active });
+      if (decision.guarded) break;
+      if (performance.now() - checkedAt < LEGACY_HANDOFF_PERMIT_MS) return invoke();
+    }
     guard.active = true;
     const policy = await sendPolicy(deps.db);
     const deadline = channel === "private_reply" ? await commentDeadline(deps, guard, policy) : new Date(guard.event.receivedAt.getTime() + 7 * 86_400_000);
     const prepared = await prepare(deps, guard, channel, payload, policy, deadline);
     if ("error" in prepared) throw prepared.error;
     if ("cached" in prepared) return { id: prepared.cached };
-    const elapsed = performance.now() - prepared.clockStarted;
-    const invokedAt = new Date(prepared.attempt.startedAt.getTime() + Math.ceil(elapsed));
-    let result: CallResult;
-    if (elapsed >= policy.send_permit_ms || invokedAt >= prepared.hardExpiresAt) result = { state: "not_invoked" };
-    else {
-      try {
-        const response = await invoke();
-        result = response.id?.trim() && !["undefined", "null"].includes(response.id)
-          ? { state: "accepted", id: response.id, rateHint: response.rateHint, invokedAt }
-          : { state: "error", failure: { state: "unknown", code: "missing_provider_id", protection: null }, invokedAt };
-      } catch (error) { result = { state: "error", failure: classifyCampaignSendError(error), invokedAt }; }
-    }
+    const result = await invokeBudgetedWrite({ startedAt: prepared.attempt.startedAt, monotonicStartedAt: prepared.clockStarted, validForMs: policy.send_permit_ms, deadlineAt: prepared.hardExpiresAt }, invoke);
     let error: Error | null;
     try { error = await settle(deps, guard, prepared, result); }
     catch { throw new SendUncertainError("send_result_commit_failed"); }
     if (error) throw error;
     if (result.state !== "accepted") throw new SendUncertainError("unexpected_send_result");
-    return { id: result.id, rateHint: result.rateHint };
+    return { id: result.providerMessageId, rateHint: result.rateHint };
   }
   const overrides: Pick<GraphClient, "replyToComment" | "sendPrivateReply"> = {
     replyToComment: (token, commentId, text) => send("public_reply", { kind: "text", text }, () => deps.graph.replyToComment(token, commentId, text)),

@@ -3,13 +3,13 @@ import { brandingLine, buildTextFallback, truncateChars } from "@/server/automat
 import type { Automation, CommentEvent } from "@/server/db/schema";
 import type { PrivateReplyMessage } from "@/server/instagram/graph";
 import { getOrCreateEventLink } from "@/server/links";
-import type { PipelineDeps } from "./process-comment";
+import type { Executor } from "@/server/db/client";
 
 const BUTTON_TEXT_MAX = 640;
 
 /** 링크 DM 본문. 버튼형이 기본이고, 버튼이 거절되면 쓸 글자형도 함께 만든다 */
 export async function buildLinkDm(
-  deps: Pick<PipelineDeps, "db" | "appUrl">,
+  deps: { db: Executor; appUrl: string },
   p: { automation: Automation; event: CommentEvent; plan: Plan },
 ): Promise<{ button: PrivateReplyMessage; text: PrivateReplyMessage }> {
   const { automation, event, plan } = p;

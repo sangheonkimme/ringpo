@@ -3,13 +3,12 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { sendJitter } from "@/lib/campaign-rate";
 import type { Db, Executor } from "@/server/db/client";
 import { accountSendControls, campaigns, campaignDeliveries, campaignParticipants, commentEvents, conversationStates, dmJobs, igAccounts, messageEvents, privateReplyClaims, sendAttempts, sendBuckets, type Campaign, type CampaignParticipant, type CommentEvent, type DmJob, type SendAttempt } from "@/server/db/schema";
-import type { GraphClient, GraphReplyResult, GraphSendResult, PrivateReplyMessage } from "@/server/instagram/graph";
-import type { GraphRateHint } from "@/server/instagram/rate-hints";
+import type { GraphClient, PrivateReplyMessage } from "@/server/instagram/graph";
 import { SendDeferredError, SendRejectedError, SendUncertainError } from "@/server/queue/send-errors";
 import { backoffDelayMs } from "@/server/queue/backoff";
 import { CampaignError, campaignsEnabled, requireCampaignFeature } from "./access";
 import { acquireSendPermit, databaseNow, observeRateHint, recordSendHealth, releaseSendLease, sendPolicy, type SendPolicy } from "./send-budget";
-import { classifyCampaignSendError, type SendFailure } from "./send-errors";
+import { invokeBudgetedWrite, type BudgetedWriteResult } from "./send-call";
 import { effectiveCampaignState } from "./state";
 import { legacySendGuard } from "./legacy-guard";
 import { checkCampaignFollower, type FollowDecision } from "./follow-profile";
@@ -25,8 +24,7 @@ interface Prepared {
   job: DmJob; attempt: SendAttempt; policy: SendPolicy; token: string; igUserId: string; recipientId: string;
   commentId: string | null; payload: PrivateReplyMessage; permitClockStarted: number;
 }
-export type SendResult = { state: "accepted"; providerMessageId: string; rateHint?: GraphRateHint; invokedAt: Date } |
-  { state: "not_invoked"; code: string } | { state: "error"; failure: SendFailure; invokedAt: Date };
+export type SendResult = BudgetedWriteResult;
 
 function fence(job: DmJob) { return and(eq(dmJobs.id, job.id), eq(dmJobs.leaseVersion, job.leaseVersion), eq(dmJobs.leaseOwner, job.leaseOwner!)); }
 
@@ -152,7 +150,7 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
     const permitAt = await (deps.clock ?? databaseNow)(tx);
     try {
       const permit = await acquireSendPermit(tx, { igAccountId: job.igAccountId, channel: job.channel, campaignId: campaign.id, campaignRate: campaign.hourlyRate,
-        jobId: job.id, logicalKey: job.idempotencyKey, leaseOwner: job.leaseOwner!, leaseVersion: job.leaseVersion, payload, now: permitAt, extendSafety: true }, policy, deps.random);
+        jobId: job.id, sourceMessageEventId: job.sourceMessageEventId ?? undefined, logicalKey: job.idempotencyKey, leaseOwner: job.leaseOwner!, leaseVersion: job.leaseVersion, payload, now: permitAt, extendSafety: true }, policy, deps.random);
       if (permit.cached) { await finishWithoutSend(tx, job, "unknown", now, "accepted_attempt_requires_reconciliation"); return "unknown"; }
       const [sending] = await tx.update(dmJobs).set({ status: "sending", attempts: sql`${dmJobs.attempts} + 1`, templateRevisionUsed: campaign.version,
         leaseUntil: new Date(permitAt.getTime() + policy.dispatch_lease_seconds * 1000) }).where(fence(job)).returning();
@@ -170,20 +168,13 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
 
 /** No database transaction or worker sleep spans the external call. */
 export async function invokePreparedSend(prepared: Prepared, graph: GraphClient): Promise<SendResult> {
-  const elapsed = performance.now() - prepared.permitClockStarted;
-  if (elapsed >= prepared.policy.send_permit_ms) return { state: "not_invoked", code: "send_permit_elapsed" };
-  const invokedAt = new Date(prepared.attempt.startedAt.getTime() + Math.ceil(elapsed));
-  if (invokedAt >= prepared.job.hardExpiresAt || (prepared.job.kind !== "expiry_fallback" && invokedAt >= prepared.job.deadlineAt)) return { state: "not_invoked", code: "deadline_before_call" };
-  try {
-    const result: GraphReplyResult | GraphSendResult = prepared.job.channel === "public_reply"
-      ? await graph.replyToComment(prepared.token, prepared.commentId!, prepared.payload.text)
+  return invokeBudgetedWrite({ startedAt: prepared.attempt.startedAt, monotonicStartedAt: prepared.permitClockStarted, validForMs: prepared.policy.send_permit_ms,
+    deadlineAt: new Date(Math.min(prepared.job.hardExpiresAt.getTime(), prepared.job.kind === "expiry_fallback" ? Infinity : prepared.job.deadlineAt.getTime())),
+  }, () => prepared.job.channel === "public_reply"
+      ? graph.replyToComment(prepared.token, prepared.commentId!, prepared.payload.text)
       : prepared.job.channel === "private_reply"
-        ? await graph.sendPrivateReply(prepared.token, prepared.igUserId, prepared.commentId!, prepared.payload)
-        : await graph.sendMessage(prepared.token, prepared.igUserId, prepared.recipientId, prepared.payload);
-    const id = "messageId" in result ? result.messageId : result.id;
-    if (!id?.trim() || ["undefined", "null"].includes(id)) return { state: "error", invokedAt, failure: { state: "unknown", code: "missing_provider_id", protection: null } };
-    return { state: "accepted", providerMessageId: id, rateHint: result.rateHint, invokedAt };
-  } catch (error) { return { state: "error", invokedAt, failure: classifyCampaignSendError(error) }; }
+        ? graph.sendPrivateReply(prepared.token, prepared.igUserId, prepared.commentId!, prepared.payload)
+        : graph.sendMessage(prepared.token, prepared.igUserId, prepared.recipientId, prepared.payload));
 }
 
 export async function settleCampaignSend(deps: DispatchDeps, prepared: Prepared, result: SendResult): Promise<string> {

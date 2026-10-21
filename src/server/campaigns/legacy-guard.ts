@@ -2,7 +2,8 @@ import { and, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db, Executor } from "@/server/db/client";
 import { accountSendControls, commentEvents, sendAttempts, sendBuckets } from "@/server/db/schema";
 import { campaignsEnabled } from "./access";
-import { ensureSendControls, sendPolicy } from "./send-budget";
+import { ensureSendControls, hasUntrackedFollowCalls, sendPolicy } from "./send-budget";
+import { LEGACY_HANDOFF_PERMIT_MS } from "@/lib/campaign-rate";
 
 /** Observe flag transitions at every legacy write, including a flag change during old inline jitter. */
 async function hasUntrackedCalls(db: Executor, accountId: string, now: Date, ignoreCurrentEventId?: string) {
@@ -11,7 +12,7 @@ async function hasUntrackedCalls(db: Executor, accountId: string, now: Date, ign
     .where(and(eq(commentEvents.igAccountId, accountId), eq(commentEvents.routeOwner, "legacy"), isNull(sendAttempts.id),
       ignoreCurrentEventId ? ne(commentEvents.id, ignoreCurrentEventId) : undefined,
       or(gt(commentEvents.dmReservedAt, new Date(now.getTime() - 3_600_000)), eq(commentEvents.status, "processing")))).limit(1);
-  return Boolean(row);
+  return Boolean(row) || await hasUntrackedFollowCalls(db, accountId, now);
 }
 
 export async function legacySendGuard(db: Db, accountId: string, now: Date, options: { ignoreCurrentEventId?: string; force?: boolean } = {}): Promise<{ guarded: boolean; enabled: boolean }> {
@@ -25,7 +26,7 @@ export async function legacySendGuard(db: Db, accountId: string, now: Date, opti
       const protectedNow = control.manualPaused || Boolean(protectedChannel) || [control.safetyUntil, control.warmupUntil, control.apiPausedUntil].some((until) => until !== null && until > now);
       if (!protectedNow && options.force) {
         const policy = await sendPolicy(tx);
-        const warmupUntil = await hasUntrackedCalls(tx, accountId, now, options.ignoreCurrentEventId) ? new Date(now.getTime() + 3_600_000 + policy.send_permit_ms) : null;
+        const warmupUntil = await hasUntrackedCalls(tx, accountId, now, options.ignoreCurrentEventId) ? new Date(now.getTime() + 3_600_000 + Math.max(policy.send_permit_ms, LEGACY_HANDOFF_PERMIT_MS)) : null;
         await tx.update(accountSendControls).set({ warmupUntil, safetyUntil: new Date((warmupUntil ?? now).getTime() + 3_600_000 + policy.send_permit_ms) }).where(eq(accountSendControls.igAccountId, accountId));
       }
       return { guarded: protectedNow || Boolean(options.force), enabled: false };
@@ -36,7 +37,7 @@ export async function legacySendGuard(db: Db, accountId: string, now: Date, opti
     } else if (!control.lastObservedEnabled) {
       // Only the old, unguarded path writes dm_reserved_at. Its recent calls must not disappear on reactivation.
       const untracked = await hasUntrackedCalls(tx, accountId, now, options.ignoreCurrentEventId);
-      if (untracked) await tx.update(accountSendControls).set({ warmupUntil: new Date(now.getTime() + 3_600_000 + policy.send_permit_ms) }).where(eq(accountSendControls.igAccountId, accountId));
+      if (untracked) await tx.update(accountSendControls).set({ warmupUntil: new Date(now.getTime() + 3_600_000 + Math.max(policy.send_permit_ms, LEGACY_HANDOFF_PERMIT_MS)) }).where(eq(accountSendControls.igAccountId, accountId));
     }
     await tx.update(accountSendControls).set({ lastObservedEnabled: true }).where(eq(accountSendControls.igAccountId, accountId));
     return { guarded: true, enabled: true };

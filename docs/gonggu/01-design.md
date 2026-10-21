@@ -482,3 +482,15 @@ Q1~Q3는 §1의 사용자 결정으로 해소되었다. 아래는 결정 당시 
 주요 기술 리스크는 결과 불명, 초기 댓글 metadata 추가 조회 부하, legacy와 공유하는 계정 rate cap, due transition/수동 마감 경합, webhook echo 관측 범위, 개인정보 삭제와 snapshot 보존 충돌이다. 각각 위 시험과 운영 절차로 다루며 실제 Meta 제재가 절대 발생하지 않는다고 보장하지 않는다.
 
 **승인 기록:** 사용자가 Q1/Q2를 승인하고 기존 유료 고객 전환을 제외했다. 나머지 권고 기본값으로 구현하되 미검증 Meta 동작은 해당 기능의 검증 조건으로 유지한다.
+
+## 16. M1-4d 구현 결정: 웹훅·워커·기존 팔로우 발송
+
+- 기존 `message_events`와 `follow_gates`를 재사용한다. 별도 queue/가짜 campaign을 만들지 않고 `legacy_event_id`·`legacy_intent`로 기존 발송을 연결한다. 일반 DM 시도도 `send_attempts.source_message_event_id`를 기록하고 계정 `message` 버킷을 공유한다.
+- webhook 서명 검증 → 엄격한 envelope 파싱 → DB inbox commit → ACK → worker profile 조회 → 짧은 준비 transaction → Meta 호출 → 결과 transaction 순서다. 기존 OFF tap은 유지하며 조회 중 ON 전환도 매 쓰기 직전에 다시 관측한다. 엄격한 파서가 거부한 tap을 구 송신 함수로 우회하지 않는다.
+- 잠금 순서는 기존 댓글 → gate → conversation → inbox → 계정 controls → channel이다. 기존 댓글 worker는 일반 DM `sending` 원장이 있는 댓글을 claim하지 않고, 잠금 후 UPDATE에서 한 번 더 확인한다. 구매 링크가 늦은 공개 답글보다 먼저 완료되어도 공개 답글의 pending 상태와 구매 링크 ID를 보존한다.
+- 원장 도입 전 `checks > 0`인 waiting gate는 응답 유실 후 waiting으로 돌아온 기록일 수 있다. 결과를 확정할 수 없으면 `legacy_follow_history_unverified`로 표시하고 자동 재전송하지 않는다. known accepted는 로컬 상태만 복구한다. flag 전환으로 API를 전혀 호출하지 않은 현재 tap은 구 checks 증가분을 되돌리고 inbox로 넘긴다.
+- 신규 guarded 경로는 구 checks를 증가시키지 않는다. gate별 `link`/`reminder` 멱등 키와 소스 lease를 사용한다. 최초 private reply 결과가 불확실하면 새 답장이 있어도 자동으로 성공을 추정하지 않는다. 불확실한 reminder 이후 명시적인 새 응답으로 첫 링크를 보낼 수 있지만 기존 unknown 표시를 지우지 않는다.
+- 기존 팔로우 흐름의 조회 장애 기본은 hold다. 캠페인 fail-open 설정을 기존 자동화에 소급 적용하지 않는다. 일반 DM은 원래 사용자 응답과 현재 대화의 24시간 창·삭제·일시정지를 모두 검사한다.
+- 프로필 조회 전에 campaign/legacy 소유권을 inbox에 저장해 조회 실패도 셀러 화면에서 집계한다. 공개 화면에는 집계 숫자만 전달한다. 발송 수와 받은 확인 답장 처리 수는 별도다.
+- worker HTTP 동시성은 router 32/sender 64/inbox 8이며 환경변수로 조정한다. 기존 worker 8과 PG pool 12는 유지한다. sender poll 250ms와 NOTIFY를 함께 사용하고 메모리 타이머는 잡의 원장이 아니다. 읽기 중 유실된 lease는 재개하고, 쓰기 준비 뒤 유실된 lease는 unknown으로 마감한다.
+- `0008`은 additive이며 empty up/down/up을 검증한다. 발송·이관·untracked marker 이력이 있으면 down을 거부한다. 운영에서는 플래그 OFF와 호환 코드 복귀를 사용한다. 추가 OAuth scope는 없으며 공식 문서 근거는 §2의 2026-10-21 확인 자료와 동일하다. 실제 두 계정/echo capability 확인은 별도 공개 조건으로 남는다.

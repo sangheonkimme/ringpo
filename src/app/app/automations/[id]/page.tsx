@@ -4,12 +4,14 @@ import { notFound } from "next/navigation";
 import { AutomationToggle } from "@/components/app/automation-toggle";
 import { DeleteAutomationButton } from "@/components/app/delete-automation-button";
 import { EventList } from "@/components/app/event-list";
+import { FollowInboxStatus } from "@/components/app/follow-inbox-status";
 import { MediaThumb } from "@/components/app/media-thumb";
 import { AutomationStatusBadge } from "@/components/app/status-badge";
 import { SCOPE_LABEL } from "@/lib/automation-status";
 import { cn } from "@/lib/utils";
 import { getAutomation } from "@/server/automations/service";
 import { getUserPlan } from "@/server/billing/plan-of";
+import { legacyInboxOverview } from "@/server/campaigns/inbox-overview";
 import { getAutomationEvents, getAutomationStats } from "@/server/dashboard";
 import { getDb } from "@/server/db/client";
 import { igAccounts } from "@/server/db/schema";
@@ -26,11 +28,12 @@ export default async function AutomationDetailPage({ params }: { params: Promise
   const db = getDb();
   const auto = UUID.test(id) ? await getAutomation(db, user.id, id) : null;
   if (!auto) notFound();
-  const [[acct], stats, events, plan] = await Promise.all([
+  const [[acct], stats, events, plan, inbox] = await Promise.all([
     db.select({ username: igAccounts.username, status: igAccounts.status }).from(igAccounts).where(eq(igAccounts.id, auto.igAccountId)),
     getAutomationStats(db, auto.id),
     getAutomationEvents(db, user.id, auto.id),
     getUserPlan(db, user.id),
+    legacyInboxOverview(db, user.id, auto.id),
   ]);
   const ctr = stats.linksSent > 0 ? Math.round((stats.linksClicked / stats.linksSent) * 100) : 0;
   const created = auto.createdAt.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" });
@@ -84,6 +87,7 @@ export default async function AutomationDetailPage({ params }: { params: Promise
         </ul>
       </section>
 
+      {inbox !== null && <FollowInboxStatus overview={inbox} refresh={inbox.total > 0} />}
       <section className="flex flex-col gap-3.5 rounded-2xl border bg-card p-5">
         <h2 className="text-lg font-bold">설정</h2>
         <div className="flex items-center gap-3">

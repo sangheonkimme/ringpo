@@ -4,7 +4,9 @@ import { getEnv } from "@/server/env";
 import { getGraphClient } from "@/server/instagram/client";
 import { parseCommentWebhook, parseFollowTaps, verifyHubSignature } from "@/server/instagram/webhook";
 import { log } from "@/server/log";
-import { handleFollowTap } from "@/server/pipeline/follow-gate";
+import { handleLegacyTapWithGuard } from "@/server/pipeline/follow-webhook";
+import { parseCampaignMessages } from "@/server/instagram/campaign-messaging";
+import { ingestGuardedMessages } from "@/server/campaigns/message-inbox";
 import type { PipelineDeps } from "@/server/pipeline/process-comment";
 import { ingestComments } from "@/server/queue/ingest";
 
@@ -28,8 +30,10 @@ export async function POST(req: Request) {
   }
   const comments = parseCommentWebhook(raw);
   const queued = comments.length > 0 ? await ingestComments(getDb(), comments, new Date()) : 0;
-  // '팔로우했어요' 버튼 응답은 바로 처리한다(팔로우 조회 1번 + 메시지 1번이라 짧다)
   const taps = parseFollowTaps(raw);
+  const messages = parseCampaignMessages(raw);
+  // Guarded accounts acknowledge only after durable insertion; Meta reads/writes happen in the worker.
+  const inbox = await ingestGuardedMessages(getDb(), messages, new Date(), taps);
   const outcomes: string[] = [];
   if (taps.length > 0) {
     const deps: PipelineDeps = {
@@ -42,8 +46,8 @@ export async function POST(req: Request) {
       hourlyLimit: env.IG_PRIVATE_REPLY_HOURLY_LIMIT,
       decryptToken: decryptSecret,
     };
-    for (const tap of taps) outcomes.push(await handleFollowTap(deps, tap));
+    for (const tap of taps) outcomes.push(inbox.guardedIgUserIds.has(tap.igUserId) ? "guarded" : await handleLegacyTapWithGuard(deps, tap, messages));
   }
-  log.info("webhook received", { comments: comments.length, queued, followTaps: outcomes });
+  log.info("webhook received", { comments: comments.length, queued, messagesQueued: inbox.queued, followTaps: outcomes });
   return new Response("ok", { status: 200 });
 }
