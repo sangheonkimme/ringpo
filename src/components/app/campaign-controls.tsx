@@ -5,15 +5,15 @@ import { useState, useTransition } from "react";
 import { changeCampaignAction } from "@/app/app/campaigns/actions";
 import type { CampaignState } from "@/lib/campaign-schema";
 
-export function CampaignControls({ id, version, status, published, scheduledDm }: { id: string; version: number; status: CampaignState; published: boolean; scheduledDm: boolean }) {
+export function CampaignControls({ id, version, status, published, scheduledDm, incompleteDm = 0 }: { id: string; version: number; status: CampaignState; published: boolean; scheduledDm: boolean; incompleteDm?: number }) {
   const router = useRouter(); const [pending, startTransition] = useTransition(); const [error, setError] = useState<string | null>(null);
   type Action = Parameters<typeof changeCampaignAction>[0]["action"];
   function run(action: Action) {
-    if (["closed", "sold_out", "settled", "archive"].includes(action) && !window.confirm("공구 상태를 변경할까요? 진행 중인 발송에도 적용돼요.")) return;
+    if (["closed", "sold_out", "settled", "archive"].includes(action) && !window.confirm(action === "settled" && incompleteDm > 0 ? `대기·확인 필요 작업 ${incompleteDm}건이 있는 상태로 정산할까요? 미확정 건수가 리포트에 표시돼요.` : "공구 상태를 변경할까요? 진행 중인 발송에도 적용돼요.")) return;
     setError(null);
     startTransition(async () => {
       try {
-        const result = await changeCampaignAction({ id, version, action, requestId: crypto.randomUUID() });
+        const result = await changeCampaignAction({ id, version, action, requestId: crypto.randomUUID(), acknowledgeIncomplete: action === "settled" && incompleteDm > 0 });
         if (!result.ok) { setError(result.error); return; }
         if (action === "archive") router.push("/app/campaigns");
         router.refresh();

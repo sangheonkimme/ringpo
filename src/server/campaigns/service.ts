@@ -1,3 +1,5 @@
+import { queueCampaignReport } from "./report-operations";
+import { campaignReportMetrics } from "./report";
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { campaignInputSchema, type CampaignInput, type CampaignState } from "@/lib/campaign-schema";
@@ -154,10 +156,11 @@ async function transitionLocked(db: Executor, campaign: Campaign, to: CampaignSt
   }).where(eq(campaigns.id, campaign.id)).returning();
   await db.insert(campaignAuditEvents).values({ campaignId: campaign.id, actorId, action: "transition", fromState: campaign.status, toState: to, version: updated.version, requestId, reason, effectiveAt, createdAt: now });
   await updatePendingCampaignJobs(db, updated, now);
+  if (["closed", "sold_out", "settled"].includes(to)) await queueCampaignReport(db, updated, `transition:${updated.version}`, now, to === "settled");
   return updated;
 }
 
-export async function transitionCampaign(db: Db, userId: string, id: string, to: CampaignState, options: { now: Date; requestId: string; expectedVersion: number; reason: string }) {
+export async function transitionCampaign(db: Db, userId: string, id: string, to: CampaignState, options: { now: Date; requestId: string; expectedVersion: number; reason: string; acknowledgeIncomplete?: boolean }) {
   return db.transaction(async (tx) => {
     await lockSeller(tx, userId);
     const [campaign] = await tx.select().from(campaigns).where(and(eq(campaigns.id, id), eq(campaigns.userId, userId))).for("update");
@@ -172,6 +175,10 @@ export async function transitionCampaign(db: Db, userId: string, id: string, to:
     if (to === "teaser") await requireCampaignFeature(tx, userId, "campaign.scheduled_dm");
     if ((to === "open" || to === "teaser") && !isActiveCampaign(campaign)) await requireActiveSlot(tx, userId, id);
     if (to === "open" && options.now >= campaign.closeAt) throw new CampaignError("past_close", "마감 시각이 지났어요");
+    if (to === "settled" && !options.acknowledgeIncomplete) {
+      const metrics = await campaignReportMetrics(tx, id, options.now);
+      if (metrics.dmPending || metrics.dmUnknown) throw new CampaignError("incomplete", "대기·확인 필요 DM이 있어요. 리포트에서 미확정 수치를 확인한 뒤 정산해주세요");
+    }
     return transitionLocked(tx, campaign, to, options.now, options.requestId, userId, options.reason);
   });
 }

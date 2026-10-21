@@ -1,3 +1,4 @@
+import { processCampaignReports } from "@/server/campaigns/report-operations";
 import { hostname } from "node:os";
 import { createBillingDeps } from "@/server/billing/deps";
 import { advanceDueCampaigns } from "@/server/campaigns/service";
@@ -61,6 +62,7 @@ async function main() {
   await sql.listen(MESSAGE_QUEUE_CHANNEL, campaignLoops.wakeMessages);
 
   const jobs: ScheduledJob[] = [
+    { name: "campaign-reports", intervalMs: 30_000, run: async () => { await processCampaignReports(db, new Date()); } },
     { name: "campaign-transitions", intervalMs: 5_000, run: async () => { const count = await advanceDueCampaigns(db, new Date()); if (count) log.info("campaign transitions", { count }); } },
     { name: "campaign-job-maintenance", intervalMs: 5_000, run: async () => {
       const recovered = await recoverCampaignJobs(db, new Date());

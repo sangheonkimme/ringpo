@@ -34,6 +34,7 @@ export async function saveCampaignAction(raw: unknown, options: { id?: string; e
 
 const mutationSchema = z.object({
   id: z.uuid(), version: z.number().int().positive(), requestId: z.uuid(),
+  acknowledgeIncomplete: z.boolean().optional(),
   action: z.enum(["publish", "publish_teaser", "open", "closed", "sold_out", "settled", "archive"]),
 });
 
@@ -41,12 +42,12 @@ export async function changeCampaignAction(raw: z.infer<typeof mutationSchema>):
   const user = await requireUser();
   const parsed = mutationSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "공구 정보를 확인해주세요" };
-  const { id, version, requestId, action } = parsed.data;
+  const { id, version, requestId, action, acknowledgeIncomplete } = parsed.data;
   try {
     const db = getDb(); const now = new Date();
     if (action === "publish" || action === "publish_teaser") await publishCampaign(db, user.id, id, action === "publish_teaser", now);
     else if (action === "archive") await archiveCampaign(db, user.id, id, now);
-    else await transitionCampaign(db, user.id, id, action, { now, expectedVersion: version, requestId, reason: "셀러 수동 전환" });
+    else await transitionCampaign(db, user.id, id, action, { now, expectedVersion: version, requestId, reason: "셀러 수동 전환", acknowledgeIncomplete });
     revalidatePath("/app/campaigns");
     revalidatePath(`/app/campaigns/${id}`);
     return { ok: true, id };

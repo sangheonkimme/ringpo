@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  bigint,
   check,
   doublePrecision,
   foreignKey,
@@ -15,6 +16,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { CampaignReport } from "@/lib/campaign-report";
 import { CAMPAIGN_STATES, type CampaignTemplates } from "@/lib/campaign-schema";
 import { CAMPAIGN_JOB_KINDS, CAMPAIGN_JOB_STATES, SEND_CHANNELS } from "@/lib/campaign-jobs";
 import type { CampaignRuleSnapshot } from "@/server/campaigns/matcher";
@@ -807,3 +809,55 @@ export type Payment = typeof payments.$inferSelect;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 export type SkipReason = (typeof SKIP_REASONS)[number];
 export type PartStatus = (typeof PART_STATUSES)[number];
+
+
+// Immutable seller-entered totals and report revisions; no customer/order identities.
+export const manualOrderEntries = pgTable("manual_order_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  revision: integer("revision").notNull(),
+  requestId: text("request_id").notNull(),
+  orderCount: integer("order_count").notNull(),
+  revenueKrw: bigint("revenue_krw", { mode: "number" }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("manual_orders_revision_key").on(t.campaignId, t.revision),
+  uniqueIndex("manual_orders_request_key").on(t.campaignId, t.requestId),
+  index("manual_orders_campaign_time_idx").on(t.campaignId, t.createdAt),
+  check("manual_orders_values_check", sql`${t.revision} > 0 and ${t.orderCount} between 0 and 1000000000 and ${t.revenueKrw} between 0 and 9000000000000`),
+]);
+
+export const reportSnapshots = pgTable("report_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  revision: integer("revision").notNull(),
+  sourceKey: text("source_key").notNull(),
+  asOf: tz("as_of").notNull(),
+  finalized: boolean("finalized").notNull().default(false),
+  data: jsonb("data").$type<CampaignReport>().notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  unique("report_snapshots_identity_key").on(t.id, t.campaignId),
+  uniqueIndex("report_snapshots_revision_key").on(t.campaignId, t.revision),
+  uniqueIndex("report_snapshots_source_key").on(t.campaignId, t.sourceKey),
+  check("report_snapshots_revision_check", sql`${t.revision} > 0`),
+]);
+
+export const campaignReportRequests = pgTable("campaign_report_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  sourceKey: text("source_key").notNull(),
+  asOf: tz("as_of").notNull(),
+  finalized: boolean("finalized").notNull().default(false),
+  status: text("status", { enum: ["waiting", "done", "failed"] }).notNull().default("waiting"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: tz("next_attempt_at").notNull(),
+  snapshotId: uuid("snapshot_id"),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("campaign_report_requests_source_key").on(t.campaignId, t.sourceKey),
+  index("campaign_report_requests_queue_idx").on(t.status, t.nextAttemptAt),
+  foreignKey({ columns: [t.snapshotId, t.campaignId], foreignColumns: [reportSnapshots.id, reportSnapshots.campaignId] }).onDelete("cascade"),
+  check("campaign_report_requests_status_check", sql`${t.status} in ('waiting','done','failed') and ${t.attempts} >= 0`),
+]);
