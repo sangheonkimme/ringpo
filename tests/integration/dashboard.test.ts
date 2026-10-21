@@ -31,7 +31,7 @@ describe("getDashboard", () => {
     expect(d.plan.id).toBe("free");
     expect(d.usage).toBe(42);
     expect(d.waiting).toBe(1);
-    expect(d.automations[0].stats).toEqual({ total: 6, succeeded: 2, partial: 0, failed: 1, pending: 2, skipped: 1, linksSent: 2, linksClicked: 1, clicks: 3 });
+    expect(d.automations[0].stats).toEqual({ total: 6, succeeded: 2, partial: 0, failed: 1, unknown: 0, pending: 2, skipped: 1, linksSent: 2, linksClicked: 1, clicks: 3 });
     expect(d.recent).toHaveLength(6);
     expect(d.recent.every((r) => r.automationName === "공구 자동화")).toBe(true);
   });
@@ -60,5 +60,13 @@ describe("getDashboard", () => {
     const d = await getDashboard(getDb(), b.id, new Date());
     expect(d.automations).toHaveLength(0);
     expect(d.recent).toHaveLength(0);
+  });
+
+  it("reports unknown acceptance separately without counting it as failed, sent, or pending", async () => {
+    const owner = await createUser(); const account = await createIgAccount(owner.id); const automation = await createAutomation(account);
+    await createEvent(account, { automationId: automation.id, status: "send_unknown", errorCode: "network" });
+    const result = await getDashboard(getDb(), owner.id, new Date());
+    expect(result.automations[0].stats).toMatchObject({ total: 1, unknown: 1, succeeded: 0, partial: 0, failed: 0, pending: 0 });
+    expect(result.recent[0].status).toBe("send_unknown");
   });
 });

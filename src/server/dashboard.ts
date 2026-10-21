@@ -12,16 +12,18 @@ export interface AutomationStats {
   partial: number;
   /** 실패·기한 만료 */
   failed: number;
+  /** 외부 발송 수락 여부를 확인해야 하는 건. 실패/대기와 구분한다. */
+  unknown: number;
   /** 대기·처리 중·팔로우 대기 */
   pending: number;
-  /** 건너뜀(이미 보낸 사람·한도 초과·자동화 꺼짐 등). 반응한 댓글 = 보냄 + 대기 + 실패 + 건너뜀 */
+  /** 건너뜀(이미 보낸 사람·한도 초과·자동화 꺼짐 등). 전체 = 보냄 + 대기 + 실패 + 건너뜀 + 확인 필요 */
   skipped: number;
   linksSent: number;
   linksClicked: number;
   clicks: number;
 }
 
-const EMPTY: AutomationStats = { total: 0, succeeded: 0, partial: 0, failed: 0, pending: 0, skipped: 0, linksSent: 0, linksClicked: 0, clicks: 0 };
+const EMPTY: AutomationStats = { total: 0, succeeded: 0, partial: 0, failed: 0, unknown: 0, pending: 0, skipped: 0, linksSent: 0, linksClicked: 0, clicks: 0 };
 
 const eventFields = {
   id: commentEvents.id,
@@ -48,6 +50,7 @@ async function statsByAutomation(db: Db, automationIds: string[]): Promise<Map<s
       succeeded: sql<number>`(count(*) filter (where ${commentEvents.status} = 'succeeded'))::int`,
       partial: sql<number>`(count(*) filter (where ${commentEvents.status} = 'partial'))::int`,
       failed: sql<number>`(count(*) filter (where ${commentEvents.status} in ('failed', 'expired')))::int`,
+      unknown: sql<number>`(count(*) filter (where ${commentEvents.status} = 'send_unknown'))::int`,
       pending: sql<number>`(count(*) filter (where ${commentEvents.status} in ('pending', 'processing', 'awaiting_follow')))::int`,
       skipped: sql<number>`(count(*) filter (where ${commentEvents.status} = 'skipped'))::int`,
     })
@@ -67,7 +70,7 @@ async function statsByAutomation(db: Db, automationIds: string[]): Promise<Map<s
   for (const id of automationIds) out.set(id, { ...EMPTY });
   for (const r of ev) {
     const s = r.automationId ? out.get(r.automationId) : undefined;
-    if (s) Object.assign(s, { total: r.total, succeeded: r.succeeded, partial: r.partial, failed: r.failed, pending: r.pending, skipped: r.skipped });
+    if (s) Object.assign(s, { total: r.total, succeeded: r.succeeded, partial: r.partial, failed: r.failed, unknown: r.unknown, pending: r.pending, skipped: r.skipped });
   }
   for (const r of lk) {
     const s = r.automationId ? out.get(r.automationId) : undefined;

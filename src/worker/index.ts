@@ -13,7 +13,8 @@ import { getEnv } from "@/server/env";
 import { createGraphClient } from "@/server/instagram/graph";
 import { errorFields, log } from "@/server/log";
 import { notifyUser } from "@/server/notifications";
-import { processCommentEvent, type PipelineDeps } from "@/server/pipeline/process-comment";
+import type { PipelineDeps } from "@/server/pipeline/process-comment";
+import { processWithSharedBudget } from "@/server/pipeline/shared-budget";
 import { claimEvents, QUEUE_CHANNEL } from "@/server/queue/events";
 import { beat, cleanupOldData, expireStaleEvents, refreshExpiringTokens, withJobLock } from "./jobs";
 import { startEventLoop } from "./loop";
@@ -44,7 +45,7 @@ async function main() {
     pollMs: 2000,
     claim: (n) => claimEvents(db, { batch: n, now: new Date() }),
     handle: async (event) => {
-      const outcome = await processCommentEvent(deps, event);
+      const outcome = await processWithSharedBudget(deps, event);
       log.info("event processed", { eventId: event.id, outcome, attempts: event.attempts });
     },
     onError: (e) => log.error("event loop error", errorFields(e)),

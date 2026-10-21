@@ -3,7 +3,7 @@ import type { Db, Executor } from "@/server/db/client";
 import { commentEvents, type CommentEvent, type EventStatus, type NewCommentEvent } from "@/server/db/schema";
 
 export const QUEUE_CHANNEL = "comment_events";
-const STALE_LOCK_MS = 5 * 60_000;
+export const LEGACY_EVENT_LEASE_MS = 5 * 60_000;
 
 export type EventPatch = Partial<Omit<NewCommentEvent, "id" | "commentId" | "igAccountId">>;
 
@@ -21,7 +21,7 @@ export async function enqueueComments(db: Executor, rows: NewCommentEvent[]): Pr
 export async function claimEvents(db: Db, o: { batch: number; now: Date }): Promise<CommentEvent[]> {
   if (o.batch <= 0) return [];
   return db.transaction(async (tx) => {
-    const staleBefore = new Date(o.now.getTime() - STALE_LOCK_MS);
+    const staleBefore = new Date(o.now.getTime() - LEGACY_EVENT_LEASE_MS);
     const candidates = await tx
       .select({ id: commentEvents.id })
       .from(commentEvents)
@@ -37,7 +37,7 @@ export async function claimEvents(db: Db, o: { batch: number; now: Date }): Prom
     if (candidates.length === 0) return [];
     return tx
       .update(commentEvents)
-      .set({ status: "processing", lockedAt: o.now, attempts: sql`${commentEvents.attempts} + 1` })
+      .set({ status: "processing", lockedAt: o.now, attempts: sql`${commentEvents.attempts} + 1`, sendLeaseVersion: sql`${commentEvents.sendLeaseVersion} + 1` })
       .where(
         inArray(
           commentEvents.id,

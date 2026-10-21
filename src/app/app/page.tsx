@@ -145,6 +145,7 @@ export default async function DashboardPage() {
                     </div>
                   ))}
                 </dl>
+                {a.stats.unknown > 0 && <p className="text-sm text-warning-ink">발송 확인 필요 {a.stats.unknown.toLocaleString()}건 · 자동 재발송하지 않아요.</p>}
               </Link>
             );
           })

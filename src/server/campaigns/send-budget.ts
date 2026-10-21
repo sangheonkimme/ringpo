@@ -70,6 +70,13 @@ export async function acquireSendPermit(db: Executor, input: PermitInput, policy
     .innerJoin(igAccounts, eq(igAccounts.id, accountSendControls.igAccountId)).where(eq(accountSendControls.igAccountId, input.igAccountId)).for("update", { of: accountSendControls });
   const control = accountControl?.control;
   if (!control) throw new CampaignError("configuration", "Send controls must be initialized in a committed transaction");
+  if (input.campaignId && !control.lastObservedEnabled) {
+    // Close the race where OFF->ON occurred after the dispatcher's transition observation.
+    // The caller catches this inside its transaction so the conservative warmup commits.
+    const until = new Date(now.getTime() + HOUR_MS + policy.send_permit_ms);
+    await db.update(accountSendControls).set({ lastObservedEnabled: true, warmupUntil: until }).where(eq(accountSendControls.igAccountId, input.igAccountId));
+    throw new SendDeferredError(until, "reactivation_race_warmup");
+  }
   if (accountControl.status !== "active" || control.manualPaused) throw new SendDeferredError(new Date(now.getTime() + 60_000), "account_paused");
   for (const until of [control.warmupUntil, control.apiPausedUntil]) if (until && until > now) throw new SendDeferredError(until, "account_budget_pause");
   const [bucket] = await db.select().from(sendBuckets).where(bucketWhere(input.igAccountId, input.channel)).for("update");

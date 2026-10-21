@@ -3,7 +3,7 @@ import type { Plan } from "@/lib/plans";
 import { rulesToBind, selectAutomation } from "@/server/automations/matcher";
 import { renderReply, truncateChars } from "@/server/automations/render";
 import { getUserPlan } from "@/server/billing/plan-of";
-import type { Db } from "@/server/db/client";
+import type { Db, Executor } from "@/server/db/client";
 import {
   automations,
   commentEvents,
@@ -19,11 +19,13 @@ import { classifyError, type ClassifiedError } from "@/server/instagram/errors";
 import type { GraphClient } from "@/server/instagram/graph";
 import { backoffDelayMs, MAX_ATTEMPTS } from "@/server/queue/backoff";
 import { finishEvent, requeueEvent, updateEvent, type EventPatch } from "@/server/queue/events";
+import { isSendControlError, SendDeferredError, SendUncertainError, StaleSendLeaseError } from "@/server/queue/send-errors";
 import { reserveSendSlot } from "@/server/ratelimit";
 import { releaseDm, reserveDm } from "@/server/usage";
 import { releaseDelivery, reserveDelivery } from "./deliveries";
 import { buildLinkDm } from "./dm-content";
 import { sendFollowGate } from "./follow-gate";
+import { withLegacyLease, type LegacyGuard } from "./lease";
 
 export interface PipelineDeps {
   db: Db;
@@ -35,9 +37,10 @@ export interface PipelineDeps {
   hourlyLimit: number;
   decryptToken: (enc: string) => string;
   onAuthFailure?: (account: IgAccount) => Promise<void>;
+  guard?: LegacyGuard;
 }
 
-export type ProcessOutcome = "succeeded" | "partial" | "failed" | "skipped" | "expired" | "deferred" | "retry" | "awaiting_follow";
+export type ProcessOutcome = "succeeded" | "partial" | "failed" | "skipped" | "expired" | "deferred" | "retry" | "awaiting_follow" | "send_unknown" | "stale";
 
 const SEND_WINDOW_MS = 7 * 86_400_000;
 const MAX_INLINE_WAIT_MS = 5_000;
@@ -50,6 +53,35 @@ interface Ctx {
 }
 
 export async function processCommentEvent(deps: PipelineDeps, event: CommentEvent): Promise<ProcessOutcome> {
+  try { return await processClaimedComment(deps, event); }
+  catch (error) {
+    if (error instanceof StaleSendLeaseError) return "stale";
+    if (!deps.guard?.active) throw error;
+    try {
+      if (error instanceof SendDeferredError) {
+        await withLegacyLease(deps.db, deps.guard, (tx) => requeueEvent(tx, event.id, error.nextAttemptAt, { dmReservedAt: null, errorCode: error.reason, errorMessage: null }, { refundAttempt: !error.countAttempt }));
+        return "deferred";
+      }
+      if (error instanceof SendUncertainError) {
+        await withLegacyLease(deps.db, deps.guard, (tx) => finishEvent(tx, event.id, "send_unknown", { errorCode: error.code, errorMessage: "발송 결과를 확인해야 해요. 자동으로 다시 보내지 않아요." }, deps.now()));
+        return "send_unknown";
+      }
+    } catch (late) { if (late instanceof StaleSendLeaseError) return "stale"; throw late; }
+    throw error;
+  }
+}
+
+async function patchEvent(deps: PipelineDeps, id: string, patch: EventPatch) {
+  return withLegacyLease(deps.db, deps.guard, (tx) => updateEvent(tx, id, patch));
+}
+async function finishPipelineEvent(deps: PipelineDeps, id: string, status: Parameters<typeof finishEvent>[2], patch: EventPatch = {}, now = deps.now()) {
+  return withLegacyLease(deps.db, deps.guard, (tx) => finishEvent(tx, id, status, patch, now));
+}
+async function requeuePipelineEvent(deps: PipelineDeps, id: string, runAt: Date, patch: EventPatch = {}, options: { refundAttempt?: boolean } = {}) {
+  return withLegacyLease(deps.db, deps.guard, (tx) => requeueEvent(tx, id, runAt, patch, options));
+}
+
+async function processClaimedComment(deps: PipelineDeps, event: CommentEvent): Promise<ProcessOutcome> {
   const { db } = deps;
   const now = deps.now();
   const deadline = event.receivedAt.getTime() + SEND_WINDOW_MS;
@@ -61,8 +93,7 @@ export async function processCommentEvent(deps: PipelineDeps, event: CommentEven
   if (now.getTime() >= deadline) return expire(deps, ctx);
   if (account.status !== "active" || !account.accessTokenEnc) {
     if (event.dmStatus === "sent") return endAfterDm(deps, ctx);
-    await releaseReservations(db, ctx);
-    return skip(deps, event.id, "account_inactive", { usagePeriod: null });
+    return releaseAndSkip(deps, ctx, "account_inactive");
   }
   if (await isSelfComment(db, event, account)) return skip(deps, event.id, "self");
 
@@ -72,36 +103,38 @@ export async function processCommentEvent(deps: PipelineDeps, event: CommentEven
     automation = row?.isActive ? row : null;
     if (!automation) {
       if (event.dmStatus === "sent") return endAfterDm(deps, ctx);
-      await releaseReservations(db, ctx);
-      return skip(deps, event.id, "automation_inactive", { usagePeriod: null });
+      return releaseAndSkip(deps, ctx, "automation_inactive");
     }
   } else {
     automation = await matchAutomation(deps, event, account);
     if (!automation) return skip(deps, event.id, "no_match");
-    await updateEvent(db, event.id, { automationId: automation.id });
+    await patchEvent(deps, event.id, { automationId: automation.id });
   }
 
   const plan = await getUserPlan(db, account.userId);
 
-  const dedupe = await reserveDelivery(db, {
-    automationId: automation.id,
-    mediaId: event.mediaId,
-    commenterIgId: event.commenterIgId,
-    eventId: event.id,
-  });
-  if (dedupe === "duplicate") {
-    if (ctx.usagePeriod) await releaseDm(db, account.userId, ctx.usagePeriod);
-    return skip(deps, event.id, "duplicate", { usagePeriod: null });
-  }
-
-  if (!ctx.usagePeriod) {
-    ctx.usagePeriod = await reserveDm(db, account.userId, plan.monthlyDmLimit, now);
-    if (!ctx.usagePeriod) {
-      await releaseDelivery(db, event.id);
-      return skip(deps, event.id, "quota");
+  const matched = automation;
+  const reserved = await withLegacyLease(db, deps.guard, async (tx) => {
+    const dedupe = await reserveDelivery(tx, { automationId: matched.id, mediaId: event.mediaId, commenterIgId: event.commenterIgId, eventId: event.id });
+    if (dedupe === "duplicate") {
+      if (ctx.usagePeriod) await releaseDm(tx, account.userId, ctx.usagePeriod);
+      await finishEvent(tx, event.id, "skipped", { skipReason: "duplicate", usagePeriod: null }, deps.now());
+      return false;
     }
-    await updateEvent(db, event.id, { usagePeriod: ctx.usagePeriod });
-  }
+    if (!ctx.usagePeriod) {
+      ctx.usagePeriod = await reserveDm(tx, account.userId, plan.monthlyDmLimit, now);
+      if (!ctx.usagePeriod) {
+        await releaseDelivery(tx, event.id);
+        await finishEvent(tx, event.id, "skipped", { skipReason: "quota" }, deps.now());
+        return false;
+      }
+      await updateEvent(tx, event.id, { usagePeriod: ctx.usagePeriod });
+    }
+    return true;
+  });
+  if (!reserved) return "skipped";
+  // Guarded Graph calls acquire durable per-channel budgets; never sleep while holding a worker slot.
+  if (deps.guard?.active) return sendAndSettle(deps, ctx, automation, plan, deadline);
 
   const slot =
     event.dmReservedAt ??
@@ -115,7 +148,7 @@ export async function processCommentEvent(deps: PipelineDeps, event: CommentEven
   if (slot.getTime() >= deadline) return expire(deps, ctx);
   const wait = slot.getTime() - now.getTime();
   if (wait > MAX_INLINE_WAIT_MS) {
-    await requeueEvent(db, event.id, slot, {}, { refundAttempt: true });
+    await requeuePipelineEvent(deps, event.id, slot, {}, { refundAttempt: true });
     return "deferred";
   }
   if (wait > 0) await deps.sleep(wait);
@@ -138,6 +171,7 @@ async function sendAndSettle(
   let dmStatus = event.dmStatus;
   let replyError: ClassifiedError | null = null;
   let dmError: ClassifiedError | null = null;
+  let replyDeferred: SendDeferredError | null = null;
 
   if (!automation.replyEnabled || automation.replyTexts.length === 0) {
     replyStatus = "skipped";
@@ -150,13 +184,17 @@ async function sendAndSettle(
         renderReply(template, event.commenterUsername),
       );
       replyStatus = "sent";
-      await updateEvent(db, event.id, { replyStatus, replyCommentId: res.id });
+      await patchEvent(deps, event.id, { replyStatus, replyCommentId: res.id });
     } catch (e) {
-      replyError = classifyError(e);
-      if (isFinalError(replyError)) replyStatus = "failed";
+      if (deps.guard?.active && e instanceof SendDeferredError) replyDeferred = e;
+      else {
+        if (isSendControlError(e)) throw e;
+        replyError = classifyError(e);
+        if (isFinalError(replyError)) replyStatus = "failed";
+      }
     }
   }
-  if (replyStatus !== event.replyStatus) await updateEvent(db, event.id, { replyStatus });
+  if (replyStatus !== event.replyStatus) await patchEvent(deps, event.id, { replyStatus });
 
   // 팔로우 확인을 켠 자동화는 링크 대신 '팔로우했어요' 안내를 보낸다. 안내가 이미 나갔으면(dmMessageId) 다시 보내지 않는다
   const gated = automation.followGate;
@@ -166,17 +204,18 @@ async function sendAndSettle(
       if (gated) {
         const res = await sendFollowGate(deps, { account, automation, event, token });
         gateSent = true;
-        await updateEvent(db, event.id, { dmMessageId: res.messageId });
+        await patchEvent(deps, event.id, { dmMessageId: res.messageId });
       } else {
         const res = await sendDm(deps, { account, automation, event, plan, token });
         dmStatus = "sent";
-        await updateEvent(db, event.id, { dmStatus, dmMessageId: res.messageId });
+        await patchEvent(deps, event.id, { dmStatus, dmMessageId: res.messageId });
       }
     } catch (e) {
+      if (isSendControlError(e)) throw e;
       dmError = classifyError(e);
       if (isFinalError(dmError)) {
         dmStatus = "failed";
-        await updateEvent(db, event.id, { dmStatus });
+        await patchEvent(deps, event.id, { dmStatus });
       }
     }
   }
@@ -189,14 +228,21 @@ async function sendAndSettle(
     return settle(deps, ctx, replyStatus ?? "failed", dmStatus ?? "failed", errors.find((e) => e.cls === "auth") ?? null);
   }
 
+  // A slower public-reply channel must not delay an eligible private reply.
+  // Accepted DM state was saved above; only the public reply remains on the next pass.
+  if (replyDeferred) {
+    await requeuePipelineEvent(deps, event.id, replyDeferred.nextAttemptAt, { dmReservedAt: null, errorCode: replyDeferred.reason, errorMessage: null }, { refundAttempt: !replyDeferred.countAttempt });
+    return "deferred";
+  }
+
   const retryable = errors.filter((e) => e.cls === "rate_limited" || e.cls === "transient");
   if (retryable.length > 0) {
     const rateLimited = retryable.some((e) => e.cls === "rate_limited");
     const delay = rateLimited ? RATE_LIMIT_RETRY_MS : backoffDelayMs(event.attempts, deps.random);
     const runAt = new Date(deps.now().getTime() + delay);
     if ((rateLimited || event.attempts < MAX_ATTEMPTS) && runAt.getTime() < deadline) {
-      await requeueEvent(
-        db,
+      await requeuePipelineEvent(
+        deps,
         event.id,
         runAt,
         { dmReservedAt: null, errorCode: retryable[0].code, errorMessage: retryable[0].message },
@@ -208,8 +254,8 @@ async function sendAndSettle(
 
   if (gateSent) {
     // 링크는 '팔로우했어요'를 누르고 팔로우가 확인되면 follow-gate에서 보낸다. DM 한도·중복 방지 예약은 유지한다
-    await finishEvent(
-      db,
+    await finishPipelineEvent(
+      deps,
       event.id,
       "awaiting_follow",
       { replyStatus: replyStatus ?? "failed", usagePeriod: ctx.usagePeriod, errorCode: replyError?.code ?? null, errorMessage: replyError?.message ?? null },
@@ -235,24 +281,26 @@ async function settle(
   const replyOk = replyStatus !== "failed";
   const dmOk = dmStatus === "sent";
   const status = replyOk && dmOk ? "succeeded" : replyStatus === "sent" || dmOk ? "partial" : "failed";
-  if (!dmOk) await releaseReservations(deps.db, ctx);
-  await finishEvent(
-    deps.db,
-    ctx.event.id,
-    status,
-    {
-      replyStatus,
-      dmStatus,
-      usagePeriod: ctx.usagePeriod,
-      errorCode: status === "succeeded" ? null : (error?.code ?? ctx.event.errorCode),
-      errorMessage: status === "succeeded" ? null : (error?.message ?? ctx.event.errorMessage),
-    },
-    deps.now(),
-  );
+  await withLegacyLease(deps.db, deps.guard, async (tx) => {
+    if (!dmOk) await releaseReservations(tx, ctx);
+    await finishEvent(
+      tx,
+      ctx.event.id,
+      status,
+      {
+        replyStatus,
+        dmStatus,
+        usagePeriod: ctx.usagePeriod,
+        errorCode: status === "succeeded" ? null : (error?.code ?? ctx.event.errorCode),
+        errorMessage: status === "succeeded" ? null : (error?.message ?? ctx.event.errorMessage),
+      },
+      deps.now(),
+    );
+  });
   return status;
 }
 
-async function releaseReservations(db: Db, ctx: Ctx): Promise<void> {
+async function releaseReservations(db: Executor, ctx: Ctx): Promise<void> {
   await releaseDelivery(db, ctx.event.id);
   if (ctx.usagePeriod) {
     await releaseDm(db, ctx.account.userId, ctx.usagePeriod);
@@ -262,15 +310,29 @@ async function releaseReservations(db: Db, ctx: Ctx): Promise<void> {
 
 // DM이 이미 나간 이벤트(답글만 재시도 중)는 예약을 되돌리지 않고 일부 발송으로 끝낸다 (spec 7.4-7)
 async function endAfterDm(deps: PipelineDeps, ctx: Ctx): Promise<ProcessOutcome> {
-  await finishEvent(deps.db, ctx.event.id, "partial", { replyStatus: ctx.event.replyStatus ?? "failed" }, deps.now());
+  await finishPipelineEvent(deps, ctx.event.id, "partial", { replyStatus: ctx.event.replyStatus ?? "failed" }, deps.now());
   return "partial";
 }
 
 async function expire(deps: PipelineDeps, ctx: Ctx): Promise<ProcessOutcome> {
   if (ctx.event.dmStatus === "sent") return endAfterDm(deps, ctx);
-  await releaseReservations(deps.db, ctx);
-  await finishEvent(deps.db, ctx.event.id, "expired", { errorCode: "expired", usagePeriod: null }, deps.now());
+  if (deps.guard?.active && ctx.event.dmMessageId && ctx.event.dmStatus === null) {
+    await finishPipelineEvent(deps, ctx.event.id, "awaiting_follow", { replyStatus: ctx.event.replyStatus ?? "failed" }, deps.now());
+    return "awaiting_follow";
+  }
+  await withLegacyLease(deps.db, deps.guard, async (tx) => {
+    await releaseReservations(tx, ctx);
+    await finishEvent(tx, ctx.event.id, "expired", { errorCode: "expired", usagePeriod: null }, deps.now());
+  });
   return "expired";
+}
+
+async function releaseAndSkip(deps: PipelineDeps, ctx: Ctx, reason: SkipReason): Promise<ProcessOutcome> {
+  await withLegacyLease(deps.db, deps.guard, async (tx) => {
+    await releaseReservations(tx, ctx);
+    await finishEvent(tx, ctx.event.id, "skipped", { skipReason: reason, usagePeriod: null }, deps.now());
+  });
+  return "skipped";
 }
 
 async function skip(
@@ -279,7 +341,7 @@ async function skip(
   reason: SkipReason,
   patch: EventPatch = {},
 ): Promise<ProcessOutcome> {
-  await finishEvent(deps.db, id, "skipped", { skipReason: reason, ...patch }, deps.now());
+  await finishPipelineEvent(deps, id, "skipped", { skipReason: reason, ...patch }, deps.now());
   return "skipped";
 }
 

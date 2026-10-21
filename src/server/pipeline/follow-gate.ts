@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { DEFAULT_FOLLOW_GATE_TEXT } from "@/lib/automation-schema";
+import { truncateUtf8 } from "@/server/automations/render";
 import { getUserPlan } from "@/server/billing/plan-of";
 import { automations, commentEvents, followGates, igAccounts, type Automation, type CommentEvent, type IgAccount } from "@/server/db/schema";
 import { classifyError } from "@/server/instagram/errors";
@@ -38,6 +39,10 @@ export async function sendFollowGate(
   await db.insert(followGates).values({ eventId: p.event.id, igAccountId: p.account.id }).onConflictDoNothing({ target: followGates.eventId });
   const [gate] = await db.select({ id: followGates.id }).from(followGates).where(eq(followGates.eventId, p.event.id));
   const text = p.automation.followGateText.trim() || DEFAULT_FOLLOW_GATE_TEXT;
+  if (deps.guard?.active) {
+    const suffix = "\n\n팔로우 후 ‘팔로우했어요’라고 답장해 주세요.";
+    return graph.sendPrivateReply(p.token, p.account.igUserId, p.event.commentId, { kind: "text", text: `${truncateUtf8(text, 1000 - Buffer.byteLength(suffix))}${suffix}` });
+  }
   return sendWithFallback((m) => graph.sendPrivateReply(p.token, p.account.igUserId, p.event.commentId, m), gateMessage(text, gate.id));
 }
 
