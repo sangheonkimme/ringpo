@@ -67,6 +67,7 @@ export function CampaignForm({ accounts, initial, id, version, features, default
     </fieldset>
     <fieldset disabled={pending} className="flex flex-col gap-3">
       <legend className="mb-3 text-lg font-bold">상품과 옵션</legend>
+      <p className="text-sm text-muted-foreground">상품이 여러 개면 구매 링크에서 상품·옵션을 선택할 수 있어요. 구매 주소에는 Instagram DM 유입을 구분하는 UTM이 붙으며, 같은 이름의 기존 UTM은 대체돼요.</p>
       {draft.products.map((product, index) => <div key={product.id ?? index} className="flex flex-col gap-2 rounded-xl border p-3">
         {(["name", "option", "url"] as const).map((key) => <label key={key}>{({ name: "상품명", option: "옵션", url: "원본 구매 링크" })[key]}<input type={key === "url" ? "url" : "text"} required={key !== "option"} className={field} value={product[key]} onChange={(e) => patch("products", draft.products.map((p, i) => i === index ? { ...p, [key]: e.target.value } : p))} /></label>)}
         {draft.products.length > 1 && <button type="button" className={button} onClick={() => patch("products", draft.products.filter((_, i) => i !== index))}>상품 삭제</button>}
@@ -92,6 +93,7 @@ export function CampaignForm({ accounts, initial, id, version, features, default
       <label>공개 답글 (줄마다 다른 문구, 비우면 보내지 않음)<textarea className={field} rows={3} value={draft.templates[stage].publicReplies.join("\n")} onChange={(e) => changeTemplate("publicReplies", e.target.value.split("\n"))} /></label>
       <label>DM 내용<textarea className={field} rows={4} value={draft.templates[stage].privateReply} onChange={(e) => changeTemplate("privateReply", e.target.value)} /></label>
       <p className="text-sm text-muted-foreground">{`{상품명}, {링크}, {오픈일시}, {게시물링크}가 자동으로 바뀌어요. 수정한 내용은 아직 보내지 않은 메시지에 적용돼요.`}</p>
+      <p className="text-sm text-muted-foreground">구매 링크는 DM 버튼으로 표시돼요. 메시지가 길면 끝부분을 줄여 보내며, 구매 링크와 만료 안내의 오픈 일정·게시물 주소는 유지해요.</p>
     </fieldset>
     <fieldset disabled={pending} className="flex flex-col gap-3">
       <legend className="mb-3 text-lg font-bold">발송 설정</legend>

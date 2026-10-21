@@ -80,7 +80,7 @@ FAQ 직접 응답 감지가 앱 설정/계정에 따라 작동하지 않으면 �
 - Drizzle/PostgreSQL, 기존 worker process·loop·scheduler·LISTEN/NOTIFY를 유지한다. 캠페인 메시지는 기존 comment_events와 연결된 영속 `dm_jobs`로 분리한다. webhook 이벤트 1개에 공개 답글과 DM 각각의 결과·deadline이 필요하기 때문이다.
 - `src/server/campaigns/{service,state,matcher,routing,report}.ts`, `src/server/pipeline/`·`queue/` 확장, `src/lib/campaign-schema.ts`, `src/app/app/campaigns/`를 제안한다. 실제 파일 분할은 PR 크기에 맞춘다.
 - 기존 UI의 media picker, message preview, 상태 badge, 인증·소유권 검사, GraphClient, crypto, bot 필터, 이메일 전송을 재사용한다.
-- 기존 `/l/{code}`를 공구에도 사용한다. 요청서의 `/r/{code}`는 같은 resolver의 별칭으로 제공할 수 있지만 추적·테이블을 두 벌로 만들지 않는다. 기존 발송 링크는 계속 열린다.
+- 기존 `/l/{code}`와 `links(event_id UNIQUE)`는 그대로 유지한다. M1-4에서 확인한 다상품/옵션 요구 때문에 공구는 `campaign_tracked_links`와 `/r/{code}`를 추가한다. 기존 난수 코드·bot 판별·UTF-8 렌더 helper를 재사용하며, 단일 이벤트/단일 링크 전제를 바꿔 legacy 회귀를 만들지 않는다. 이미 발송한 모든 링크는 계속 열린다.
 - 기존 매처는 NFKC를 그대로 보존한다. 같은 순수 매칭 모듈에 명시적 캠페인 NFC 정책을 추가하고 legacy 기본값을 바꾸지 않는다.
 - 캠페인 상태는 코드/DB에서 기존 관례대로 `draft/teaser/open/closed/sold_out/settled`, UI·설명에서는 대문자를 사용한다.
 - 모든 timestamp는 UTC `timestamptz`; 화면 입력·표시는 `Asia/Seoul`. 서버 locale에 기대지 않고 입력 시점을 UTC로 변환한다.
@@ -311,9 +311,11 @@ M3에 따라 `following=true/false/unknown_consent/unknown_error`를 구분한�
 
 ### 10.1 클릭과 집계 정확성
 
-기존 links resolver를 확장한다. DM attempt를 만들기 전에 의도/상품별 링크를 원자적으로 get-or-create한다. 상품 URL과 UTM은 발송 시점에 고정하고, 미발송 잡만 최신 상품·템플릿을 쓴다. 이미 발송한 링크의 목표 URL 변경은 별도의 감사 작업으로 다룬다.
+기존 링크 helper를 재사용하는 공구 resolver를 추가한다. `campaign_tracked_links`는 UNIQUE(job_id, product_id, target_hash), `campaign_click_events`는 클릭별 recipient HMAC만 저장한다. 기존 `links`의 event_id 유일성은 다상품·옵션을 담지 못하므로 기존 스키마를 바꾸는 대신 추가 테이블로 분리했다. DM attempt를 만들기 전에 의도/상품별 링크를 원자적으로 get-or-create한다. 상품 URL과 UTM은 발송 시점에 고정하고, 미발송 잡만 최신 상품·템플릿을 쓴다. 이미 발송한 링크의 목표 URL은 바꾸지 않는다.
 
-UTM은 URL API로 원본 query/fragment를 보존하면서 `utm_source=instagram`, `utm_medium=dm`, `utm_campaign=stable_slug`, `utm_content=stable_product_option_key`를 붙인다. 원본에 같은 UTM 키가 있으면 공구용 값을 우선한다는 UI 설명을 둔다. 서명된 URL처럼 query 추가로 깨지는 상품은 원본 보존 옵션/검증이 필요하다(Q10).
+상품이 2개 이상이면 불투명한 `/c/{code}` 선택 화면에서 모든 상품·옵션을 보여준다. 상품 링크와 선택 화면 모두 22자리 base62 난수(약 131bit)를 쓴다. 선택 화면은 제목·브랜드·상품명·옵션·링크 code만 직렬화하고 로그인 없이 열린다. catalog도 내용을 수정하지 않고 revision마다 새 code를 사용한다. 공개 답글과 팔로우 요청에는 수신자별 구매 링크를 넣지 않는다. 메시지 본문은 기존 UTF-8 축약 helper로 제한하고, 필수 구매 URL/만료 일정·게시물 URL은 잘리지 않게 별도로 보존한다. text 1000byte, button body 640character 제약은 2026-10-21 공식 Send API/Button Template 문서 확인에 근거한다.
+
+UTM은 URL API로 원본 query/fragment를 보존하면서 `utm_source=instagram`, `utm_medium=dm`, `utm_campaign=stable_slug`, `utm_content=상품명 / 옵션`을 붙인다. 상품/옵션 ID는 DB에서 별도 집계하며 발송된 URL은 이름 수정 후에도 그대로 둔다. 원본에 같은 UTM 키가 있으면 공구용 값을 우선한다는 UI 설명을 둔다. 서명된 URL처럼 query 추가로 깨지는 상품은 원본 보존 옵션/검증이 필요하다(Q10).
 
 GET만 집계하며 HEAD·preview/prefetch는 redirect하되 집계하지 않는다. 기존 bot UA 필터를 확장·재사용한다. 알려진 Meta crawler와 실제 human fixture를 테스트한다. UA 기반 필터는 모든 bot을 판별하는 수단은 아니므로 리포트에는 “추적 링크 기준”으로 표기한다.
 

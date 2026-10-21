@@ -466,7 +466,7 @@ export const campaignProducts = pgTable("campaign_products", {
   originalUrl: text("original_url").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   archivedAt: tz("archived_at"),
-}, (t) => [index("campaign_products_campaign_idx").on(t.campaignId)]);
+}, (t) => [index("campaign_products_campaign_idx").on(t.campaignId), unique("campaign_products_identity_key").on(t.id, t.campaignId)]);
 
 export const campaignMedia = pgTable("campaign_media", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -694,6 +694,53 @@ export const campaignNotificationOutbox = pgTable("campaign_notification_outbox"
 
 export type SendAttempt = typeof sendAttempts.$inferSelect;
 export type SendBucket = typeof sendBuckets.$inferSelect;
+
+// Tracking is separate from legacy links: one campaign job may contain many product links.
+export const campaignTrackedLinks = pgTable("campaign_tracked_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").notNull().unique(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull(),
+  jobId: uuid("job_id").references(() => dmJobs.id, { onDelete: "set null" }),
+  recipientHash: text("recipient_hash").notNull(),
+  targetUrl: text("target_url").notNull(),
+  targetHash: text("target_hash").notNull(),
+  clickCount: integer("click_count").notNull().default(0),
+  firstClickedAt: tz("first_clicked_at"),
+  lastClickedAt: tz("last_clicked_at"),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.productId, t.campaignId], foreignColumns: [campaignProducts.id, campaignProducts.campaignId] }).onDelete("cascade"),
+  uniqueIndex("campaign_tracked_links_job_product_target_key").on(t.jobId, t.productId, t.targetHash),
+  index("campaign_tracked_links_campaign_idx").on(t.campaignId),
+  check("campaign_tracked_links_recipient_hash", sql`${t.recipientHash} ~ '^[a-f0-9]{64}$'`),
+]);
+
+export interface CampaignCatalogProduct { name: string; option: string; code: string }
+export const campaignLinkCatalogs = pgTable("campaign_link_catalogs", {
+  code: text("code").primaryKey(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").references(() => dmJobs.id, { onDelete: "set null" }),
+  contentHash: text("content_hash").notNull(),
+  title: text("title").notNull(),
+  brand: text("brand").notNull(),
+  products: jsonb("products").$type<CampaignCatalogProduct[]>().notNull(),
+  createdAt: createdAt(),
+}, (t) => [index("campaign_link_catalogs_campaign_idx").on(t.campaignId), uniqueIndex("campaign_link_catalogs_job_content_key").on(t.jobId, t.contentHash)]);
+
+export const campaignClickEvents = pgTable("campaign_click_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  linkId: uuid("link_id").notNull().references(() => campaignTrackedLinks.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull(),
+  recipientHash: text("recipient_hash").notNull(),
+  clickedAt: tz("clicked_at").notNull(),
+}, (t) => [
+  foreignKey({ columns: [t.productId, t.campaignId], foreignColumns: [campaignProducts.id, campaignProducts.campaignId] }).onDelete("cascade"),
+  index("campaign_click_events_campaign_time_idx").on(t.campaignId, t.clickedAt),
+  index("campaign_click_events_product_idx").on(t.campaignId, t.productId),
+  check("campaign_click_events_recipient_hash", sql`${t.recipientHash} ~ '^[a-f0-9]{64}$'`),
+]);
 
 export type IgAccount = typeof igAccounts.$inferSelect;
 export type Automation = typeof automations.$inferSelect;
