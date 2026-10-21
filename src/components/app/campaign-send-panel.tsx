@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveCampaignSendSettings } from "@/app/app/campaigns/actions";
 import type { getSendOverview } from "@/server/campaigns/send-controls";
+import { FollowInboxStatus } from "./follow-inbox-status";
 
 type Overview = Awaited<ReturnType<typeof getSendOverview>>;
 const date = (value: string) => new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
@@ -34,6 +35,7 @@ export function CampaignSendPanel({ id, overview }: { id: string; overview: Over
       ["완료", counts.sent ?? 0], ["실패", counts.failed ?? 0], ["만료", counts.expired ?? 0], ["확인 필요", counts.unknown ?? 0],
     ].map(([label, count]) => <div key={label} className="rounded-lg bg-muted p-3"><dt>{label}</dt><dd className="mt-1 text-xl font-bold">{count}</dd></div>)}</dl>
     {(counts.unknown ?? 0) > 0 && <p role="status" className="text-sm text-danger-ink">발송 결과를 확인해야 하는 작업이 있어요. 중복 발송을 막기 위해 자동으로 다시 보내지 않아요.</p>}
+    <FollowInboxStatus overview={overview.inbox} />
     {overview.failedNotifications > 0 && <p role="status" className="text-sm text-danger-ink">계정 보호 알림 이메일을 보내지 못했어요. 아래 중지 상태를 확인해주세요.</p>}
     {overview.buckets.filter((b) => b.pausedUntil || b.requiresReview).map((b) => <p key={b.channel} className="text-sm">{channels[b.channel]}: {b.requiresReview ? "정책 오류 확인 필요" : `자동 중지 · ${date(b.pausedUntil!)} 이후 재시도`} {b.lastErrorCode && `(${b.lastErrorCode})`}</p>)}
     <form action={save} key={overview.version} className="mt-2 flex flex-col gap-3 border-t pt-4">

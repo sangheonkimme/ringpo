@@ -57,6 +57,13 @@
       "when": 1792572325826,
       "tag": "0007_gonggu_message_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792574104231,
+      "tag": "0008_gonggu_runtime",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,6 @@
 export const HOUR_MS = 3_600_000;
+/** Bound the gap between an OFF-path flag observation and its external write. */
+export const LEGACY_HANDOFF_PERMIT_MS = 2_000;
 
 export interface TokenBucketState { tokens: number; refilledAt: Date; nextEligibleAt: Date }
 

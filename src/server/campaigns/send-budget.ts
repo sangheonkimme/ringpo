@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, gt, ne, or, sql } from "drizzle-orm";
-import { consumeToken, HOUR_MS, nextErrorStreak, rollingWindowAvailability, sendJitter, tokenAvailability } from "@/lib/campaign-rate";
+import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
+import { consumeToken, HOUR_MS, LEGACY_HANDOFF_PERMIT_MS, nextErrorStreak, rollingWindowAvailability, sendJitter, tokenAvailability } from "@/lib/campaign-rate";
 import { SEND_CHANNELS, type SendChannel } from "@/lib/campaign-jobs";
 import type { Executor } from "@/server/db/client";
-import { accountSendControls, campaignNotificationOutbox, campaignPolicies, campaignRateBuckets, commentEvents, igAccounts, sendAttempts, sendBuckets, type SendAttempt } from "@/server/db/schema";
+import { accountSendControls, campaignNotificationOutbox, campaignPolicies, campaignRateBuckets, commentEvents, followGates, igAccounts, sendAttempts, sendBuckets, type SendAttempt } from "@/server/db/schema";
 import type { PrivateReplyMessage } from "@/server/instagram/graph";
 import type { GraphRateHint } from "@/server/instagram/rate-hints";
 import { SendDeferredError, SendRejectedError, SendUncertainError } from "@/server/queue/send-errors";
@@ -30,6 +30,16 @@ export async function databaseNow(db: Executor): Promise<Date> {
   return new Date(rows[0].now);
 }
 
+/** Old follow-ups did not have a send ledger. Unknown historical tap timing is treated conservatively. */
+export async function hasUntrackedFollowCalls(db: Executor, accountId: string, now: Date) {
+  const [row] = await db.select({ id: followGates.id }).from(followGates).innerJoin(commentEvents, eq(commentEvents.id, followGates.eventId))
+    .where(and(eq(followGates.igAccountId, accountId), or(
+      gt(followGates.lastUntrackedSendAt, new Date(now.getTime() - HOUR_MS - LEGACY_HANDOFF_PERMIT_MS)),
+      and(isNull(followGates.lastUntrackedSendAt), gt(followGates.checks, 0), isNull(commentEvents.guardedJitterUntil)),
+    ))).limit(1);
+  return Boolean(row);
+}
+
 /** Call inside the owning transaction. No Redis or in-memory budget is involved. */
 export async function ensureSendControls(db: Executor, accountId: string, now: Date, policy: SendPolicy, options: { initialPrivateRate?: number; ignoreLegacyEventId?: string } = {}) {
   const [existing] = await db.select().from(accountSendControls).where(eq(accountSendControls.igAccountId, accountId));
@@ -39,10 +49,11 @@ export async function ensureSendControls(db: Executor, accountId: string, now: D
     options.ignoreLegacyEventId ? ne(commentEvents.id, options.ignoreLegacyEventId) : undefined,
     or(gt(commentEvents.dmReservedAt, new Date(now.getTime() - HOUR_MS)), eq(commentEvents.status, "processing")),
   )).limit(1);
+  const recentFollow = await hasUntrackedFollowCalls(db, accountId, now);
   await db.insert(accountSendControls).values({
     igAccountId: accountId, privateReplyRate: Math.min(options.initialPrivateRate ?? policy.private_reply_default_rate, policy.private_reply_max_rate),
     publicReplyRate: policy.public_reply_default_rate, messageRate: policy.message_default_rate,
-    warmupUntil: recentLegacy ? new Date(now.getTime() + HOUR_MS + policy.send_permit_ms) : null,
+    warmupUntil: recentLegacy || recentFollow ? new Date(now.getTime() + HOUR_MS + Math.max(policy.send_permit_ms, LEGACY_HANDOFF_PERMIT_MS)) : null,
   }).onConflictDoNothing();
   await db.insert(sendBuckets).values(SEND_CHANNELS.map((channel) => ({ igAccountId: accountId, channel, refilledAt: now, nextEligibleAt: now }))).onConflictDoNothing();
   const [control] = await db.select().from(accountSendControls).where(eq(accountSendControls.igAccountId, accountId));
@@ -57,7 +68,7 @@ function bucketWhere(accountId: string, channel: SendChannel) { return and(eq(se
 
 export interface PermitInput {
   igAccountId: string; channel: SendChannel; logicalKey: string; leaseOwner: string; leaseVersion: number;
-  jobId?: string; campaignId?: string; campaignRate?: number; legacyEventId?: string;
+  jobId?: string; campaignId?: string; campaignRate?: number; legacyEventId?: string; sourceMessageEventId?: string;
   payload: PrivateReplyMessage; now: Date; extendSafety: boolean;
 }
 
@@ -73,7 +84,7 @@ export async function acquireSendPermit(db: Executor, input: PermitInput, policy
   if (input.campaignId && !control.lastObservedEnabled) {
     // Close the race where OFF->ON occurred after the dispatcher's transition observation.
     // The caller catches this inside its transaction so the conservative warmup commits.
-    const until = new Date(now.getTime() + HOUR_MS + policy.send_permit_ms);
+    const until = new Date(now.getTime() + HOUR_MS + Math.max(policy.send_permit_ms, LEGACY_HANDOFF_PERMIT_MS));
     await db.update(accountSendControls).set({ lastObservedEnabled: true, warmupUntil: until }).where(eq(accountSendControls.igAccountId, input.igAccountId));
     throw new SendDeferredError(until, "reactivation_race_warmup");
   }
@@ -109,7 +120,7 @@ export async function acquireSendPermit(db: Executor, input: PermitInput, policy
   if (input.campaignId && input.campaignRate && input.channel === "private_reply") await db.update(campaignRateBuckets).set(consumeToken(now, input.campaignRate, gap)).where(eq(campaignRateBuckets.campaignId, input.campaignId));
   if (input.extendSafety) await db.update(accountSendControls).set({ safetyUntil: new Date(now.getTime() + HOUR_MS + policy.send_permit_ms) }).where(eq(accountSendControls.igAccountId, input.igAccountId));
   const [attempt] = await db.insert(sendAttempts).values({
-    id: randomUUID(), igAccountId: input.igAccountId, campaignId: input.campaignId, jobId: input.jobId, legacyEventId: input.legacyEventId,
+    id: randomUUID(), igAccountId: input.igAccountId, campaignId: input.campaignId, jobId: input.jobId, legacyEventId: input.legacyEventId, sourceMessageEventId: input.sourceMessageEventId,
     logicalKey: input.logicalKey, channel: input.channel, attempt: (previous?.attempt ?? 0) + 1,
     leaseOwner: input.leaseOwner, leaseVersion: input.leaseVersion, startedAt: now, permitExpiresAt: new Date(now.getTime() + policy.send_permit_ms),
     requestFingerprint: createHash("sha256").update(JSON.stringify(input.payload)).digest("hex"), payload: input.payload,

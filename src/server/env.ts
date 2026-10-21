@@ -24,6 +24,8 @@ const envSchema = z.object({
     .refine((v) => Buffer.from(v, "base64").length === 32, "ENCRYPTION_KEY must be 32 bytes (base64)"),
   WORKER_CONCURRENCY: z.coerce.number().int().positive().max(64).default(8),
   CAMPAIGN_ROUTER_CONCURRENCY: z.coerce.number().int().positive().max(64).default(32),
+  CAMPAIGN_SENDER_CONCURRENCY: z.coerce.number().int().positive().max(128).default(64),
+  CAMPAIGN_INBOX_CONCURRENCY: z.coerce.number().int().positive().max(64).default(8),
   PORTONE_STORE_ID: optional,
   PORTONE_CHANNEL_KEY: optional,
   PORTONE_API_SECRET: optional,

@@ -20,16 +20,17 @@ export async function enqueueComments(db: Executor, rows: NewCommentEvent[]): Pr
 
 export async function claimEvents(db: Db, o: { batch: number; now: Date }): Promise<CommentEvent[]> {
   if (o.batch <= 0) return [];
+  const noInFlightFollow = sql`not exists (select 1 from send_attempts a where a.legacy_event_id = ${commentEvents.id} and a.channel = 'message' and a.state = 'sending')`;
   return db.transaction(async (tx) => {
     const staleBefore = new Date(o.now.getTime() - LEGACY_EVENT_LEASE_MS);
     const candidates = await tx
       .select({ id: commentEvents.id })
       .from(commentEvents)
       .where(
-        or(
+        and(noInFlightFollow, or(
           and(eq(commentEvents.status, "pending"), lte(commentEvents.runAt, o.now)),
           and(eq(commentEvents.status, "processing"), lt(commentEvents.lockedAt, staleBefore)),
-        ),
+        )),
       )
       .orderBy(asc(commentEvents.runAt))
       .limit(o.batch)
@@ -39,10 +40,12 @@ export async function claimEvents(db: Db, o: { batch: number; now: Date }): Prom
       .update(commentEvents)
       .set({ status: "processing", lockedAt: o.now, attempts: sql`${commentEvents.attempts} + 1`, sendLeaseVersion: sql`${commentEvents.sendLeaseVersion} + 1` })
       .where(
-        inArray(
+        // Recheck in a fresh READ COMMITTED statement after taking the comment locks.
+        // A general-message attempt may have committed between the SELECT snapshot and its row lock.
+        and(noInFlightFollow, inArray(
           commentEvents.id,
           candidates.map((c) => c.id),
-        ),
+        )),
       )
       .returning();
   });

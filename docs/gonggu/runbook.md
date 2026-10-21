@@ -51,7 +51,7 @@ COMMIT;
 
 | 절차 | 현재 상태·필수 정책 |
 | --- | --- |
-| 계정 전체 일시정지/재개·자동 breaker | M1-3 엔진/화면과 M1-4b 기존 댓글 sender 공통 예산 연결 완료. 팔로우 일반 DM 수신 연결 전 활성화 금지 |
+| 계정 전체 일시정지/재개·자동 breaker | M1-4d에서 기존 팔로우 일반 DM까지 공통 예산 연결. 실제 두 계정 검증 전 일반 공개 금지 |
 | 실패 잡 재처리 | M1-3에서 확정 일시 거부만 자동 backoff. 최대 횟수 실패/영구 실패는 최종 상태이며 운영 재처리 도구 연결 전 SQL 재시도 금지 |
 | 발송 상태·만료 위험·ETA | M1-3/M2-1. 실제 API 호출 수, 위험 집계, API 지연을 반영 |
 | 공유 링크 폐기 | M2-2. 토큰 hash로 조회하고 폐기 즉시 웹/PDF 모두 거부 |
@@ -63,7 +63,7 @@ COMMIT;
 
 Meta 댓글 timestamp 조회 실패는 지수 backoff로 최대 설정 횟수까지 재시도한 뒤 `campaign_failed`와 정제한 오류 코드를 남긴다. 댓글 수신 시각으로 deadline을 추정하지 않는다. 토큰 만료이면 계정을 `reauth_required`로 바꾸고 댓글을 보관하며, 재인증 후 재개한다. 플래그 OFF도 기존 캠페인 이벤트를 보류하고 legacy로 넘기지 않는다.
 
-`CAMPAIGN_ROUTER_CONCURRENCY`의 기본은 32이며 메타데이터 네트워크 호출 중 DB transaction을 점유하지 않는다. 재시작으로 중단된 라우터는 60초 lease 만료 후 다른 worker가 가져간다. 이전 worker의 늦은 metadata 결과는 attempt fence로 거부한다. `dm_jobs`는 아직 송신되지 않고 DB에 남는다.
+`CAMPAIGN_ROUTER_CONCURRENCY`의 기본은 32이며 메타데이터 네트워크 호출 중 DB transaction을 점유하지 않는다. 재시작으로 중단된 라우터는 60초 lease 만료 후 다른 worker가 가져간다. 이전 worker의 늦은 metadata 결과는 attempt fence로 거부한다. M1-4d의 sender가 플래그 ON 계정의 `dm_jobs`를 claim하고 실제 송신한다.
 
 ```sql
 SELECT status, count(*) FROM comment_events
@@ -80,9 +80,9 @@ WHERE status = 'campaign_failed' GROUP BY error_code;
 
 재현 명령은 [M1-1 검증 결과](evidence/m1-1.md), [M1-2 검증 결과](evidence/m1-2.md), [M1-3 검증 결과](evidence/m1-3.md)에 기록한다. 테스트 DB는 기존 통합 테스트에서 스키마를 초기화하므로 운영 연결 문자열을 사용하지 않는다. 250개 계정의 상태 전환/잡 생성 시험은 발송 throughput 시험과 구별한다. 실제 API 요청 없이 PostgreSQL만 측정한 결과를 전체 서비스 수용량 보장으로 해석하지 않는다.
 
-## 메시지 수신·팔로우 응답 (M1-4c 모듈)
+## 메시지 수신·팔로우 응답
 
-`message_events`는 서명 검증 뒤 사용할 영속 수신함이다. 실제 webhook/worker 연결은 M1-4d에서 제공한다. `user_message_evidence`가 있는 Meta 작성 시각만 동의/대화 창의 근거가 되며 postback은 그 자체로 창을 열지 않는다. 여러 캠페인/기존 gate가 모호하면 `ambiguous_follow_context`로 남기고 임의로 링크를 보내지 않는다.
+`message_events`는 서명 검증 뒤 사용하는 영속 수신함이다. M1-4d부터 guarded 계정의 webhook은 저장 후 응답하고 worker가 처리한다. `user_message_evidence`가 있는 Meta 작성 시각만 동의/대화 창의 근거가 되며 postback은 그 자체로 창을 열지 않는다. 여러 캠페인/기존 gate가 모호하면 `ambiguous_follow_context`로 남기고 임의로 링크를 보내지 않는다.
 
 `profile_field_missing`은 비팔로워 확정이 아니다. 권한/필드/토큰을 확인하고, 이를 fail-open 대상이나 성공으로 일괄 변경하지 않는다. `profile_fail_open:*`는 동의 후 일시 장애에 대한 셀러 설정 적용이다. 모든 일반 DM은 원래 source의 deadline도 검사하므로 새 메시지가 왔다고 옛 잡의 시각을 SQL로 연장하지 않는다. 실제 새 팔로우 확인 응답은 **발송 시도 0회인 만료/취소 잡**만 새 잡으로 대체할 수 있고 원래 만료 이력은 보존된다. unknown/이미 시도한 잡은 대체하지 않는다.
 
@@ -100,7 +100,7 @@ SELECT kind, status, count(*) FROM dm_jobs WHERE channel = 'message' GROUP BY ki
 
 정책 차단은 원인을 해결한 뒤 별도 확인 체크를 저장해야 한다. 재개/확인 체크는 최근 호출 원장·남은 cooldown·토큰을 초기화하지 않는다. 변경은 `account_send_audit_events`에 요청 ID와 함께 기록되고, 다른 셀러의 계정이나 오래된 version은 거부된다.
 
-새 발송 예산을 만드는 계정에 최근 legacy 발송 예약/진행 중 작업이 있으면 최대 한 시간과 permit 여유만큼 warmup한다. on→off 공유 예산 연결은 M1-4 배포 조건이다. 실시간 발송 중 account cap을 낮추어도 지난 호출 수는 남으므로 다음 허용 시각까지 기다린다.
+새 발송 예산을 만드는 계정에 최근 legacy 발송 예약/진행 중 작업이 있으면 최대 한 시간과 permit 여유만큼 warmup한다. 기존 팔로우 후속 발송은 `last_untracked_send_at`도 검사하며, 과거 checks만 있고 호출 시각을 모르는 경우도 보수적으로 warmup한다. 실시간 발송 중 account cap을 낮추어도 지난 호출 수는 남으므로 다음 허용 시각까지 기다린다.
 
 `send_attempts`는 API 호출 전에 저장된다. 허가 수명 기본 2초, lease 기본 60초이며 정책 테이블로 관리한다. 호출 전에 허가가 만료되면 `not_invoked`로 남기고 재예약한다. API 호출 시작 이후 응답 유실/서버 오류/worker 유실은 `unknown`; 화면에는 **확인 필요**로 표시하며 자동 재발송하지 않는다. 늦게 도착한 성공 응답도 이미 확정된 잡을 덮지 않고 `late_result`에 보관한다.
 
@@ -134,7 +134,7 @@ SELECT campaign_id, product_id, sum(click_count) AS total_clicks
 FROM campaign_tracked_links GROUP BY campaign_id, product_id;
 ```
 
-`0005` down은 링크/catalog/클릭 데이터가 있으면 거부한다. 기능 롤백 때 이 데이터를 DROP하거나 URL을 덮어쓰지 않는다. 브라우저 검증 근거는 [M1-4a 결과](evidence/m1-4a.md)에 있다. 실제 Meta 팔로우 버튼 동작과 최종 송신 연결은 후속 검증 대상이다.
+`0005` down은 링크/catalog/클릭 데이터가 있으면 거부한다. 기능 롤백 때 이 데이터를 DROP하거나 URL을 덮어쓰지 않는다. 브라우저 검증 근거는 [M1-4a 결과](evidence/m1-4a.md)에 있다. 실제 Meta 팔로우 버튼 동작은 후속 검증 대상이다.
 
 ## 기존 자동화 공통 예산과 확인 필요 (M1-4b)
 
@@ -145,3 +145,23 @@ FROM campaign_tracked_links GROUP BY campaign_id, product_id;
 기존 자동화의 `send_unknown`은 화면에 **발송 확인 필요**로 보인다. 실패/대기/보냄 통계에 섞지 않으며 사람 중복 예약과 usage는 유지한다. 수락 기록은 `send_attempts.legacy_event_id`로 찾는다. `sending`/`unknown`을 pending으로 바꾸거나 발송 기록을 삭제해 재전송하지 않는다. 늦은 성공은 `late_result`의 근거로만 검토한다.
 
 `0006` down은 guarded jitter, 발송 확인 필요, legacy 발송 원장 또는 OFF 관측 이력이 있으면 거부한다. 사용 중인 source lease를 안전하게 종료한 뒤 호환 코드로 롤백하며, 운영 데이터를 보유한 상태에서 컬럼을 DROP하지 않는다. [검증 결과](evidence/m1-4b.md)
+
+## 공구 송신 루프와 기존 팔로우 후속 처리 (M1-4d)
+
+`CAMPAIGN_SENDER_CONCURRENCY=64`, `CAMPAIGN_INBOX_CONCURRENCY=8`이 기본이다. sender는 250ms polling과 `campaign_jobs` NOTIFY, inbox는 500ms polling과 `gonggu_message_events` NOTIFY를 함께 사용한다. NOTIFY가 없어도 polling으로 재개한다. PG 연결 수는 기존 `WORKER_CONCURRENCY + 4`를 유지하고 HTTP 동시성에 맞춰 늘리지 않는다.
+
+웹/워커의 구 버전을 drain한 다음 호환 버전으로 전환한다. 구 프로세스가 새 버킷 밖에서 같은 계정에 송신하는 혼합 배포는 지원하지 않는다. flag OFF 시 새 캠페인 발송은 멈추고 기존 guarded 팔로우 응답은 안전 구간/미완료 gate를 따라 공유 예산 안에서 처리한다. OFF 직후 DB 원장을 지우거나 스키마를 내리지 않는다.
+
+공구 상세와 기존 자동화 상세의 **팔로우 확인 답장 처리**에서 대기·처리 실패·확인 필요·창 만료를 확인한다. `profile_field_missing`, 권한/토큰 실패는 실제 조회 결과를 확인한다. 기존 자동화는 조회 일시 장애도 hold하므로 캠페인의 fail-open 기본과 다르다.
+
+`legacy_follow_history_unverified`는 원장 도입 전 tap 이력의 성공 여부를 확정할 수 없다는 뜻이다. 단순 waiting으로 재설정하지 않는다. 원래 private reply가 unknown인 경우도 사용자 답장만으로 성공 처리하지 않는다. 읽기 중 중단은 자동 재개되지만 일반 DM 준비 후 중단은 `worker_lost_after_prepare`/확인 필요로 남는다. 늦은 응답은 `send_attempts.late_result`를 보고 판단하며 자동 재발송하지 않는다.
+
+```sql
+SELECT ig_account_id, status, last_error_code, count(*)
+FROM message_events GROUP BY ig_account_id, status, last_error_code;
+SELECT legacy_event_id, source_message_event_id, logical_key, state, error_code, late_result
+FROM send_attempts WHERE channel = 'message' AND legacy_event_id IS NOT NULL
+ORDER BY started_at DESC LIMIT 100;
+```
+
+`0008` down은 source 연결, unknown, jitter/format 또는 과거 송신 marker가 남아 있으면 거부한다. 관련 근거를 삭제해 down을 통과시키지 않는다. 실제 Meta 테스트 계정으로 private reply·동의·팔로우·IGSID 일치와 echo를 확인하기 전에는 일반 공개하지 않는다.

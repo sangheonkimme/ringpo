@@ -1,7 +1,8 @@
 import { hostname } from "node:os";
 import { createBillingDeps } from "@/server/billing/deps";
 import { advanceDueCampaigns } from "@/server/campaigns/service";
-import { claimCampaignEvents, routeCampaignEvent } from "@/server/campaigns/routing";
+import { CAMPAIGN_QUEUE_CHANNEL } from "@/server/campaigns/routing";
+import { expireMessageEvents, MESSAGE_QUEUE_CHANNEL, recoverMessageEvents } from "@/server/campaigns/message-inbox";
 import { expireCampaignJobs, recoverCampaignJobs } from "@/server/campaigns/jobs";
 import { sendCampaignNotifications } from "@/server/campaigns/notifications";
 import { billingConfigured } from "@/server/billing/gateway";
@@ -18,6 +19,7 @@ import { processWithSharedBudget } from "@/server/pipeline/shared-budget";
 import { claimEvents, QUEUE_CHANNEL } from "@/server/queue/events";
 import { beat, cleanupOldData, expireStaleEvents, refreshExpiringTokens, withJobLock } from "./jobs";
 import { startEventLoop } from "./loop";
+import { startCampaignLoops } from "./campaign-loops";
 import { startScheduler, type ScheduledJob } from "./scheduler";
 
 const MINUTE = 60_000;
@@ -51,25 +53,22 @@ async function main() {
     onError: (e) => log.error("event loop error", errorFields(e)),
   });
 
-  const campaignRouter = startEventLoop({
-    concurrency: env.CAMPAIGN_ROUTER_CONCURRENCY,
-    pollMs: 2000,
-    claim: (batch) => claimCampaignEvents(db, { batch, now: new Date() }),
-    handle: async (event) => {
-      const outcome = await routeCampaignEvent({ db, graph, now: () => new Date(), decryptToken: decryptSecret, hashKey: env.ENCRYPTION_KEY }, event);
-      log.info("campaign comment routed", { campaign_id: event.campaignId, ig_comment_id: event.commentId, outcome });
-    },
-    onError: (error) => log.error("campaign router error", { error: error instanceof Error ? error.name : "Error" }),
+  const campaignLoops = startCampaignLoops({ ...deps, hashKey: env.ENCRYPTION_KEY, workerId }, {
+    router: env.CAMPAIGN_ROUTER_CONCURRENCY, sender: env.CAMPAIGN_SENDER_CONCURRENCY, inbox: env.CAMPAIGN_INBOX_CONCURRENCY,
   });
-
-  await sql.listen(QUEUE_CHANNEL, () => { loop.wake(); campaignRouter.wake(); });
+  await sql.listen(QUEUE_CHANNEL, () => { loop.wake(); campaignLoops.wakeComments(); });
+  await sql.listen(CAMPAIGN_QUEUE_CHANNEL, campaignLoops.wakeJobs);
+  await sql.listen(MESSAGE_QUEUE_CHANNEL, campaignLoops.wakeMessages);
 
   const jobs: ScheduledJob[] = [
     { name: "campaign-transitions", intervalMs: 5_000, run: async () => { const count = await advanceDueCampaigns(db, new Date()); if (count) log.info("campaign transitions", { count }); } },
     { name: "campaign-job-maintenance", intervalMs: 5_000, run: async () => {
       const recovered = await recoverCampaignJobs(db, new Date());
       const expired = await expireCampaignJobs(db, new Date());
+      const messagesRecovered = await recoverMessageEvents(db, new Date());
+      const messagesExpired = await expireMessageEvents(db, new Date());
       if (recovered.waiting || recovered.unknown || expired) log.info("campaign queue maintenance", { ...recovered, expired });
+      if (messagesRecovered || messagesExpired) log.info("message inbox maintenance", { recovered: messagesRecovered, expired: messagesExpired });
     } },
     { name: "campaign-notifications", intervalMs: 30_000, run: async () => { await sendCampaignNotifications(db, new Date()); } },
     {
@@ -111,7 +110,7 @@ async function main() {
     beat(db, workerId, new Date()).catch((e) => log.error("heartbeat failed", errorFields(e)));
   }, 10_000);
 
-  log.info("worker started", { workerId, concurrency: env.WORKER_CONCURRENCY, campaignRouterConcurrency: env.CAMPAIGN_ROUTER_CONCURRENCY });
+  log.info("worker started", { workerId, concurrency: env.WORKER_CONCURRENCY, campaignRouterConcurrency: env.CAMPAIGN_ROUTER_CONCURRENCY, campaignSenderConcurrency: env.CAMPAIGN_SENDER_CONCURRENCY, campaignInboxConcurrency: env.CAMPAIGN_INBOX_CONCURRENCY });
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
@@ -120,7 +119,7 @@ async function main() {
     log.info("worker stopping", { signal });
     scheduler.stop();
     clearInterval(heartbeat);
-    await Promise.all([loop.stop(), campaignRouter.stop()]);
+    await Promise.all([loop.stop(), campaignLoops.stop()]);
     await sql.end({ timeout: 5 });
     process.exit(0);
   };

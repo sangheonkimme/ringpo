@@ -7,6 +7,7 @@ import { classifyError } from "@/server/instagram/errors";
 import type { PrivateReplyMessage } from "@/server/instagram/graph";
 import { FOLLOW_GATE_PAYLOAD_PREFIX, type FollowTap } from "@/server/instagram/webhook";
 import { log } from "@/server/log";
+import { SendHandoffError } from "@/server/queue/send-errors";
 import { buildLinkDm } from "./dm-content";
 import type { PipelineDeps } from "./process-comment";
 
@@ -24,6 +25,7 @@ async function sendWithFallback(send: (m: PrivateReplyMessage) => Promise<{ mess
   try {
     return await send(message);
   } catch (e) {
+    if (e instanceof SendHandoffError) throw e;
     const c = classifyError(e);
     if (message.kind !== "gate_button" || !(c.cls === "invalid_message" || c.code.startsWith("100"))) throw e;
     return send({ ...message, kind: "gate" });
@@ -71,13 +73,15 @@ export async function handleFollowTap(deps: PipelineDeps, tap: FollowTap): Promi
   try {
     following = await graph.isFollower(token, tap.senderId);
   } catch (e) {
+    if (e instanceof SendHandoffError) throw e;
     const c = classifyError(e);
     log.warn("follow check failed", { gateId: gate.id, code: c.code });
     if (c.cls === "transient" || c.cls === "rate_limited") return "failed";
     // 말풍선 버튼 탭이 '메시지를 보낸 것'으로 인정되지 않으면 조회가 거절된다. 빠른 답장은 메시지로 인정되므로 그걸로 한 번 더 받는다
     try {
       await send(gateMessage(CONSENT_TEXT, gate.id, "gate"));
-    } catch {
+    } catch (error) {
+      if (error instanceof SendHandoffError) throw error;
       return "failed";
     }
     return "needs_consent";
@@ -87,6 +91,7 @@ export async function handleFollowTap(deps: PipelineDeps, tap: FollowTap): Promi
     try {
       await sendWithFallback(send, gateMessage(RETRY_TEXT, gate.id));
     } catch (e) {
+      if (e instanceof SendHandoffError) throw e;
       log.warn("follow gate retry failed", { gateId: gate.id, code: classifyError(e).code });
       return "failed";
     }
@@ -113,6 +118,7 @@ export async function handleFollowTap(deps: PipelineDeps, tap: FollowTap): Promi
     }
   } catch (e) {
     await db.update(followGates).set({ status: "waiting", completedAt: null }).where(eq(followGates.id, gate.id));
+    if (e instanceof SendHandoffError) throw e;
     log.warn("follow gate link failed", { gateId: gate.id, code: classifyError(e).code });
     return "failed";
   }
