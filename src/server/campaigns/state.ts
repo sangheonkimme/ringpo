@@ -23,3 +23,7 @@ export function dueCampaignTransitions(campaign: {
   if (state === "open" && campaign.closeAt <= now) due.push("closed");
   return due;
 }
+
+export function effectiveCampaignState(campaign: Parameters<typeof dueCampaignTransitions>[0], now: Date): CampaignState {
+  return dueCampaignTransitions(campaign, now).at(-1) ?? campaign.status;
+}

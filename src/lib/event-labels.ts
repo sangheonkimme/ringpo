@@ -9,6 +9,10 @@ export const STATUS_LABEL: Record<EventStatus, string> = {
   skipped: "건너뜀",
   expired: "기한 만료",
   awaiting_follow: "팔로우 대기",
+  campaign_pending: "공구 처리 대기",
+  campaign_processing: "공구 처리 중",
+  campaign_routed: "공구 분류 완료",
+  campaign_failed: "공구 처리 실패",
 };
 
 export const SKIP_LABEL: Record<SkipReason, string> = {
@@ -18,6 +22,9 @@ export const SKIP_LABEL: Record<SkipReason, string> = {
   quota: "월 DM 한도 초과",
   account_inactive: "인스타 연결 끊김",
   automation_inactive: "자동화 꺼짐",
+  campaign_excluded: "공구 제외어",
+  campaign_duplicate: "이 공구에서 이미 신청한 사람",
+  campaign_inactive: "공구 중단 또는 이용 권한 없음",
 };
 
 export const TOGGLE_ERROR: Record<"not_found" | "limit" | "account_inactive", string> = {

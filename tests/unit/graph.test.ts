@@ -9,6 +9,15 @@ function mockFetch(status: number, body: unknown) {
 }
 
 describe("createGraphClient", () => {
+  it("reads the authoritative comment creation time and identities without substituting receipt time", async () => {
+    const f = mockFetch(200, '{"id":17880000000000001,"timestamp":"2026-10-20T15:00:00+0000","from":{"id":90000000000000001},"media":{"id":17880000000000002}}');
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    expect(await client.getComment("tok", "17880000000000001")).toEqual({ id: "17880000000000001", mediaId: "17880000000000002", authorId: "90000000000000001", createdAt: new Date("2026-10-20T15:00:00Z") });
+    expect(new URL(String(f.mock.calls[0][0])).searchParams.get("fields")).toBe("id,timestamp,from,media");
+    const missing = createGraphClient({ version: "v26.0", fetchFn: mockFetch(200, { id: "1" }) });
+    expect((await missing.getComment("tok", "1")).createdAt).toBeNull();
+  });
+
   it("requests owner only for campaign media validation and preserves exact Instagram IDs", async () => {
     const f = mockFetch(200, '{"id":17880000000000001,"owner":{"id":17841400000000001},"media_product_type":"REELS"}');
     const client = createGraphClient({ version: "v26.0", fetchFn: f });

@@ -1,4 +1,4 @@
-import type { GraphClient, IgProfile, MediaInfo, PrivateReplyMessage } from "@/server/instagram/graph";
+import type { CommentInfo, GraphClient, IgProfile, MediaInfo, PrivateReplyMessage } from "@/server/instagram/graph";
 
 export class FakeGraphClient implements GraphClient {
   seq = 0;
@@ -9,6 +9,9 @@ export class FakeGraphClient implements GraphClient {
   followError: unknown = null;
   subscribed: string[] = [];
   media: Record<string, MediaInfo> = {};
+  comments: Record<string, CommentInfo> = {};
+  commentError: unknown = null;
+  commentReads = 0;
   profile: IgProfile = { id: "scoped-1", userId: "17841400000000001", username: "creator", accountType: "BUSINESS", profilePictureUrl: null };
   replyError: ((n: number) => unknown) | null = null;
   dmError: ((message: PrivateReplyMessage, n: number) => unknown) | null = null;
@@ -31,6 +34,13 @@ export class FakeGraphClient implements GraphClient {
     const m = this.media[mediaId];
     if (!m) throw new Error(`no media ${mediaId}`);
     return m;
+  }
+  async getComment(_token: string, commentId: string) {
+    this.commentReads++;
+    if (this.commentError) throw this.commentError;
+    const comment = this.comments[commentId];
+    if (!comment) throw new Error(`no comment fixture ${commentId}`);
+    return comment;
   }
   async replyToComment(token: string, commentId: string, message: string) {
     const err = this.replyError?.(this.replies.length);

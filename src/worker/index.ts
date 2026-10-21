@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 import { createBillingDeps } from "@/server/billing/deps";
 import { advanceDueCampaigns } from "@/server/campaigns/service";
+import { claimCampaignEvents, routeCampaignEvent } from "@/server/campaigns/routing";
 import { billingConfigured } from "@/server/billing/gateway";
 import { processDueRenewals } from "@/server/billing/subscriptions";
 import { decryptSecret, encryptSecret } from "@/server/crypto";
@@ -47,7 +48,18 @@ async function main() {
     onError: (e) => log.error("event loop error", errorFields(e)),
   });
 
-  await sql.listen(QUEUE_CHANNEL, () => loop.wake());
+  const campaignRouter = startEventLoop({
+    concurrency: env.CAMPAIGN_ROUTER_CONCURRENCY,
+    pollMs: 2000,
+    claim: (batch) => claimCampaignEvents(db, { batch, now: new Date() }),
+    handle: async (event) => {
+      const outcome = await routeCampaignEvent({ db, graph, now: () => new Date(), decryptToken: decryptSecret, hashKey: env.ENCRYPTION_KEY }, event);
+      log.info("campaign comment routed", { campaign_id: event.campaignId, ig_comment_id: event.commentId, outcome });
+    },
+    onError: (error) => log.error("campaign router error", { error: error instanceof Error ? error.name : "Error" }),
+  });
+
+  await sql.listen(QUEUE_CHANNEL, () => { loop.wake(); campaignRouter.wake(); });
 
   const jobs: ScheduledJob[] = [
     { name: "campaign-transitions", intervalMs: 5_000, run: async () => { const count = await advanceDueCampaigns(db, new Date()); if (count) log.info("campaign transitions", { count }); } },
@@ -89,7 +101,7 @@ async function main() {
     beat(db, workerId, new Date()).catch((e) => log.error("heartbeat failed", errorFields(e)));
   }, 10_000);
 
-  log.info("worker started", { workerId, concurrency: env.WORKER_CONCURRENCY });
+  log.info("worker started", { workerId, concurrency: env.WORKER_CONCURRENCY, campaignRouterConcurrency: env.CAMPAIGN_ROUTER_CONCURRENCY });
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
@@ -98,7 +110,7 @@ async function main() {
     log.info("worker stopping", { signal });
     scheduler.stop();
     clearInterval(heartbeat);
-    await loop.stop();
+    await Promise.all([loop.stop(), campaignRouter.stop()]);
     await sql.end({ timeout: 5 });
     process.exit(0);
   };
