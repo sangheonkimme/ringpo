@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, Home, SlidersHorizontal, Zap } from "lucide-react";
+import { CreditCard, Home, ShoppingBag, SlidersHorizontal, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,17 +37,18 @@ function useTyping(): boolean {
   return typing;
 }
 
-export function AppNav() {
+export function AppNav({ campaignsAvailable = false }: { campaignsAvailable?: boolean }) {
   const pathname = usePathname();
   const typing = useTyping();
+  const navigation = campaignsAvailable ? [...items.slice(0, 2), { href: "/app/campaigns", label: "공구", icon: ShoppingBag, exact: false }, ...items.slice(2)] : items;
   if (isWizardPath(pathname) || typing) return null;
   return (
     <nav
       aria-label="주요 메뉴"
       className="fixed inset-x-0 bottom-0 z-20 border-t bg-card pb-[max(env(safe-area-inset-bottom),10px)]"
     >
-      <ul className="mx-auto grid h-[66px] max-w-lg grid-cols-4">
-        {items.map(({ href, label, icon: Icon, exact }) => {
+      <ul className={cn("mx-auto grid h-[66px] max-w-lg", campaignsAvailable ? "grid-cols-5" : "grid-cols-4")}>
+        {navigation.map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
           return (
             <li key={href}>

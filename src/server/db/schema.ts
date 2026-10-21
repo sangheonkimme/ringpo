@@ -1,15 +1,20 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { CAMPAIGN_STATES, type CampaignTemplates } from "@/lib/campaign-schema";
 
 const tz = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const createdAt = () => tz("created_at").notNull().defaultNow();
@@ -361,6 +366,114 @@ export const workerHeartbeats = pgTable("worker_heartbeats", {
   workerId: text("worker_id").primaryKey(),
   beatAt: tz("beat_at").notNull(),
 });
+
+// ---------- Gonggu campaigns (default off) ----------
+export const featureFlags = pgTable("feature_flags", {
+  key: text("key").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  defaultEnabled: boolean("default_enabled").notNull().default(false),
+  updatedAt: updatedAt(),
+});
+
+export const featureFlagOverrides = pgTable("feature_flag_overrides", {
+  flagKey: text("flag_key").notNull().references(() => featureFlags.key, { onDelete: "cascade" }),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull(),
+}, (t) => [primaryKey({ columns: [t.flagKey, t.igAccountId] })]);
+
+export const planEntitlements = pgTable("plan_entitlements", {
+  plan: text("plan").notNull(),
+  key: text("key").notNull(),
+  kind: text("kind", { enum: ["boolean", "limit"] }).notNull(),
+  booleanValue: boolean("boolean_value"),
+  limitValue: integer("limit_value"),
+  updatedAt: updatedAt(),
+}, (t) => [
+  primaryKey({ columns: [t.plan, t.key] }),
+  check("plan_entitlements_value_check", sql`(${t.kind} = 'boolean' and ${t.booleanValue} is not null and ${t.limitValue} is null) or (${t.kind} = 'limit' and ${t.booleanValue} is null and (${t.limitValue} is null or ${t.limitValue} >= 0))`),
+]);
+
+export const campaignPolicies = pgTable("campaign_policies", {
+  key: text("key").primaryKey(),
+  value: integer("value").notNull(),
+}, (t) => [check("campaign_policies_positive", sql`${t.value} > 0`)]);
+
+export const campaigns = pgTable("campaigns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  brand: text("brand").notNull().default(""),
+  slug: text("slug").notNull().unique(),
+  status: text("status", { enum: CAMPAIGN_STATES }).notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  publishedAt: tz("published_at"),
+  openAt: tz("open_at").notNull(),
+  closeAt: tz("close_at").notNull(),
+  openedAt: tz("opened_at"),
+  closedAt: tz("closed_at"),
+  settledAt: tz("settled_at"),
+  archivedAt: tz("archived_at"),
+  notificationKeywords: text("notification_keywords").array().notNull(),
+  linkKeywords: text("link_keywords").array().notNull(),
+  excludedKeywords: text("excluded_keywords").array().notNull().default(sql`'{}'::text[]`),
+  matchType: text("match_type", { enum: ["contains", "exact"] }).notNull().default("contains"),
+  templates: jsonb("templates").$type<CampaignTemplates>().notNull(),
+  followOnly: boolean("follow_only").notNull().default(false),
+  followFailurePolicy: text("follow_failure_policy", { enum: ["send_link", "hold"] }).notNull().default("send_link"),
+  expiryFallbackEnabled: boolean("expiry_fallback_enabled").notNull().default(false),
+  hourlyRate: integer("hourly_rate").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  unique("campaigns_id_account_unique").on(t.id, t.igAccountId),
+  index("campaigns_user_idx").on(t.userId, t.status),
+  index("campaigns_due_idx").on(t.openAt, t.closeAt).where(sql`${t.publishedAt} is not null and ${t.status} in ('draft','teaser','open') and ${t.archivedAt} is null`),
+  check("campaigns_dates_check", sql`${t.openAt} < ${t.closeAt}`),
+  check("campaigns_rate_check", sql`${t.hourlyRate} between 1 and 750`),
+  check("campaigns_state_check", sql`${t.status} in ('draft','teaser','open','closed','sold_out','settled')`),
+]);
+
+export const campaignProducts = pgTable("campaign_products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  option: text("option").notNull().default(""),
+  originalUrl: text("original_url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  archivedAt: tz("archived_at"),
+}, (t) => [index("campaign_products_campaign_idx").on(t.campaignId)]);
+
+export const campaignMedia = pgTable("campaign_media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull(),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  mediaId: text("media_id").notNull(),
+  permalink: text("permalink"),
+  routingEnabled: boolean("routing_enabled").notNull().default(false),
+  linkedAt: tz("linked_at").notNull().defaultNow(),
+  releasedAt: tz("released_at"),
+}, (t) => [
+  foreignKey({ columns: [t.campaignId, t.igAccountId], foreignColumns: [campaigns.id, campaigns.igAccountId], name: "campaign_media_campaign_account_fk" }).onDelete("cascade"),
+  uniqueIndex("campaign_media_pair_unique").on(t.campaignId, t.mediaId),
+  uniqueIndex("campaign_media_routing_unique").on(t.igAccountId, t.mediaId).where(sql`${t.routingEnabled} = true`),
+]);
+
+export const campaignAuditEvents = pgTable("campaign_audit_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  fromState: text("from_state"),
+  toState: text("to_state"),
+  version: integer("version").notNull(),
+  requestId: text("request_id").notNull(),
+  reason: text("reason").notNull(),
+  effectiveAt: tz("effective_at").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("campaign_audit_request_unique").on(t.campaignId, t.requestId), index("campaign_audit_campaign_idx").on(t.campaignId, t.createdAt)]);
+
+export type Campaign = typeof campaigns.$inferSelect;
 
 export type IgAccount = typeof igAccounts.$inferSelect;
 export type Automation = typeof automations.$inferSelect;
