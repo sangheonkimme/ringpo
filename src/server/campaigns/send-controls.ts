@@ -6,6 +6,7 @@ import { CampaignError, campaignsEnabled } from "./access";
 import { ensureSendControls, sendPolicy } from "./send-budget";
 import { campaignClickSummary } from "./links";
 import { messageInboxOverview } from "./inbox-overview";
+import { getCampaignForecast } from "./forecast";
 
 async function authorize(db: Executor, userId: string, accountId: string) {
   const [account] = await db.select({ id: igAccounts.id }).from(igAccounts).where(and(eq(igAccounts.id, accountId), eq(igAccounts.userId, userId)));
@@ -16,7 +17,7 @@ export async function getSendOverview(db: Executor, userId: string, accountId: s
   await authorize(db, userId, accountId);
   const [campaign] = await db.select({ id: campaigns.id }).from(campaigns).where(and(eq(campaigns.id, campaignId), eq(campaigns.igAccountId, accountId), eq(campaigns.userId, userId)));
   if (!campaign) throw new CampaignError("not_found", "공구를 찾을 수 없어요");
-  const [controls, buckets, counts, notifications, policy, clicks, inbox] = await Promise.all([
+  const [controls, buckets, counts, notifications, policy, clicks, inbox, forecast] = await Promise.all([
     db.select().from(accountSendControls).where(eq(accountSendControls.igAccountId, accountId)),
     db.select().from(sendBuckets).where(eq(sendBuckets.igAccountId, accountId)),
     db.select({ status: dmJobs.status, count: sql<number>`count(*)::int` }).from(dmJobs).where(and(eq(dmJobs.campaignId, campaignId), eq(dmJobs.igAccountId, accountId))).groupBy(dmJobs.status),
@@ -24,13 +25,14 @@ export async function getSendOverview(db: Executor, userId: string, accountId: s
     sendPolicy(db),
     campaignClickSummary(db, campaignId),
     messageInboxOverview(db, and(eq(messageEvents.igAccountId, accountId), eq(messageEvents.campaignId, campaignId))!),
+    getCampaignForecast(db, userId, accountId, campaignId),
   ]);
   const control = controls[0];
   return { version: control?.version ?? 0, manualPaused: control?.manualPaused ?? false, continueDmOnPublicPause: control?.continueDmOnPublicPause ?? false,
     privateReplyRate: control?.privateReplyRate ?? policy.private_reply_default_rate, maxPrivateRate: policy.private_reply_max_rate,
     warmupUntil: control?.warmupUntil?.toISOString() ?? null, apiPausedUntil: control?.apiPausedUntil?.toISOString() ?? null,
     buckets: buckets.map((b) => ({ channel: b.channel, pausedUntil: b.pausedUntil?.toISOString() ?? null, requiresReview: b.requiresReview, lastErrorCode: b.lastErrorCode })),
-    counts: Object.fromEntries(counts.map((row) => [row.status, row.count])), failedNotifications: notifications[0].count, clicks, inbox,
+    counts: Object.fromEntries(counts.map((row) => [row.status, row.count])), failedNotifications: notifications[0].count, clicks, inbox, forecast,
   };
 }
 

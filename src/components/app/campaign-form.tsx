@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveCampaignAction } from "@/app/app/campaigns/actions";
 import { MediaPicker, type PickedMedia } from "./media-picker";
-import { campaignKstInput, campaignUtcFromKst, DEFAULT_CAMPAIGN_TEMPLATES, type CampaignTemplates } from "@/lib/campaign-schema";
+import { CampaignForecastPreview } from "./campaign-forecast-preview";
+import { campaignEditedTime, campaignKstInput, DEFAULT_CAMPAIGN_TEMPLATES, type CampaignTemplates } from "@/lib/campaign-schema";
 
 export interface CampaignDraft {
   igAccountId: string; title: string; brand: string; openAt: string; closeAt: string;
@@ -46,7 +47,7 @@ export function CampaignForm({ accounts, initial, id, version, features, default
     startTransition(async () => {
       try {
         const input = {
-          ...draft, openAt: campaignUtcFromKst(openAt), closeAt: campaignUtcFromKst(closeAt), mediaIds: draft.media.map((m) => m.id),
+          ...draft, openAt: campaignEditedTime(openAt, initial?.openAt), closeAt: campaignEditedTime(closeAt, initial?.closeAt), mediaIds: draft.media.map((m) => m.id),
           templates: { ...draft.templates, ...Object.fromEntries(stages.map(({ key }) => [key, { ...draft.templates[key], publicReplies: draft.templates[key].publicReplies.map((s) => s.trim()).filter(Boolean) }])) },
           ...Object.fromEntries(Object.entries(keywords).map(([key, value]) => [key, value.split(",").map((s) => s.trim()).filter(Boolean)])),
         };
@@ -102,6 +103,7 @@ export function CampaignForm({ accounts, initial, id, version, features, default
       {draft.followOnly && <><label>팔로우 안내<textarea rows={3} className={field} value={draft.templates.follow} onChange={(e) => patch("templates", { ...draft.templates, follow: e.target.value })} /></label><label>팔로우 조회가 일시 실패하면<select className={field} value={draft.followFailurePolicy} onChange={(e) => patch("followFailurePolicy", e.target.value as "send_link" | "hold")}><option value="send_link">링크 발송</option><option value="hold">발송 보류</option></select></label></>}
       <label className="flex items-center gap-2"><input type="checkbox" checked={draft.expiryFallbackEnabled} disabled={!features.scheduledDm} onChange={(e) => patch("expiryFallbackEnabled", e.target.checked)} />오픈 전에 만료될 신청에 일정 안내 발송{!features.scheduledDm && " (Pro)"}</label>
       {draft.expiryFallbackEnabled && <><label>만료 대체 안내<textarea rows={3} className={field} value={draft.templates.expiry} onChange={(e) => patch("templates", { ...draft.templates, expiry: e.target.value })} /></label><p className="text-sm text-muted-foreground">대체 안내를 받은 사람에게 같은 댓글로 오픈 DM을 다시 보내지 않아요.</p></>}
+      <CampaignForecastPreview accountId={draft.igAccountId} campaignId={id} openAt={openAt} closeAt={closeAt} originalOpenAt={initial?.openAt} originalCloseAt={initial?.closeAt} hourlyRate={draft.hourlyRate} expiryFallback={draft.expiryFallbackEnabled} />
     </fieldset>
     {error && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-danger-ink">{error}</p>}
     <button type="submit" disabled={pending} className="h-12 rounded-xl bg-foreground font-bold text-background disabled:opacity-50">{pending ? "저장 중…" : id ? "변경 저장" : "초안 저장"}</button>
