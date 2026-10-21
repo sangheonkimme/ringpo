@@ -9,14 +9,30 @@ export interface RuleLike {
   createdAt: Date;
 }
 
-export function normalizeText(input: string): string {
-  return input.normalize("NFKC").toLowerCase().replace(/\s+/gu, " ").trim();
+export function normalizeText(input: string, form: "NFC" | "NFKC" = "NFKC"): string {
+  return input.normalize(form).toLowerCase().replace(/\s+/gu, " ").trim();
 }
 
 // 앞뒤의 공백·구두점·기호(이모지 포함)·ZWJ·변형 선택자
 const EDGE_NOISE = /^[\s\p{P}\p{S}\u200d\ufe0f]+|[\s\p{P}\p{S}\u200d\ufe0f]+$/gu;
 // 이모지만으로 된 키워드는 기호를 지우면 빈 문자열이 되므로 공백·ZWJ·변형 선택자만 지워서 비교한다
 const INVISIBLE = /[\s\u200d\ufe0f]/gu;
+
+/** Campaigns intentionally use NFC; legacy NFKC/emoji keyword behavior stays unchanged. */
+export function normalizeCampaignText(input: string): string {
+  let text = normalizeText(input, "NFC");
+  for (;;) {
+    const trimmed = text.replace(EDGE_NOISE, "").replace(/^(?:[#*0-9]\ufe0f?\u20e3)+|(?:[#*0-9]\ufe0f?\u20e3)+$/gu, "");
+    if (trimmed === text) return text;
+    text = trimmed;
+  }
+}
+
+export function matchesCampaignKeywords(comment: string, keywords: string[], matchType: "contains" | "exact"): boolean {
+  const text = normalizeCampaignText(comment);
+  if (!text) return false;
+  return keywords.map(normalizeCampaignText).filter(Boolean).some((keyword) => matchType === "exact" ? text === keyword : text.includes(keyword));
+}
 
 function exactMatch(text: string, keyword: string): boolean {
   const core = keyword.replace(EDGE_NOISE, "");
@@ -27,7 +43,7 @@ function exactMatch(text: string, keyword: string): boolean {
 export function matchesKeywords(comment: string, keywords: string[], matchType: MatchType): boolean {
   if (matchType === "any") return true;
   const text = normalizeText(comment);
-  const normalized = keywords.map(normalizeText).filter((k) => k.length > 0);
+  const normalized = keywords.map((keyword) => normalizeText(keyword)).filter((k) => k.length > 0);
   if (normalized.length === 0) return false;
   if (matchType === "contains") return normalized.some((k) => text.includes(k));
   return normalized.some((k) => exactMatch(text, k));

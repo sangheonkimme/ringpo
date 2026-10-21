@@ -29,6 +29,10 @@ const EVENT_TONE: Record<EventStatus, StatusTone> = {
   pending: "neutral",
   processing: "neutral",
   awaiting_follow: "neutral",
+  campaign_pending: "neutral",
+  campaign_processing: "neutral",
+  campaign_routed: "neutral",
+  campaign_failed: "danger",
 };
 
 export function StatusBadge({ status }: { status: EventStatus }) {

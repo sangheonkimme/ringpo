@@ -21,6 +21,13 @@ export interface MediaInfo {
   ownerId?: string | null;
 }
 
+export interface CommentInfo {
+  id: string;
+  mediaId: string | null;
+  authorId: string | null;
+  createdAt: Date | null;
+}
+
 export type PrivateReplyMessage =
   | { kind: "button"; text: string; buttonTitle: string; url: string }
   | { kind: "text"; text: string }
@@ -35,6 +42,7 @@ export interface GraphClient {
   refreshToken(token: string): Promise<{ accessToken: string; expiresIn: number }>;
   listMedia(token: string, igUserId: string, after?: string): Promise<{ items: MediaInfo[]; nextCursor: string | null }>;
   getMedia(token: string, mediaId: string, options?: { includeOwner: boolean }): Promise<MediaInfo>;
+  getComment(token: string, commentId: string): Promise<CommentInfo>;
   replyToComment(token: string, commentId: string, message: string): Promise<{ id: string }>;
   sendPrivateReply(
     token: string,
@@ -189,6 +197,11 @@ export function createGraphClient(opts: {
 
     async getMedia(token, mediaId, readOptions) {
       return toMedia(await request(withToken(`/${mediaId}`, token, { fields: `${MEDIA_FIELDS}${readOptions?.includeOwner ? ",owner" : ""}` }), { method: "GET" }));
+    },
+
+    async getComment(token, commentId) {
+      const j = await request(withToken(`/${commentId}`, token, { fields: "id,timestamp,from,media" }), { method: "GET" });
+      return { id: str(j.id) ?? "", mediaId: str((j.media as Json)?.id) ?? str(j.media), authorId: str((j.from as Json)?.id), createdAt: parseIgTime(j.timestamp) };
     },
 
     async replyToComment(token, commentId, message) {

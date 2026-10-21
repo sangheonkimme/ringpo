@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeCampaignText } from "@/server/automations/matcher";
 
 export const CAMPAIGN_STATES = ["draft", "teaser", "open", "closed", "sold_out", "settled"] as const;
 export type CampaignState = (typeof CAMPAIGN_STATES)[number];
@@ -6,7 +7,7 @@ export const CAMPAIGN_STATE_LABELS: Record<CampaignState, string> = {
   draft: "초안", teaser: "예고", open: "진행 중", closed: "마감", sold_out: "품절", settled: "정산 완료",
 };
 
-const keyword = z.string().trim().min(1).max(100);
+const keyword = z.string().trim().min(1).max(100).refine((value) => normalizeCampaignText(value).length > 0, "키워드에 문자나 숫자를 입력해주세요");
 const message = z.string().trim().min(1).max(600);
 const templateSchema = z.object({
   publicReplies: z.array(message).max(10),

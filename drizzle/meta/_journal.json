@@ -22,6 +22,13 @@
       "when": 1792561710063,
       "tag": "0002_gonggu_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792562628808,
+      "tag": "0003_gonggu_routing",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,20 @@
+{
+  "scenario": "routing-250-accounts-3000-comments",
+  "measuredAt": "2026-10-21T06:08:31.644Z",
+  "accounts": 250,
+  "comments": 3000,
+  "webhookDeliveries": 9000,
+  "simulatedIntakeSeconds": 600,
+  "wallClockIntake": false,
+  "metadata": "in-process fixture, zero latency",
+  "poolSize": 10,
+  "routerConcurrency": 32,
+  "ingestMs": 5781,
+  "routingMs": 39380,
+  "batchSize": 100,
+  "ingestP95Ms": 97,
+  "jobs": 6000,
+  "missing": 0,
+  "duplicates": 0,
+  "externalMetaCalls": 0
+}

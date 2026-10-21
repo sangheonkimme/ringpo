@@ -1,6 +1,6 @@
 # 공구 캠페인 운영 절차
 
-작성일: 2026-10-21. 구현 단계: **M1-1 기반 기능**. 운영 배포 전이며 이 단계에는 댓글 라우터·DM dispatch·리포트가 아직 포함되지 않는다. 이후 PR에서 해당 절차와 실제 명령을 추가한다.
+작성일: 2026-10-21. 구현 단계: **M1-2 댓글 라우팅·영속 잡**. 운영 배포 전이며 아직 DM dispatch·리포트가 포함되지 않는다. 이후 PR에서 해당 절차와 실제 명령을 추가한다.
 
 ## 기능 플래그와 롤백
 
@@ -34,7 +34,7 @@ COMMIT;
 ## 캠페인 상태 변경·미디어 연결 해제
 
 1. 셀러 로그인 → 공구 탭 → 대상 공구 상세를 연다.
-2. 초안은 `공개 및 오픈 예약`으로 공개한다. Pro의 `예고 시작`은 예약 알림을 받을 단계를 활성화한다. 이 기반 PR에서는 아직 댓글을 처리하지 않는다.
+2. 초안은 `공개 및 오픈 예약`으로 공개한다. Pro의 `예고 시작`은 예약 알림을 받을 단계를 활성화한다. M1-2에서는 댓글을 받아 공개 답글·예약 DM 잡을 만들지만 실제 송신은 하지 않는다.
 3. 공개 예약/예고 상태에서는 `지금 오픈`, 진행 상태에서는 `마감` 또는 `품절 처리`를 누른다. 마감/품절 후에는 `정산 확정`이 가능하다. 확정 리포트는 M2에서 연결한다.
 4. `연결 해제 및 보관`은 목록에서 숨기고 다른 캠페인에서 게시물을 사용할 수 있게 한다. 기록은 보존한다.
 5. 운영 이력에서 실행 시각, 실행 주체, 상태 변경을 확인한다. 예약의 효력 시각은 `campaign_audit_events.effective_at`, 실제 처리 시각은 `created_at` 및 캠페인의 실제 전환 시각이다.
@@ -57,6 +57,25 @@ COMMIT;
 | 공유 링크 폐기 | M2-2. 토큰 hash로 조회하고 폐기 즉시 웹/PDF 모두 거부 |
 | 셀러 직접 응답 후 FAQ 중단 | M2-3. 실제 echo 확인 전 일반 공개 금지 |
 
+## 댓글 라우터·예약 잡 확인
+
+`comment_events`의 `campaign_pending`/`campaign_processing`은 기존 worker가 claim하지 않는다. 라우터가 campaign→specific→all 순으로 결정한다. 단순 미매칭만 기존 `pending`으로 넘기고, 제외어·중복·권한 제한은 기존 자동화로 우회하지 않는다. `campaign_routed`는 분류/잡 생성 완료이며 실제 발송 성공을 뜻하지 않는다. 발송 결과의 원장은 `dm_jobs`다.
+
+Meta 댓글 timestamp 조회 실패는 지수 backoff로 최대 설정 횟수까지 재시도한 뒤 `campaign_failed`와 정제한 오류 코드를 남긴다. 댓글 수신 시각으로 deadline을 추정하지 않는다. 토큰 만료이면 계정을 `reauth_required`로 바꾸고 댓글을 보관하며, 재인증 후 재개한다. 플래그 OFF도 기존 캠페인 이벤트를 보류하고 legacy로 넘기지 않는다.
+
+`CAMPAIGN_ROUTER_CONCURRENCY`의 기본은 32이며 메타데이터 네트워크 호출 중 DB transaction을 점유하지 않는다. 재시작으로 중단된 라우터는 60초 lease 만료 후 다른 worker가 가져간다. 이전 worker의 늦은 metadata 결과는 attempt fence로 거부한다. `dm_jobs`는 아직 송신되지 않고 DB에 남는다.
+
+```sql
+SELECT status, count(*) FROM comment_events
+WHERE route_owner <> 'legacy' GROUP BY status;
+SELECT campaign_id, channel, status, count(*) FROM dm_jobs
+GROUP BY campaign_id, channel, status;
+SELECT error_code, count(*) FROM comment_events
+WHERE status = 'campaign_failed' GROUP BY error_code;
+```
+
+`0003_gonggu_routing.sql`의 down은 캠페인 수신 이력/참가자/잡/비공개 답장 권리가 있으면 거부한다. 라우팅에 참여했던 legacy fallback 이벤트도 `flag_checked_at`으로 식별해 보존한다. 이미 캠페인 이벤트가 들어온 환경에서는 flag OFF와 호환 worker 롤백을 사용한다. 기존 pending으로 일괄 UPDATE하면 중복/즉시 발송 위험이 있으므로 하지 않는다.
+
 ## 검증과 250계정 수용량
 
-재현 명령은 [M1-1 검증 결과](evidence/m1-1.md)에 기록한다. 테스트 DB는 기존 통합 테스트에서 스키마를 초기화하므로 운영 연결 문자열을 사용하지 않는다. 250개 계정의 상태 전환 시험은 발송 throughput 시험과 구별한다. 실제 API 요청 없이 PostgreSQL만 측정한 결과를 전체 서비스 수용량 보장으로 해석하지 않는다.
+재현 명령은 [M1-1 검증 결과](evidence/m1-1.md), [M1-2 검증 결과](evidence/m1-2.md)에 기록한다. 테스트 DB는 기존 통합 테스트에서 스키마를 초기화하므로 운영 연결 문자열을 사용하지 않는다. 250개 계정의 상태 전환/잡 생성 시험은 발송 throughput 시험과 구별한다. 실제 API 요청 없이 PostgreSQL만 측정한 결과를 전체 서비스 수용량 보장으로 해석하지 않는다.
