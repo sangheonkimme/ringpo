@@ -1,0 +1,12 @@
+{
+  "scenario": "foundation-250-accounts",
+  "measuredAt": "2026-10-21T05:54:09.071Z",
+  "accounts": 250,
+  "schedulers": 3,
+  "poolSize": 10,
+  "setupMs": 5407,
+  "transitionMs": 2682,
+  "missing": 0,
+  "duplicate": 0,
+  "metaCalls": 0
+}

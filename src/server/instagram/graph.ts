@@ -18,6 +18,7 @@ export interface MediaInfo {
   mediaUrl: string | null;
   permalink: string | null;
   timestamp: Date | null;
+  ownerId?: string | null;
 }
 
 export type PrivateReplyMessage =
@@ -33,7 +34,7 @@ export interface GraphClient {
   subscribeApp(token: string, igUserId: string): Promise<void>;
   refreshToken(token: string): Promise<{ accessToken: string; expiresIn: number }>;
   listMedia(token: string, igUserId: string, after?: string): Promise<{ items: MediaInfo[]; nextCursor: string | null }>;
-  getMedia(token: string, mediaId: string): Promise<MediaInfo>;
+  getMedia(token: string, mediaId: string, options?: { includeOwner: boolean }): Promise<MediaInfo>;
   replyToComment(token: string, commentId: string, message: string): Promise<{ id: string }>;
   sendPrivateReply(
     token: string,
@@ -102,6 +103,7 @@ function toMedia(m: Json): MediaInfo {
     mediaUrl: str(m.media_url),
     permalink: str(m.permalink),
     timestamp: parseIgTime(m.timestamp),
+    ...(m.owner !== undefined ? { ownerId: str((m.owner as Json)?.id) ?? str(m.owner) } : {}),
   };
 }
 
@@ -185,8 +187,8 @@ export function createGraphClient(opts: {
       return { items, nextCursor: paging?.next ? (paging.cursors?.after ?? null) : null };
     },
 
-    async getMedia(token, mediaId) {
-      return toMedia(await request(withToken(`/${mediaId}`, token, { fields: MEDIA_FIELDS }), { method: "GET" }));
+    async getMedia(token, mediaId, readOptions) {
+      return toMedia(await request(withToken(`/${mediaId}`, token, { fields: `${MEDIA_FIELDS}${readOptions?.includeOwner ? ",owner" : ""}` }), { method: "GET" }));
     },
 
     async replyToComment(token, commentId, message) {

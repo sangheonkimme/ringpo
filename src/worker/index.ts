@@ -1,5 +1,6 @@
 import { hostname } from "node:os";
 import { createBillingDeps } from "@/server/billing/deps";
+import { advanceDueCampaigns } from "@/server/campaigns/service";
 import { billingConfigured } from "@/server/billing/gateway";
 import { processDueRenewals } from "@/server/billing/subscriptions";
 import { decryptSecret, encryptSecret } from "@/server/crypto";
@@ -49,6 +50,7 @@ async function main() {
   await sql.listen(QUEUE_CHANNEL, () => loop.wake());
 
   const jobs: ScheduledJob[] = [
+    { name: "campaign-transitions", intervalMs: 5_000, run: async () => { const count = await advanceDueCampaigns(db, new Date()); if (count) log.info("campaign transitions", { count }); } },
     {
       name: "refresh-tokens",
       intervalMs: 60 * MINUTE,

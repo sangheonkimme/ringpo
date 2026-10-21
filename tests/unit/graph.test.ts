@@ -9,6 +9,15 @@ function mockFetch(status: number, body: unknown) {
 }
 
 describe("createGraphClient", () => {
+  it("requests owner only for campaign media validation and preserves exact Instagram IDs", async () => {
+    const f = mockFetch(200, '{"id":17880000000000001,"owner":{"id":17841400000000001},"media_product_type":"REELS"}');
+    const client = createGraphClient({ version: "v26.0", fetchFn: f });
+    expect(await client.getMedia("tok", "17880000000000001", { includeOwner: true })).toMatchObject({ id: "17880000000000001", ownerId: "17841400000000001" });
+    expect(new URL(String(f.mock.calls[0][0])).searchParams.get("fields")?.split(",")).toContain("owner");
+    await client.getMedia("tok", "17880000000000001");
+    expect(new URL(String(f.mock.calls[1][0])).searchParams.get("fields")?.split(",")).not.toContain("owner");
+  });
+
   it("getMe reads id and user_id as strings (flat or wrapped)", async () => {
     const f = mockFetch(200, '{"data":[{"id":17841400000000009,"user_id":17841400000000001,"username":"creator","account_type":"MEDIA_CREATOR"}]}');
     const client = createGraphClient({ version: "v26.0", fetchFn: f });

@@ -15,6 +15,13 @@
       "when": 1790309840529,
       "tag": "0001_follow_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792561710063,
+      "tag": "0002_gonggu_foundation",
+      "breakpoints": true
     }
   ]
 }
