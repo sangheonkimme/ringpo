@@ -27,6 +27,8 @@ export function CampaignSendPanel({ id, overview }: { id: string; overview: Over
   return <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
     <h2 className="text-lg font-bold">발송 현황</h2>
     <p className="text-sm text-muted-foreground">공개 답글과 DM 작업의 합계예요. 화면은 30초마다 갱신돼요.</p>
+    <p className="text-sm">추적 링크 클릭 · 고유 {overview.clicks.unique}명 / 전체 {overview.clicks.total}회</p>
+    <p className="text-xs text-muted-foreground">고유 클릭은 링크를 받은 사람 기준이에요. 전달된 링크의 클릭도 원래 수신자에게 포함돼요.</p>
     <dl className="grid grid-cols-3 gap-3 text-sm">{[
       ["대기", (counts.waiting ?? 0) + (counts.retry ?? 0) + (counts.held ?? 0)], ["발송 중", (counts.leased ?? 0) + (counts.sending ?? 0)],
       ["완료", counts.sent ?? 0], ["실패", counts.failed ?? 0], ["만료", counts.expired ?? 0], ["확인 필요", counts.unknown ?? 0],

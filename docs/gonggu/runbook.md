@@ -1,6 +1,6 @@
 # 공구 캠페인 운영 절차
 
-작성일: 2026-10-21. 구현 단계: **M1-3 발송 엔진·계정 보호·현황 화면**. 운영 배포 전이다. 발송 엔진은 모의 API로 검증하며, 실제 worker의 송신 루프 연결은 M1-4의 추적 링크·팔로우 응답·기존 자동화 공통 예산 연결과 함께 진행한다. 그 전에는 운영 계정에서 플래그를 켜지 않는다. 리포트는 M2 범위다.
+작성일: 2026-10-21. 구현 단계: **M1-4a 추적 링크·상품 선택·기본 클릭 집계**. 운영 배포 전이다. 발송 엔진은 모의 API로 검증하며, 실제 worker의 송신 루프 연결은 M1-4의 팔로우 응답·기존 자동화 공통 예산 연결과 함께 진행한다. 그 전에는 운영 계정에서 플래그를 켜지 않는다. 리포트는 M2 범위다.
 
 ## 기능 플래그와 롤백
 
@@ -107,3 +107,18 @@ FROM campaign_notification_outbox WHERE status <> 'sent';
 자동 보호 알림은 발송 결과와 같은 transaction에서 outbox에 저장된다. 별도 scheduler가 DB lease로 선택하고 이메일 HTTP 요청 중 DB transaction을 점유하지 않는다. 공급자 미설정/실패를 성공으로 기록하지 않으며, 재시도 소진 시 화면에 이메일 실패를 표시한다. 이메일 중복 방지 키는 outbox ID로 고정한다.
 
 `0004_gonggu_dispatch.sql` rollback은 예산/시도/대화/알림 데이터나 jitter가 적용된 잡이 있으면 거부한다. 운영 롤백은 flag OFF로 하고 원장을 보존한다. 계정 보호 상태를 삭제해 속도를 초기화하지 않는다.
+
+## 상품 링크·클릭 확인 (M1-4a)
+
+상품/옵션이 하나면 `/r/{code}`로 구매처에 302 이동하고, 여러 개면 `/c/{code}`에서 선택한다. URL은 메시지 발송 준비 시점에 고정된다. 상품 주소를 수정하면 아직 보내지 않은 잡에서 새 코드를 사용하며 이미 전달된 링크는 그대로 열린다. 플래그 OFF도 기존 발송 링크를 닫지 않는다.
+
+공구 상세의 클릭 현황은 30초마다 갱신한다. 고유 클릭은 수신자 HMAC 기준이며 링크를 전달받은 다른 사람도 원 수신자에게 귀속된다. Meta 미리보기·HEAD·prefetch는 집계하지 않는다. 집계 SQL에는 원본 IGSID/username/IP가 필요하지 않다.
+
+```sql
+SELECT campaign_id, count(*) AS total_clicks, count(DISTINCT recipient_hash) AS unique_clicks
+FROM campaign_click_events GROUP BY campaign_id;
+SELECT campaign_id, product_id, sum(click_count) AS total_clicks
+FROM campaign_tracked_links GROUP BY campaign_id, product_id;
+```
+
+`0005` down은 링크/catalog/클릭 데이터가 있으면 거부한다. 기능 롤백 때 이 데이터를 DROP하거나 URL을 덮어쓰지 않는다. 브라우저 검증 근거는 [M1-4a 결과](evidence/m1-4a.md)에 있다. 실제 Meta 팔로우 버튼 동작과 최종 송신 연결은 후속 검증 대상이다.

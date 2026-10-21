@@ -1,9 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db, Executor } from "@/server/db/client";
-import { accountSendAuditEvents, accountSendControls, campaignNotificationOutbox, dmJobs, igAccounts, sendBuckets } from "@/server/db/schema";
+import { accountSendAuditEvents, accountSendControls, campaignNotificationOutbox, campaigns, dmJobs, igAccounts, sendBuckets } from "@/server/db/schema";
 import { CampaignError, campaignsEnabled } from "./access";
 import { ensureSendControls, sendPolicy } from "./send-budget";
+import { campaignClickSummary } from "./links";
 
 async function authorize(db: Executor, userId: string, accountId: string) {
   const [account] = await db.select({ id: igAccounts.id }).from(igAccounts).where(and(eq(igAccounts.id, accountId), eq(igAccounts.userId, userId)));
@@ -12,19 +13,22 @@ async function authorize(db: Executor, userId: string, accountId: string) {
 
 export async function getSendOverview(db: Executor, userId: string, accountId: string, campaignId: string) {
   await authorize(db, userId, accountId);
-  const [controls, buckets, counts, notifications, policy] = await Promise.all([
+  const [campaign] = await db.select({ id: campaigns.id }).from(campaigns).where(and(eq(campaigns.id, campaignId), eq(campaigns.igAccountId, accountId), eq(campaigns.userId, userId)));
+  if (!campaign) throw new CampaignError("not_found", "공구를 찾을 수 없어요");
+  const [controls, buckets, counts, notifications, policy, clicks] = await Promise.all([
     db.select().from(accountSendControls).where(eq(accountSendControls.igAccountId, accountId)),
     db.select().from(sendBuckets).where(eq(sendBuckets.igAccountId, accountId)),
     db.select({ status: dmJobs.status, count: sql<number>`count(*)::int` }).from(dmJobs).where(and(eq(dmJobs.campaignId, campaignId), eq(dmJobs.igAccountId, accountId))).groupBy(dmJobs.status),
     db.select({ count: sql<number>`count(*)::int` }).from(campaignNotificationOutbox).where(and(eq(campaignNotificationOutbox.igAccountId, accountId), eq(campaignNotificationOutbox.status, "failed"))),
     sendPolicy(db),
+    campaignClickSummary(db, campaignId),
   ]);
   const control = controls[0];
   return { version: control?.version ?? 0, manualPaused: control?.manualPaused ?? false, continueDmOnPublicPause: control?.continueDmOnPublicPause ?? false,
     privateReplyRate: control?.privateReplyRate ?? policy.private_reply_default_rate, maxPrivateRate: policy.private_reply_max_rate,
     warmupUntil: control?.warmupUntil?.toISOString() ?? null, apiPausedUntil: control?.apiPausedUntil?.toISOString() ?? null,
     buckets: buckets.map((b) => ({ channel: b.channel, pausedUntil: b.pausedUntil?.toISOString() ?? null, requiresReview: b.requiresReview, lastErrorCode: b.lastErrorCode })),
-    counts: Object.fromEntries(counts.map((row) => [row.status, row.count])), failedNotifications: notifications[0].count,
+    counts: Object.fromEntries(counts.map((row) => [row.status, row.count])), failedNotifications: notifications[0].count, clicks,
   };
 }
 
