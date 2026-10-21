@@ -76,23 +76,29 @@ export async function refreshExpiringTokens(deps: {
 }
 
 export async function expireStaleEvents(db: Db, now: Date): Promise<number> {
-  const stale = await db
-    .select({ id: commentEvents.id, usagePeriod: commentEvents.usagePeriod, dmStatus: commentEvents.dmStatus, replyStatus: commentEvents.replyStatus, userId: igAccounts.userId })
-    .from(commentEvents)
-    .innerJoin(igAccounts, eq(igAccounts.id, commentEvents.igAccountId))
-    .where(and(eq(commentEvents.status, "pending"), lt(commentEvents.receivedAt, new Date(now.getTime() - 7 * DAY))))
-    .limit(500);
-  for (const ev of stale) {
-    // DM이 이미 나갔으면 예약을 유지하고 일부 발송으로 끝낸다
-    if (ev.dmStatus === "sent") {
-      await finishEvent(db, ev.id, "partial", { replyStatus: ev.replyStatus ?? "failed" }, now);
-      continue;
+  return db.transaction(async (tx) => {
+    const stale = await tx
+      .select({ id: commentEvents.id, usagePeriod: commentEvents.usagePeriod, dmStatus: commentEvents.dmStatus, dmMessageId: commentEvents.dmMessageId, guardedJitterUntil: commentEvents.guardedJitterUntil, replyStatus: commentEvents.replyStatus, userId: igAccounts.userId })
+      .from(commentEvents)
+      .innerJoin(igAccounts, eq(igAccounts.id, commentEvents.igAccountId))
+      .where(and(eq(commentEvents.status, "pending"), lt(commentEvents.receivedAt, new Date(now.getTime() - 7 * DAY))))
+      .limit(500).for("update", { of: commentEvents, skipLocked: true });
+    for (const ev of stale) {
+      if (ev.guardedJitterUntil && ev.dmMessageId && ev.dmStatus === null) {
+        await finishEvent(tx, ev.id, "awaiting_follow", { replyStatus: ev.replyStatus ?? "failed" }, now);
+        continue;
+      }
+      // DM이 이미 나갔으면 예약을 유지하고 일부 발송으로 끝낸다
+      if (ev.dmStatus === "sent") {
+        await finishEvent(tx, ev.id, "partial", { replyStatus: ev.replyStatus ?? "failed" }, now);
+        continue;
+      }
+      await releaseDelivery(tx, ev.id);
+      if (ev.usagePeriod) await releaseDm(tx, ev.userId, ev.usagePeriod);
+      await finishEvent(tx, ev.id, "expired", { errorCode: "expired", usagePeriod: null }, now);
     }
-    await releaseDelivery(db, ev.id);
-    if (ev.usagePeriod) await releaseDm(db, ev.userId, ev.usagePeriod);
-    await finishEvent(db, ev.id, "expired", { errorCode: "expired", usagePeriod: null }, now);
-  }
-  return stale.length;
+    return stale.length;
+  });
 }
 
 export async function cleanupOldData(db: Db, now: Date): Promise<void> {

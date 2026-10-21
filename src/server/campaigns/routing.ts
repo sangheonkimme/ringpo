@@ -2,11 +2,13 @@ import { createHmac, randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
 import { privateReplyDeadline } from "@/lib/campaign-jobs";
 import type { Db, Executor } from "@/server/db/client";
-import { campaigns, campaignParticipants, campaignDeliveries, commentEvents, dmJobs, igAccounts, privateReplyClaims, type CommentEvent, type NewCommentEvent } from "@/server/db/schema";
-import { classifyError } from "@/server/instagram/errors";
+import { campaigns, campaignParticipants, campaignDeliveries, campaignNotificationOutbox, commentEvents, dmJobs, igAccounts, privateReplyClaims, type CommentEvent, type NewCommentEvent } from "@/server/db/schema";
+import { classifyError, GraphApiError } from "@/server/instagram/errors";
 import type { GraphClient } from "@/server/instagram/graph";
 import { CAMPAIGN_FLAG, CampaignError, campaignPolicy, campaignsEnabled, requireCampaignFeature } from "./access";
 import { matchCampaignComment } from "./matcher";
+import { legacyReadPause } from "./legacy-guard";
+import { observeRateHint } from "./send-budget";
 
 export const CAMPAIGN_QUEUE_CHANNEL = "campaign_jobs";
 const ROUTE_LEASE_MS = 60_000;
@@ -72,7 +74,13 @@ export async function routeCampaignEvent(deps: CampaignRouterDeps, event: Commen
   let createdAt = event.commentCreatedAt;
   try {
     if (!createdAt) {
+      const pause = await legacyReadPause(db, account.id, deps.now());
+      if (pause) {
+        await db.update(commentEvents).set({ status: "campaign_pending", lockedAt: null, runAt: pause, attempts: sql`greatest(${commentEvents.attempts} - 1, 0)` }).where(fence(event));
+        return "api_cooldown";
+      }
       const metadata = await deps.graph.getComment(deps.decryptToken(account.accessTokenEnc), event.commentId);
+      await observeRateHint(db, account.id, metadata.rateHint, deps.now());
       if (metadata.id !== event.commentId || metadata.mediaId !== event.mediaId || metadata.authorId !== event.commenterIgId) throw new CampaignError("invalid_comment_identity", "댓글 소유 정보가 일치하지 않아요");
       if (!metadata.createdAt) throw new CampaignError("missing_comment_timestamp", "댓글 작성 시각이 확인되지 않았어요");
       if (metadata.createdAt > deps.now()) throw new CampaignError("invalid_comment_timestamp", "댓글 작성 시각이 올바르지 않아요");
@@ -81,17 +89,22 @@ export async function routeCampaignEvent(deps: CampaignRouterDeps, event: Commen
   } catch (error) {
     const classified = classifyError(error);
     if (classified.cls === "auth") {
-      await db.update(igAccounts).set({ status: "reauth_required" }).where(eq(igAccounts.id, account.id));
+      await db.transaction(async (tx) => {
+        const [changed] = await tx.update(igAccounts).set({ status: "reauth_required" }).where(and(eq(igAccounts.id, account.id), eq(igAccounts.status, "active"))).returning();
+        if (changed) await tx.insert(campaignNotificationOutbox).values({ igAccountId: account.id, userId: account.userId, key: `read-auth:${event.id}`, kind: "reauth_required", reason: classified.code, nextAttemptAt: deps.now() }).onConflictDoNothing();
+      });
       await holdDisabled(db, event, deps.now()); return "reauth_required";
     }
     const retryable = error instanceof CampaignError ? error.code === "missing_comment_timestamp" : ["transient", "rate_limited"].includes(classified.cls);
     const maxAttempts = await campaignPolicy(db, "max_attempts");
     const retry = retryable && event.attempts < maxAttempts;
+    const retryAfterMs = error instanceof GraphApiError ? error.retryAfterMs ?? 0 : 0;
+    if (retryAfterMs) await observeRateHint(db, account.id, { retryAfterMs }, deps.now());
     await finishRoute(db, event, deps.now(), {
       status: retry ? "campaign_pending" : "campaign_failed", matchedRule: match,
       errorCode: error instanceof CampaignError ? error.code : classified.code,
       errorMessage: "댓글 작성 정보를 확인하지 못했어요", // Never persist Meta error strings/tokens.
-      completedAt: retry ? null : deps.now(), runAt: new Date(deps.now().getTime() + Math.min(300_000, 1000 * 2 ** Math.min(event.attempts, 8))),
+      completedAt: retry ? null : deps.now(), runAt: new Date(deps.now().getTime() + Math.max(retryAfterMs, Math.min(300_000, 1000 * 2 ** Math.min(event.attempts, 8)))),
     });
     return retry ? "metadata_retry" : "metadata_failed";
   }

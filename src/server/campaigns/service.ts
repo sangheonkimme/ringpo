@@ -7,6 +7,7 @@ import type { GraphClient, MediaInfo } from "@/server/instagram/graph";
 import { CAMPAIGN_FLAG, CampaignError, campaignEntitlements, campaignPolicy, campaignsEnabled, requireCampaignAccount, requireCampaignFeature } from "./access";
 import { canTransitionCampaign, dueCampaignTransitions, isActiveCampaign } from "./state";
 import { updatePendingCampaignJobs } from "./jobs";
+import { ensureSendControls, sendPolicy } from "./send-budget";
 
 type SaveOptions = { id?: string; expectedVersion?: number; appUrl: string; now: Date; graph: GraphClient; decrypt: (value: string) => string };
 
@@ -134,6 +135,7 @@ export async function publishCampaign(db: Db, userId: string, id: string, teaser
     if (media.length === 0) throw new CampaignError("media", "게시물을 하나 이상 연결해주세요");
     await requireMediaAvailable(tx, campaign.igAccountId, id, media.map((m) => m.mediaId));
     const status = campaign.openAt <= now ? "open" : teaser ? "teaser" : "draft";
+    await ensureSendControls(tx, campaign.igAccountId, now, await sendPolicy(tx), { initialPrivateRate: campaign.hourlyRate });
     const [updated] = await tx.update(campaigns).set({ publishedAt: now, status, version: campaign.version + 1, openedAt: status === "open" ? now : null }).where(eq(campaigns.id, id)).returning();
     await tx.update(campaignMedia).set({ routingEnabled: true }).where(eq(campaignMedia.campaignId, id));
     await tx.insert(campaignAuditEvents).values({ campaignId: id, actorId: userId, action: "published", fromState: "draft", toState: status, version: updated.version, requestId: "publish", reason: "셀러 공개", effectiveAt: now });

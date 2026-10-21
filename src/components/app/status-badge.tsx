@@ -33,6 +33,7 @@ const EVENT_TONE: Record<EventStatus, StatusTone> = {
   campaign_processing: "neutral",
   campaign_routed: "neutral",
   campaign_failed: "danger",
+  send_unknown: "warning",
 };
 
 export function StatusBadge({ status }: { status: EventStatus }) {

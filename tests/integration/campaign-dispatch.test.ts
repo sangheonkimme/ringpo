@@ -37,6 +37,17 @@ async function world(count = 1, rate = 400, teaser = false) {
 describe("campaign send dispatch", () => {
   beforeEach(async () => { await resetDb(); await seedCampaignConfig(); });
 
+  it("rechecks a concurrent OFF->ON observation under the account lock before granting a send permit", async () => {
+    const w = await world(); await w.tick(); w.advance(3000);
+    w.deps.render = async (tx) => {
+      await tx.update(accountSendControls).set({ lastObservedEnabled: false }).where(eq(accountSendControls.igAccountId, w.account.id));
+      return { kind: "text", text: "공구 링크" };
+    };
+    const job = (await w.claim()).find((row) => row.channel === "private_reply")!;
+    expect(await dispatchCampaignJob(w.deps, job)).toBe("deferred"); expect(w.graph.dms).toHaveLength(0);
+    const [control] = await w.db.select().from(accountSendControls); expect(control.warmupUntil!.getTime()).toBe(w.now().getTime() + 3_602_000);
+  });
+
   it("waits durably for jitter, sends by earliest comment deadline, uses latest template and never repeats on redelivery", async () => {
     const w = await world(2);
     expect((await w.tick()).sort()).toEqual(["waiting", "waiting"]); expect(w.graph.dms).toHaveLength(0);

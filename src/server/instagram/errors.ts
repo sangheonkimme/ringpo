@@ -1,3 +1,5 @@
+import { SendRejectedError } from "@/server/queue/send-errors";
+
 export class GraphApiError extends Error {
   constructor(
     message: string,
@@ -29,6 +31,7 @@ export interface ClassifiedError {
 const RATE_LIMIT_CODES = new Set([4, 17, 32, 613, 80002]);
 
 export function classifyError(err: unknown): ClassifiedError {
+  if (err instanceof SendRejectedError) return { cls: err.auth ? "auth" : "permanent", code: err.code, message: "발송 요청이 거부됐어요" };
   if (err instanceof GraphApiError) {
     const code =
       err.code === undefined ? `http_${err.httpStatus}` : err.subcode ? `${err.code}/${err.subcode}` : String(err.code);

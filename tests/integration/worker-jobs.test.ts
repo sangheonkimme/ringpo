@@ -82,6 +82,31 @@ describe("worker jobs", () => {
     expect(usage.dmCount).toBe(1);
   });
 
+  it("does not expire a source row already locked by a worker claim", async () => {
+    const db = getDb(); const owner = await createUser(); const account = await createIgAccount(owner.id); const now = new Date();
+    const period = usagePeriod(now); await db.insert(usageCounters).values({ userId: owner.id, period, dmCount: 1 });
+    const event = await createEvent(account, { receivedAt: new Date(now.getTime() - 8 * DAY), usagePeriod: period });
+    let unlock!: () => void; let locked!: () => void;
+    const hold = new Promise<void>((resolve) => { unlock = resolve; }); const acquired = new Promise<void>((resolve) => { locked = resolve; });
+    const claim = db.transaction(async (tx) => {
+      await tx.select().from(commentEvents).where(eq(commentEvents.id, event.id)).for("update"); locked(); await hold;
+      await tx.update(commentEvents).set({ status: "processing", lockedAt: now, sendLeaseVersion: 1 }).where(eq(commentEvents.id, event.id));
+    });
+    await acquired;
+    try { expect(await expireStaleEvents(db, now)).toBe(0); expect((await db.select().from(usageCounters))[0].dmCount).toBe(1); }
+    finally { unlock(); await claim; }
+    expect((await db.select().from(commentEvents))[0].status).toBe("processing");
+  });
+
+  it("keeps a guarded follow request's consumed private reply while expiring the unsent public reply", async () => {
+    const db = getDb(); const owner = await createUser(); const account = await createIgAccount(owner.id); const now = new Date(); const period = usagePeriod(now);
+    await db.insert(usageCounters).values({ userId: owner.id, period, dmCount: 1 });
+    await createEvent(account, { receivedAt: new Date(now.getTime() - 8 * DAY), usagePeriod: period, guardedJitterUntil: now, dmMessageId: "accepted-gate", dmStatus: null });
+    expect(await expireStaleEvents(db, now)).toBe(1);
+    expect((await db.select().from(commentEvents))[0]).toMatchObject({ status: "awaiting_follow", dmMessageId: "accepted-gate", usagePeriod: period });
+    expect((await db.select().from(usageCounters))[0].dmCount).toBe(1);
+  });
+
   it("deletes old no-match events after 3 days and everything after 180 days", async () => {
     const u = await createUser();
     const acct = await createIgAccount(u.id);

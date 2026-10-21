@@ -2,7 +2,7 @@ import { performance } from "node:perf_hooks";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { sendJitter } from "@/lib/campaign-rate";
 import type { Db, Executor } from "@/server/db/client";
-import { campaigns, campaignDeliveries, campaignParticipants, commentEvents, conversationStates, dmJobs, igAccounts, privateReplyClaims, sendAttempts, sendBuckets, type Campaign, type CampaignParticipant, type CommentEvent, type DmJob, type SendAttempt } from "@/server/db/schema";
+import { accountSendControls, campaigns, campaignDeliveries, campaignParticipants, commentEvents, conversationStates, dmJobs, igAccounts, privateReplyClaims, sendAttempts, sendBuckets, type Campaign, type CampaignParticipant, type CommentEvent, type DmJob, type SendAttempt } from "@/server/db/schema";
 import type { GraphClient, GraphReplyResult, GraphSendResult, PrivateReplyMessage } from "@/server/instagram/graph";
 import type { GraphRateHint } from "@/server/instagram/rate-hints";
 import { SendDeferredError, SendRejectedError, SendUncertainError } from "@/server/queue/send-errors";
@@ -11,6 +11,7 @@ import { campaignsEnabled } from "./access";
 import { acquireSendPermit, databaseNow, observeRateHint, recordSendHealth, releaseSendLease, sendPolicy, type SendPolicy } from "./send-budget";
 import { classifyCampaignSendError, type SendFailure } from "./send-errors";
 import { effectiveCampaignState } from "./state";
+import { legacySendGuard } from "./legacy-guard";
 
 export interface RenderContext { job: DmJob; campaign: Campaign; participant: CampaignParticipant; event: CommentEvent | null }
 export interface DispatchDeps {
@@ -35,6 +36,9 @@ async function finishWithoutSend(db: Executor, job: DmJob, status: "waiting" | "
 
 /** Campaign -> job -> channel locks. Claim uses SKIP LOCKED and never waits for job locks. */
 export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob): Promise<Prepared | string> {
+  const [mode] = await deps.db.select({ enabled: accountSendControls.lastObservedEnabled }).from(accountSendControls).where(eq(accountSendControls.igAccountId, leased.igAccountId));
+  // A campaign may be the first write after reactivation; do not rely on another legacy event to warm up.
+  if (mode && !mode.enabled) await legacySendGuard(deps.db, leased.igAccountId, await (deps.clock ?? databaseNow)(deps.db));
   const policy = await sendPolicy(deps.db);
   return deps.db.transaction(async (tx) => {
     const [campaign] = await tx.select().from(campaigns).where(eq(campaigns.id, leased.campaignId)).for("update");

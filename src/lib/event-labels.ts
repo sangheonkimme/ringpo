@@ -13,6 +13,7 @@ export const STATUS_LABEL: Record<EventStatus, string> = {
   campaign_processing: "공구 처리 중",
   campaign_routed: "공구 분류 완료",
   campaign_failed: "공구 처리 실패",
+  send_unknown: "발송 확인 필요",
 };
 
 export const SKIP_LABEL: Record<SkipReason, string> = {

@@ -186,6 +186,7 @@ export const EVENT_STATUSES = [
   "campaign_processing",
   "campaign_routed",
   "campaign_failed",
+  "send_unknown",
 ] as const;
 export const SKIP_REASONS = [
   "self",
@@ -238,6 +239,8 @@ export const commentEvents = pgTable(
     usagePeriod: text("usage_period"),
     runAt: tz("run_at").notNull().defaultNow(),
     lockedAt: tz("locked_at"),
+    sendLeaseVersion: integer("send_lease_version").notNull().default(0),
+    guardedJitterUntil: tz("guarded_jitter_until"),
     dmReservedAt: tz("dm_reserved_at"),
     completedAt: tz("completed_at"),
     createdAt: createdAt(),
@@ -591,6 +594,7 @@ export const accountSendControls = pgTable("account_send_controls", {
   warmupUntil: tz("warmup_until"),
   apiPausedUntil: tz("api_paused_until"),
   safetyUntil: tz("safety_until"),
+  lastObservedEnabled: boolean("last_observed_enabled").notNull().default(true),
   version: integer("version").notNull().default(1),
   createdAt: createdAt(),
   updatedAt: updatedAt(),

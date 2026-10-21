@@ -34,7 +34,7 @@ export default async function AutomationDetailPage({ params }: { params: Promise
   ]);
   const ctr = stats.linksSent > 0 ? Math.round((stats.linksClicked / stats.linksSent) * 100) : 0;
   const created = auto.createdAt.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" });
-  // 반응한 댓글 = 보냄 + 대기 + 실패 + 건너뜀
+  // 반응한 댓글 = 보냄 + 대기 + 실패 + 건너뜀 + 확인 필요
   const cells: [string, string, boolean][] = [
     ["반응한 댓글", stats.total.toLocaleString(), true],
     ["보냄", (stats.succeeded + stats.partial).toLocaleString(), false],
@@ -73,8 +73,9 @@ export default async function AutomationDetailPage({ params }: { params: Promise
           ))}
         </dl>
         <ul className="flex flex-col gap-1 text-[13px] leading-normal text-muted-foreground">
-          <li>반응한 댓글은 보냄 · 대기 · 실패 · 건너뜀을 모두 더한 수예요.</li>
+          <li>반응한 댓글은 보냄 · 대기 · 실패 · 건너뜀 · 확인 필요를 모두 더한 수예요.</li>
           {stats.partial > 0 && <li>보냄에는 DM만 가고 공개 답글은 실패한 ‘일부 발송’ {stats.partial.toLocaleString()}건이 들어 있어요.</li>}
+          {stats.unknown > 0 && <li className="rounded-lg bg-warning-soft p-3 text-warning-ink">발송 확인 필요 {stats.unknown.toLocaleString()}건. 수락 여부가 불확실해 보냄·실패에 포함하지 않고, 자동 재발송하지 않아요.</li>}
           {plan.linkTracking && (
             <li>
               클릭률은 DM 링크를 받은 사람 중 한 번 이상 누른 사람의 비율이에요. 링크는 모두 {stats.clicks.toLocaleString()}번 눌렸어요.

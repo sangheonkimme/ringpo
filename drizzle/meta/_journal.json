@@ -43,6 +43,13 @@
       "when": 1792569091806,
       "tag": "0005_gonggu_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792570047258,
+      "tag": "0006_gonggu_shared_budget",
+      "breakpoints": true
     }
   ]
 }
