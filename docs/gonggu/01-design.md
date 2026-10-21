@@ -254,6 +254,14 @@ Meta가 client idempotency key를 받아 결과를 재조회한다는 보장은 
 - 분산 worker는 **계정 dispatch lease를 먼저** 획득하고 해당 계정의 첫 due 잡을 claim한다. 한 잡이 장기 backoff 중이면 ready 집합에서 제외한다. API 호출 직전 lease/flag/rate/창을 다시 검사하고 지나간 전송 허가는 새로 받는다.
 - due transition·expiry 검사가 전송 선택에 선행한다. 예고 잡은 OPEN 전에는 보내지 않는다. 메타데이터 조회·알림·리포트가 전송 worker pool 전체를 점유하지 않게 소량 concurrency를 분리한다.
 
+### M1-3 구현 결정 (2026-10-21)
+
+- 발송 원장은 `send_attempts`, 채널별 budget/lease는 `send_buckets`, 계정 설정은 `account_send_controls`, 캠페인 cap은 `campaign_rate_buckets`로 분리했다. 기존 PostgreSQL·Drizzle·worker scheduler를 확장하며 Redis는 추가하지 않는다.
+- DB 허가 뒤 event loop/commit 지연으로 실제 호출이 늦어질 수 있어 2초 permit과 monotonic 검사를 추가한다. 호출 전 만료는 `not_invoked`로 기록하고 재시도 횟수/rolling call count에서 제외한다. 과거 호출 집계에는 permit 여유도 포함해 한 시간 경계의 지연 호출을 보수적으로 제한한다.
+- DB transaction 안에서 campaign → job → account control → channel 순으로 잠근다. claim은 channel을 먼저 잠그되 job에는 `SKIP LOCKED`를 사용해 역방향 대기를 피한다. Meta HTTP 호출은 commit 뒤 수행한다. sender 결과는 job lease version/owner로 검증한다.
+- 영구 정책 차단은 수동 확인이 필요하다. rate 자동 pause는 한 번의 half-open 호출이 성공하면 풀리고 다시 제한되면 연장한다. 수동 재개는 최근 사용량과 cooldown을 지우지 않는다.
+- 발송 엔진/보호 설정/현황 화면을 먼저 검증하는 작은 PR로 분리한다. 실제 발송 루프는 추적 링크·팔로우/일반 DM 수신과 legacy 공통 budget 연결이 완료되는 M1-4에서 켠다. 기존 startEventLoop의 빈 슬롯 보충 방식을 재사용하고 campaign poll은 250ms로 검증한다. M1-3만 배포하고 운영 cohort를 활성화하지 않는다.
+
 ### 8.2 계정 보호
 
 `account_send_controls`에 수동 all-pause와 자동 channel pause를 구분한다. 제안 기본은 5분 안에 연속 5회 rate/spam 관련 확정 오류 시 공개 대댓글 6시간 pause, 셀러 대시보드 알림+이메일 outbox다. N/관찰 구간/기간은 설정값이다. 성공이면 해당 streak를 reset하되 실제 정책 차단 오류는 별도 수동 해제가 필요하다.

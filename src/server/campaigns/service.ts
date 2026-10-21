@@ -6,6 +6,7 @@ import { campaigns, campaignProducts, campaignMedia, campaignAuditEvents, featur
 import type { GraphClient, MediaInfo } from "@/server/instagram/graph";
 import { CAMPAIGN_FLAG, CampaignError, campaignEntitlements, campaignPolicy, campaignsEnabled, requireCampaignAccount, requireCampaignFeature } from "./access";
 import { canTransitionCampaign, dueCampaignTransitions, isActiveCampaign } from "./state";
+import { updatePendingCampaignJobs } from "./jobs";
 
 type SaveOptions = { id?: string; expectedVersion?: number; appUrl: string; now: Date; graph: GraphClient; decrypt: (value: string) => string };
 
@@ -113,6 +114,7 @@ export async function saveCampaign(db: Db, userId: string, raw: unknown, options
     await tx.delete(campaignMedia).where(eq(campaignMedia.campaignId, id));
     await tx.insert(campaignMedia).values(media.map((m) => ({ campaignId: id, igAccountId: account.id, mediaId: m.id, permalink: m.permalink, routingEnabled: Boolean(saved.publishedAt) })));
     await tx.insert(campaignAuditEvents).values({ campaignId: id, actorId: userId, action: old ? "edited" : "created", version: saved.version, requestId: randomUUID(), reason: old ? "셀러 수정" : "초안 생성", effectiveAt: options.now });
+    if (old) await updatePendingCampaignJobs(tx, saved, options.now);
     return saved;
   });
 }
@@ -149,6 +151,7 @@ async function transitionLocked(db: Executor, campaign: Campaign, to: CampaignSt
     ...(to === "settled" ? { settledAt: now } : {}),
   }).where(eq(campaigns.id, campaign.id)).returning();
   await db.insert(campaignAuditEvents).values({ campaignId: campaign.id, actorId, action: "transition", fromState: campaign.status, toState: to, version: updated.version, requestId, reason, effectiveAt, createdAt: now });
+  await updatePendingCampaignJobs(db, updated, now);
   return updated;
 }
 
@@ -201,6 +204,7 @@ export async function archiveCampaign(db: Db, userId: string, id: string, now: D
     await requireCampaignAccount(tx, userId, campaign.igAccountId);
     if (campaign.archivedAt) return;
     await tx.update(campaigns).set({ archivedAt: now, version: campaign.version + 1 }).where(eq(campaigns.id, id));
+    await updatePendingCampaignJobs(tx, { ...campaign, archivedAt: now }, now);
     await tx.update(campaignMedia).set({ routingEnabled: false, releasedAt: now }).where(eq(campaignMedia.campaignId, id));
     await tx.insert(campaignAuditEvents).values({ campaignId: id, actorId: userId, action: "archived", version: campaign.version + 1, requestId: "archive", reason: "셀러 종료 및 보관", effectiveAt: now });
   });

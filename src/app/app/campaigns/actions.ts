@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { CampaignError } from "@/server/campaigns/access";
-import { archiveCampaign, publishCampaign, saveCampaign, transitionCampaign } from "@/server/campaigns/service";
+import { archiveCampaign, getCampaign, publishCampaign, saveCampaign, transitionCampaign } from "@/server/campaigns/service";
+import { updateSendControls } from "@/server/campaigns/send-controls";
 import { decryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
 import { getEnv } from "@/server/env";
@@ -48,6 +49,19 @@ export async function changeCampaignAction(raw: z.infer<typeof mutationSchema>):
     else await transitionCampaign(db, user.id, id, action, { now, expectedVersion: version, requestId, reason: "셀러 수동 전환" });
     revalidatePath("/app/campaigns");
     revalidatePath(`/app/campaigns/${id}`);
+    return { ok: true, id };
+  } catch (error) { return failure(error); }
+}
+
+export async function saveCampaignSendSettings(id: string, raw: unknown): Promise<CampaignActionResult> {
+  const user = await requireUser();
+  if (!z.uuid().safeParse(id).success) return { ok: false, error: "공구 정보를 확인해주세요" };
+  try {
+    const db = getDb(); const campaign = await getCampaign(db, user.id, id);
+    if (!campaign) throw new CampaignError("not_found", "공구를 찾을 수 없어요");
+    if (!raw || typeof raw !== "object") throw new CampaignError("validation", "발송 설정을 확인해주세요");
+    await updateSendControls(db, user.id, { ...raw, accountId: campaign.igAccountId }, new Date());
+    revalidatePath("/app/campaigns", "layout");
     return { ok: true, id };
   } catch (error) { return failure(error); }
 }

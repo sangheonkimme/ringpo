@@ -1,6 +1,6 @@
 # 공구 캠페인 운영 절차
 
-작성일: 2026-10-21. 구현 단계: **M1-2 댓글 라우팅·영속 잡**. 운영 배포 전이며 아직 DM dispatch·리포트가 포함되지 않는다. 이후 PR에서 해당 절차와 실제 명령을 추가한다.
+작성일: 2026-10-21. 구현 단계: **M1-3 발송 엔진·계정 보호·현황 화면**. 운영 배포 전이다. 발송 엔진은 모의 API로 검증하며, 실제 worker의 송신 루프 연결은 M1-4의 추적 링크·팔로우 응답·기존 자동화 공통 예산 연결과 함께 진행한다. 그 전에는 운영 계정에서 플래그를 켜지 않는다. 리포트는 M2 범위다.
 
 ## 기능 플래그와 롤백
 
@@ -34,7 +34,7 @@ COMMIT;
 ## 캠페인 상태 변경·미디어 연결 해제
 
 1. 셀러 로그인 → 공구 탭 → 대상 공구 상세를 연다.
-2. 초안은 `공개 및 오픈 예약`으로 공개한다. Pro의 `예고 시작`은 예약 알림을 받을 단계를 활성화한다. M1-2에서는 댓글을 받아 공개 답글·예약 DM 잡을 만들지만 실제 송신은 하지 않는다.
+2. 초안은 `공개 및 오픈 예약`으로 공개한다. Pro의 `예고 시작`은 예약 알림을 받을 단계를 활성화한다. 현재 실행 worker는 댓글을 받아 공개 답글·예약 DM 잡을 만들고 만료·복구를 처리한다. 실제 송신 루프 활성화는 M1-4에서 연결한다.
 3. 공개 예약/예고 상태에서는 `지금 오픈`, 진행 상태에서는 `마감` 또는 `품절 처리`를 누른다. 마감/품절 후에는 `정산 확정`이 가능하다. 확정 리포트는 M2에서 연결한다.
 4. `연결 해제 및 보관`은 목록에서 숨기고 다른 캠페인에서 게시물을 사용할 수 있게 한다. 기록은 보존한다.
 5. 운영 이력에서 실행 시각, 실행 주체, 상태 변경을 확인한다. 예약의 효력 시각은 `campaign_audit_events.effective_at`, 실제 처리 시각은 `created_at` 및 캠페인의 실제 전환 시각이다.
@@ -51,8 +51,8 @@ COMMIT;
 
 | 절차 | 현재 상태·필수 정책 |
 | --- | --- |
-| 계정 전체 일시정지/재개·자동 breaker | M1-3. 수동 정지는 자동 해제하지 않으며 채널별 중단과 감사 로그 필요 |
-| 실패 잡 재처리 | M1-3. 확정 실패 중 재시도 가능한 오류만. 결과 `unknown`은 자동/무조건 재발송 금지 |
+| 계정 전체 일시정지/재개·자동 breaker | M1-3 엔진/화면 완료. 기존 자동화까지 공통 예산을 적용하는 연결은 M1-4이며 그 전에는 활성화 금지 |
+| 실패 잡 재처리 | M1-3에서 확정 일시 거부만 자동 backoff. 최대 횟수 실패/영구 실패는 최종 상태이며 운영 재처리 도구 연결 전 SQL 재시도 금지 |
 | 발송 상태·만료 위험·ETA | M1-3/M2-1. 실제 API 호출 수, 위험 집계, API 지연을 반영 |
 | 공유 링크 폐기 | M2-2. 토큰 hash로 조회하고 폐기 즉시 웹/PDF 모두 거부 |
 | 셀러 직접 응답 후 FAQ 중단 | M2-3. 실제 echo 확인 전 일반 공개 금지 |
@@ -78,4 +78,32 @@ WHERE status = 'campaign_failed' GROUP BY error_code;
 
 ## 검증과 250계정 수용량
 
-재현 명령은 [M1-1 검증 결과](evidence/m1-1.md), [M1-2 검증 결과](evidence/m1-2.md)에 기록한다. 테스트 DB는 기존 통합 테스트에서 스키마를 초기화하므로 운영 연결 문자열을 사용하지 않는다. 250개 계정의 상태 전환/잡 생성 시험은 발송 throughput 시험과 구별한다. 실제 API 요청 없이 PostgreSQL만 측정한 결과를 전체 서비스 수용량 보장으로 해석하지 않는다.
+재현 명령은 [M1-1 검증 결과](evidence/m1-1.md), [M1-2 검증 결과](evidence/m1-2.md), [M1-3 검증 결과](evidence/m1-3.md)에 기록한다. 테스트 DB는 기존 통합 테스트에서 스키마를 초기화하므로 운영 연결 문자열을 사용하지 않는다. 250개 계정의 상태 전환/잡 생성 시험은 발송 throughput 시험과 구별한다. 실제 API 요청 없이 PostgreSQL만 측정한 결과를 전체 서비스 수용량 보장으로 해석하지 않는다.
+
+
+## 발송 일시정지·속도·확인 필요 (M1-3)
+
+공구 상세의 **발송 현황 → 이 인스타 계정의 발송 설정**에서 전체 정지, private reply 시간당 cap, 공개 답글 보호 중 DM 유지 여부를 저장한다. 계정 cap과 캠페인 cap 중 낮은 값이 적용된다. 재개는 전체 정지를 해제하고 저장한다. 수동 정지는 시간 경과로 해제되지 않는다. 이미 허가받아 전송 중인 호출은 완료될 수 있다.
+
+정책 차단은 원인을 해결한 뒤 별도 확인 체크를 저장해야 한다. 재개/확인 체크는 최근 호출 원장·남은 cooldown·토큰을 초기화하지 않는다. 변경은 `account_send_audit_events`에 요청 ID와 함께 기록되고, 다른 셀러의 계정이나 오래된 version은 거부된다.
+
+새 발송 예산을 만드는 계정에 최근 legacy 발송 예약/진행 중 작업이 있으면 최대 한 시간과 permit 여유만큼 warmup한다. on→off 공유 예산 연결은 M1-4 배포 조건이다. 실시간 발송 중 account cap을 낮추어도 지난 호출 수는 남으므로 다음 허용 시각까지 기다린다.
+
+`send_attempts`는 API 호출 전에 저장된다. 허가 수명 기본 2초, lease 기본 60초이며 정책 테이블로 관리한다. 호출 전에 허가가 만료되면 `not_invoked`로 남기고 재예약한다. API 호출 시작 이후 응답 유실/서버 오류/worker 유실은 `unknown`; 화면에는 **확인 필요**로 표시하며 자동 재발송하지 않는다. 늦게 도착한 성공 응답도 이미 확정된 잡을 덮지 않고 `late_result`에 보관한다.
+
+```sql
+SELECT campaign_id, id AS job_id, channel, kind, status, attempts, last_error_code
+FROM dm_jobs WHERE status IN ('unknown', 'failed', 'expired') ORDER BY updated_at DESC LIMIT 100;
+SELECT job_id, state, error_code, provider_message_id, late_result
+FROM send_attempts WHERE state = 'unknown' ORDER BY started_at DESC LIMIT 100;
+SELECT ig_account_id, channel, error_streak, paused_until, requires_review
+FROM send_buckets WHERE paused_until IS NOT NULL OR requires_review;
+SELECT ig_account_id, status, attempts, next_attempt_at
+FROM campaign_notification_outbox WHERE status <> 'sent';
+```
+
+확정된 rate 거부는 기존 30초 기반 backoff·지터를 재사용한다. Retry-After/usage header가 더 길면 그 이후로 미룬다. `unknown`, private reply 권리 소비, 영구 오류를 `waiting`으로 UPDATE하지 않는다. 오류 원인을 해결해도 동일 댓글 재전송 가능 여부는 달라지지 않는다. 확실히 호출되지 않은 lease만 자동 회수한다.
+
+자동 보호 알림은 발송 결과와 같은 transaction에서 outbox에 저장된다. 별도 scheduler가 DB lease로 선택하고 이메일 HTTP 요청 중 DB transaction을 점유하지 않는다. 공급자 미설정/실패를 성공으로 기록하지 않으며, 재시도 소진 시 화면에 이메일 실패를 표시한다. 이메일 중복 방지 키는 outbox ID로 고정한다.
+
+`0004_gonggu_dispatch.sql` rollback은 예산/시도/대화/알림 데이터나 jitter가 적용된 잡이 있으면 거부한다. 운영 롤백은 flag OFF로 하고 원장을 보존한다. 계정 보호 상태를 삭제해 속도를 초기화하지 않는다.

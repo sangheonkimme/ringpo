@@ -9,9 +9,10 @@ export interface EmailMessage {
   text: string;
 }
 
-export async function sendEmail(msg: EmailMessage): Promise<void> {
+export async function sendEmail(msg: EmailMessage, options: { idempotencyKey?: string; requireConfigured?: boolean } = {}): Promise<void> {
   const env = getEnv();
   if (!env.RESEND_API_KEY) {
+    if (options.requireConfigured) throw new Error("Email provider is not configured");
     if (env.NODE_ENV === "production") {
       log.error("email not sent: RESEND_API_KEY missing", { subject: msg.subject });
       return;
@@ -26,6 +27,6 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     subject: msg.subject,
     html: msg.html,
     text: msg.text,
-  });
+  }, options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined);
   if (error) throw new Error(`resend: ${error.message}`);
 }

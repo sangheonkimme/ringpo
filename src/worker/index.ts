@@ -2,6 +2,8 @@ import { hostname } from "node:os";
 import { createBillingDeps } from "@/server/billing/deps";
 import { advanceDueCampaigns } from "@/server/campaigns/service";
 import { claimCampaignEvents, routeCampaignEvent } from "@/server/campaigns/routing";
+import { expireCampaignJobs, recoverCampaignJobs } from "@/server/campaigns/jobs";
+import { sendCampaignNotifications } from "@/server/campaigns/notifications";
 import { billingConfigured } from "@/server/billing/gateway";
 import { processDueRenewals } from "@/server/billing/subscriptions";
 import { decryptSecret, encryptSecret } from "@/server/crypto";
@@ -63,6 +65,12 @@ async function main() {
 
   const jobs: ScheduledJob[] = [
     { name: "campaign-transitions", intervalMs: 5_000, run: async () => { const count = await advanceDueCampaigns(db, new Date()); if (count) log.info("campaign transitions", { count }); } },
+    { name: "campaign-job-maintenance", intervalMs: 5_000, run: async () => {
+      const recovered = await recoverCampaignJobs(db, new Date());
+      const expired = await expireCampaignJobs(db, new Date());
+      if (recovered.waiting || recovered.unknown || expired) log.info("campaign queue maintenance", { ...recovered, expired });
+    } },
+    { name: "campaign-notifications", intervalMs: 30_000, run: async () => { await sendCampaignNotifications(db, new Date()); } },
     {
       name: "refresh-tokens",
       intervalMs: 60 * MINUTE,
@@ -92,7 +100,8 @@ async function main() {
     });
   }
   const scheduler = startScheduler(jobs, {
-    withLock: (name, fn) => withJobLock(db, name, fn),
+    // Outbox rows have their own leases; do not hold an advisory transaction during email HTTP requests.
+    withLock: (name, fn) => name === "campaign-notifications" ? fn() : withJobLock(db, name, fn),
     onError: (name, e) => log.error("scheduled job failed", { job: name, ...errorFields(e) }),
   });
 
