@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -17,6 +18,7 @@ import {
 import { CAMPAIGN_STATES, type CampaignTemplates } from "@/lib/campaign-schema";
 import { CAMPAIGN_JOB_KINDS, CAMPAIGN_JOB_STATES, SEND_CHANNELS } from "@/lib/campaign-jobs";
 import type { CampaignRuleSnapshot } from "@/server/campaigns/matcher";
+import type { PrivateReplyMessage } from "@/server/instagram/graph";
 
 const tz = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const createdAt = () => tz("created_at").notNull().defaultNow();
@@ -524,6 +526,8 @@ export const dmJobs = pgTable("dm_jobs", {
   kind: text("kind", { enum: CAMPAIGN_JOB_KINDS }).notNull(),
   status: text("status", { enum: CAMPAIGN_JOB_STATES }).notNull().default("waiting"),
   scheduledAt: tz("scheduled_at").notNull(),
+  jitterUntil: tz("jitter_until"),
+  messageFormat: text("message_format", { enum: ["auto", "text"] }).notNull().default("auto"),
   nextAttemptAt: tz("next_attempt_at").notNull(),
   deadlineAt: tz("deadline_at").notNull(),
   hardExpiresAt: tz("hard_expires_at").notNull(),
@@ -576,6 +580,120 @@ export const privateReplyClaims = pgTable("private_reply_claims", {
 
 export type DmJob = typeof dmJobs.$inferSelect;
 export type CampaignParticipant = typeof campaignParticipants.$inferSelect;
+
+export const accountSendControls = pgTable("account_send_controls", {
+  igAccountId: uuid("ig_account_id").primaryKey().references(() => igAccounts.id, { onDelete: "cascade" }),
+  manualPaused: boolean("manual_paused").notNull().default(false),
+  continueDmOnPublicPause: boolean("continue_dm_on_public_pause").notNull().default(false),
+  privateReplyRate: integer("private_reply_rate").notNull(),
+  publicReplyRate: integer("public_reply_rate").notNull(),
+  messageRate: integer("message_rate").notNull(),
+  warmupUntil: tz("warmup_until"),
+  apiPausedUntil: tz("api_paused_until"),
+  safetyUntil: tz("safety_until"),
+  version: integer("version").notNull().default(1),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [check("account_send_controls_rates", sql`${t.privateReplyRate} between 1 and 750 and ${t.publicReplyRate} > 0 and ${t.messageRate} > 0`)]);
+
+/** Capacity-one token bucket plus durable dispatch lease, one per account/channel. */
+export const sendBuckets = pgTable("send_buckets", {
+  igAccountId: uuid("ig_account_id").notNull().references(() => accountSendControls.igAccountId, { onDelete: "cascade" }),
+  channel: text("channel", { enum: SEND_CHANNELS }).notNull(),
+  tokens: doublePrecision("tokens").notNull().default(1),
+  refilledAt: tz("refilled_at").notNull(),
+  nextEligibleAt: tz("next_eligible_at").notNull(),
+  leaseOwner: text("lease_owner"),
+  leaseUntil: tz("lease_until"),
+  leaseJobId: uuid("lease_job_id").references(() => dmJobs.id, { onDelete: "set null" }),
+  errorStreak: integer("error_streak").notNull().default(0),
+  streakStartedAt: tz("streak_started_at"),
+  pausedUntil: tz("paused_until"),
+  requiresReview: boolean("requires_review").notNull().default(false),
+  lastErrorCode: text("last_error_code"),
+  updatedAt: updatedAt(),
+}, (t) => [
+  primaryKey({ columns: [t.igAccountId, t.channel] }),
+  index("send_buckets_ready_idx").on(t.nextEligibleAt),
+  check("send_buckets_tokens", sql`${t.tokens} >= 0 and ${t.tokens} <= 1`),
+]);
+
+export const campaignRateBuckets = pgTable("campaign_rate_buckets", {
+  campaignId: uuid("campaign_id").primaryKey().references(() => campaigns.id, { onDelete: "cascade" }),
+  tokens: doublePrecision("tokens").notNull().default(1),
+  refilledAt: tz("refilled_at").notNull(),
+  nextEligibleAt: tz("next_eligible_at").notNull(),
+}, (t) => [check("campaign_rate_buckets_tokens", sql`${t.tokens} >= 0 and ${t.tokens} <= 1`)]);
+
+export const SEND_ATTEMPT_STATES = ["sending", "accepted", "rejected", "unknown", "not_invoked"] as const;
+export const sendAttempts = pgTable("send_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").references(() => dmJobs.id, { onDelete: "cascade" }),
+  legacyEventId: uuid("legacy_event_id").references(() => commentEvents.id, { onDelete: "cascade" }),
+  logicalKey: text("logical_key").notNull(),
+  channel: text("channel", { enum: SEND_CHANNELS }).notNull(),
+  attempt: integer("attempt").notNull(),
+  leaseOwner: text("lease_owner").notNull(),
+  leaseVersion: integer("lease_version").notNull(),
+  state: text("state", { enum: SEND_ATTEMPT_STATES }).notNull().default("sending"),
+  startedAt: tz("started_at").notNull(),
+  permitExpiresAt: tz("permit_expires_at").notNull(),
+  invokedAt: tz("invoked_at"),
+  finishedAt: tz("finished_at"),
+  providerMessageId: text("provider_message_id"),
+  errorCode: text("error_code"),
+  requestFingerprint: text("request_fingerprint").notNull(),
+  payload: jsonb("payload").$type<PrivateReplyMessage>(),
+  lateResult: jsonb("late_result").$type<{ state: string; providerMessageId?: string; errorCode?: string }>(),
+}, (t) => [
+  uniqueIndex("send_attempts_logical_unique").on(t.logicalKey, t.attempt),
+  index("send_attempts_account_window_idx").on(t.igAccountId, t.channel, t.startedAt),
+  index("send_attempts_campaign_window_idx").on(t.campaignId, t.channel, t.startedAt),
+  index("send_attempts_job_idx").on(t.jobId),
+  index("send_attempts_provider_idx").on(t.providerMessageId),
+  check("send_attempts_source_check", sql`(${t.jobId} is null) <> (${t.legacyEventId} is null)`),
+]);
+
+export const conversationStates = pgTable("conversation_states", {
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  senderId: text("sender_id").notNull(),
+  consentAt: tz("consent_at"),
+  lastUserInteractionAt: tz("last_user_interaction_at"),
+  lastUserEventId: text("last_user_event_id"),
+  automationPausedUntil: tz("automation_paused_until"),
+  currentCampaignId: uuid("current_campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+}, (t) => [primaryKey({ columns: [t.igAccountId, t.senderId] })]);
+
+export const accountSendAuditEvents = pgTable("account_send_audit_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  reason: text("reason").notNull(),
+  requestId: text("request_id").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("account_send_audit_request_unique").on(t.igAccountId, t.requestId)]);
+
+export const campaignNotificationOutbox = pgTable("campaign_notification_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  igAccountId: uuid("ig_account_id").notNull().references(() => igAccounts.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  key: text("key").notNull().unique(),
+  kind: text("kind").notNull(),
+  reason: text("reason").notNull(),
+  resumeAt: tz("resume_at"),
+  status: text("status", { enum: ["waiting", "sending", "sent", "failed"] }).notNull().default("waiting"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: tz("next_attempt_at").notNull(),
+  leaseUntil: tz("lease_until"),
+  createdAt: createdAt(),
+}, (t) => [index("campaign_notification_queue_idx").on(t.status, t.nextAttemptAt)]);
+
+export type SendAttempt = typeof sendAttempts.$inferSelect;
+export type SendBucket = typeof sendBuckets.$inferSelect;
 
 export type IgAccount = typeof igAccounts.$inferSelect;
 export type Automation = typeof automations.$inferSelect;

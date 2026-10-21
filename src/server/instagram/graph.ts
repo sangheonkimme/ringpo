@@ -1,5 +1,6 @@
 import { GraphApiError, GraphNetworkError } from "./errors";
 import { parseJsonWithStringIds } from "./json";
+import { graphRateHint, type GraphRateHint } from "./rate-hints";
 
 export interface IgProfile {
   id: string;
@@ -26,7 +27,11 @@ export interface CommentInfo {
   mediaId: string | null;
   authorId: string | null;
   createdAt: Date | null;
+  rateHint?: GraphRateHint;
 }
+
+export interface GraphSendResult { messageId: string; rateHint?: GraphRateHint }
+export interface GraphReplyResult { id: string; rateHint?: GraphRateHint }
 
 export type PrivateReplyMessage =
   | { kind: "button"; text: string; buttonTitle: string; url: string }
@@ -43,15 +48,15 @@ export interface GraphClient {
   listMedia(token: string, igUserId: string, after?: string): Promise<{ items: MediaInfo[]; nextCursor: string | null }>;
   getMedia(token: string, mediaId: string, options?: { includeOwner: boolean }): Promise<MediaInfo>;
   getComment(token: string, commentId: string): Promise<CommentInfo>;
-  replyToComment(token: string, commentId: string, message: string): Promise<{ id: string }>;
+  replyToComment(token: string, commentId: string, message: string): Promise<GraphReplyResult>;
   sendPrivateReply(
     token: string,
     igUserId: string,
     commentId: string,
     message: PrivateReplyMessage,
-  ): Promise<{ messageId: string }>;
+  ): Promise<GraphSendResult>;
   /** 우리에게 메시지를 보낸(버튼을 누른) 사람에게 24시간 안에 보내는 일반 메시지 */
-  sendMessage(token: string, igUserId: string, recipientId: string, message: PrivateReplyMessage): Promise<{ messageId: string }>;
+  sendMessage(token: string, igUserId: string, recipientId: string, message: PrivateReplyMessage): Promise<GraphSendResult>;
   /** 그 사람이 비즈니스 계정을 팔로우하는지. 상대가 먼저 메시지를 보낸(버튼을 누른) 뒤에만 조회된다 */
   isFollower(token: string, igsid: string): Promise<boolean>;
 }
@@ -127,6 +132,11 @@ export function createGraphClient(opts: {
 }): GraphClient {
   const base = `https://graph.instagram.com/${opts.version}`;
   const f = opts.fetchFn ?? fetch;
+  const hints = new WeakMap<Json, GraphRateHint>();
+  const withHint = <T extends object>(value: T, payload: Json): T & { rateHint?: GraphRateHint } => {
+    const hint = hints.get(payload);
+    return hint ? { ...value, rateHint: hint } : value;
+  };
 
   async function request(url: string, init: RequestInit): Promise<Json> {
     let res: Response;
@@ -144,8 +154,10 @@ export function createGraphClient(opts: {
     }
     const error = json.error as { message?: string; code?: number; error_subcode?: number } | undefined;
     if (!res.ok || error) {
-      throw new GraphApiError(error?.message ?? `HTTP ${res.status}`, res.status, error?.code, error?.error_subcode);
+      throw new GraphApiError(error?.message ?? `HTTP ${res.status}`, res.status, error?.code, error?.error_subcode, graphRateHint(res.headers)?.retryAfterMs);
     }
+    const hint = graphRateHint(res.headers);
+    if (hint) hints.set(json, hint);
     return json;
   }
 
@@ -201,7 +213,7 @@ export function createGraphClient(opts: {
 
     async getComment(token, commentId) {
       const j = await request(withToken(`/${commentId}`, token, { fields: "id,timestamp,from,media" }), { method: "GET" });
-      return { id: str(j.id) ?? "", mediaId: str((j.media as Json)?.id) ?? str(j.media), authorId: str((j.from as Json)?.id), createdAt: parseIgTime(j.timestamp) };
+      return withHint({ id: str(j.id) ?? "", mediaId: str((j.media as Json)?.id) ?? str(j.media), authorId: str((j.from as Json)?.id), createdAt: parseIgTime(j.timestamp) }, j);
     },
 
     async replyToComment(token, commentId, message) {
@@ -210,7 +222,7 @@ export function createGraphClient(opts: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
-      return { id: String(j.id) };
+      return withHint({ id: String(j.id) }, j);
     },
 
     async sendPrivateReply(token, igUserId, commentId, message) {
@@ -219,7 +231,7 @@ export function createGraphClient(opts: {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ recipient: { comment_id: commentId }, message: messagePayload(message) }),
       });
-      return { messageId: String(j.message_id) };
+      return withHint({ messageId: String(j.message_id) }, j);
     },
 
     async sendMessage(token, igUserId, recipientId, message) {
@@ -228,7 +240,7 @@ export function createGraphClient(opts: {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ recipient: { id: recipientId }, message: messagePayload(message) }),
       });
-      return { messageId: String(j.message_id) };
+      return withHint({ messageId: String(j.message_id) }, j);
     },
 
     async isFollower(token, igsid) {

@@ -1,0 +1,20 @@
+{
+  "scenario": "dispatch-only-250-accounts-3000-jobs",
+  "measuredAt": "2026-10-21T07:20:38.335Z",
+  "accounts": 250,
+  "jobs": 3000,
+  "simulatedClock": true,
+  "httpFixtureDelayMs": 100,
+  "poolSize": 10,
+  "dispatchConcurrency": 64,
+  "peakHttpConnections": 15,
+  "wallMs": 71525,
+  "virtualDrainMs": 102000,
+  "accepted": 3000,
+  "duplicates": 0,
+  "missing": 0,
+  "unknown": 0,
+  "maximumObservedRollingHour": 12,
+  "configuredHourlyRate": 400,
+  "externalMetaCalls": 0
+}

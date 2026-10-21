@@ -21,6 +21,10 @@ function layout(title: string, bodyHtml: string): string {
 const kst = (d: Date) => d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "long", timeStyle: "short" });
 
 export const emails = {
+  campaignPaused(username: string, resumeAt: Date | null): EmailContent {
+    const body = `@${username} 계정 보호를 위해 자동 발송을 일시정지했어요. ${resumeAt ? `${kst(resumeAt)} 이후 다시 시도합니다.` : "공구 대시보드에서 정책 오류 원인을 확인해주세요."}`;
+    return { subject: `[${site.name}] 계정 보호를 위해 자동 발송을 멈췄어요`, html: layout("자동 발송 일시정지", `<p>${escapeHtml(body)}</p>`), text: body };
+  },
   magicLink(url: string): EmailContent {
     return {
       subject: `${site.name} 로그인 링크`,

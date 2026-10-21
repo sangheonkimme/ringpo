@@ -4,6 +4,7 @@ export class GraphApiError extends Error {
     readonly httpStatus: number,
     readonly code?: number,
     readonly subcode?: number,
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "GraphApiError";

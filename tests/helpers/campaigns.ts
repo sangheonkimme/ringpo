@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { getDb, getSql } from "@/server/db/client";
 import { campaignInputSchema } from "@/lib/campaign-schema";
 import { featureFlags, type IgAccount } from "@/server/db/schema";
@@ -9,10 +9,10 @@ import { FakeGraphClient } from "./fake-graph";
 export const CAMPAIGN_NOW = new Date("2026-10-21T00:00:00Z");
 
 export async function seedCampaignConfig(enabled = true) {
-  const migration = await readFile("drizzle/0002_gonggu_foundation.sql", "utf8");
-  const seed = migration.split("-- GONGGU_DEFAULTS\n")[1];
-  if (!seed) throw new Error("campaign defaults migration missing");
-  await getSql().unsafe(seed);
+  for (const name of (await readdir("drizzle")).filter((name) => name.endsWith(".sql")).sort()) {
+    const seed = (await readFile(`drizzle/${name}`, "utf8")).split("-- GONGGU_DEFAULTS\n")[1];
+    if (seed) await getSql().unsafe(seed);
+  }
   if (enabled) await getDb().update(featureFlags).set({ enabled: true, defaultEnabled: true }).where(eq(featureFlags.key, CAMPAIGN_FLAG));
 }
 

@@ -10,10 +10,10 @@ export class CampaignError extends Error {
 }
 
 export async function campaignsEnabled(db: Executor, igAccountId: string): Promise<boolean> {
-  const [flag] = await db.select().from(featureFlags).where(eq(featureFlags.key, CAMPAIGN_FLAG));
-  if (!flag?.enabled) return false;
-  const [override] = await db.select().from(featureFlagOverrides).where(and(eq(featureFlagOverrides.flagKey, CAMPAIGN_FLAG), eq(featureFlagOverrides.igAccountId, igAccountId)));
-  return override?.enabled ?? flag.defaultEnabled;
+  const [row] = await db.select({ enabled: featureFlags.enabled, defaultEnabled: featureFlags.defaultEnabled, override: featureFlagOverrides.enabled })
+    .from(featureFlags).leftJoin(featureFlagOverrides, and(eq(featureFlagOverrides.flagKey, featureFlags.key), eq(featureFlagOverrides.igAccountId, igAccountId)))
+    .where(eq(featureFlags.key, CAMPAIGN_FLAG));
+  return Boolean(row?.enabled && (row.override ?? row.defaultEnabled));
 }
 
 export async function campaignAccounts(db: Executor, userId: string) {
