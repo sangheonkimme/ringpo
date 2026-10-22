@@ -33,3 +33,9 @@ export const reportDate = (iso: string) => new Date(iso).toLocaleString("ko-KR",
 export function metricDifference(current: number, previous: number) { return { current, previous, difference: current - previous, percent: previous === 0 ? null : Math.round((current - previous) / previous * 10_000) / 100 }; }
 
 export const REPORT_DM_LABELS: Record<typeof CAMPAIGN_JOB_KINDS[number], string> = { public_reply: "공개 답글", opening_link: "오픈 링크", instant_link: "즉시 링크", follow_request: "팔로우 요청", follow_reminder: "팔로우 재안내", follow_link: "팔로우 확인 링크", closed_notice: "마감 안내", faq: "FAQ", expiry_fallback: "만료 대체 안내" };
+
+export function formatReportMetric(report: CampaignReport, key: Exclude<keyof ReportMetrics, "ordersEntered">) {
+  const value = report.metrics[key];
+  if (value === null || (["orders", "revenueKrw"].includes(key) && !report.metrics.ordersEntered)) return "—";
+  return `${reportNumber(value)}${key === "ctrPercent" ? "%" : key === "revenueKrw" ? "원" : ""}`;
+}

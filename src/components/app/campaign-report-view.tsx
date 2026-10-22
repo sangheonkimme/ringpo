@@ -1,11 +1,11 @@
-import { REPORT_DM_LABELS, REPORT_METRIC_LABELS, reportDate, reportNumber, type CampaignReport } from "@/lib/campaign-report";
+import { formatReportMetric, REPORT_DM_LABELS, REPORT_METRIC_LABELS, reportDate, reportNumber, type CampaignReport } from "@/lib/campaign-report";
 
 /** Shared by the owner and public pages; accepts only the aggregate allowlist. */
 export function CampaignReportView({ report }: { report: CampaignReport }) {
   const m = report.metrics;
   return <article className="flex flex-col gap-6" aria-label="공구 성과 리포트">
     <header><p className="text-sm text-muted-foreground">{report.brand || "공동구매 성과"}</p><h1 className="mt-1 text-2xl font-extrabold">{report.title}</h1><p className="mt-2 text-sm">{report.finalized ? "정산 확정본" : "잠정 집계"} · {reportDate(report.asOf)} 기준 (한국 시간)</p></header>
-    <dl className="grid grid-cols-2 gap-3">{(["notificationRequests", "dmSent", "dmFailed", "dmExpired", "dmPending", "dmUnknown", "linkRecipients", "uniqueClicks", "totalClicks", "ctrPercent", "orders", "revenueKrw"] as const).map((key) => <div key={key} className="rounded-xl border bg-card p-3"><dt className="text-sm text-muted-foreground">{REPORT_METRIC_LABELS[key]}</dt><dd className="mt-1 text-xl font-bold">{m[key] === null || (["orders", "revenueKrw"].includes(key) && !m.ordersEntered) ? "—" : `${reportNumber(m[key]!)}${key === "ctrPercent" ? "%" : key === "revenueKrw" ? "원" : ""}`}</dd></div>)}</dl>
+    <dl className="grid grid-cols-2 gap-3">{(["notificationRequests", "dmSent", "dmFailed", "dmExpired", "dmPending", "dmUnknown", "linkRecipients", "uniqueClicks", "totalClicks", "ctrPercent", "orders", "revenueKrw"] as const).map((key) => <div key={key} className="rounded-xl border bg-card p-3"><dt className="text-sm text-muted-foreground">{REPORT_METRIC_LABELS[key]}</dt><dd className="mt-1 text-xl font-bold">{formatReportMetric(report, key)}</dd></div>)}</dl>
     <p className="text-xs leading-relaxed text-muted-foreground">클릭률은 발송이 확인된 구매 링크 수신자의 고유 클릭 {reportNumber(m.confirmedUniqueClicks)}명 ÷ 구매 링크 발송 {reportNumber(m.linkRecipients)}명이에요. 최초 안내·팔로우 요청·FAQ는 분모에서 제외해요. 고유 클릭은 원래 링크 수신자 기준이며, 전달된 링크도 원 수신자에게 포함돼요. 알려진 미리보기 크롤러는 제외해요.</p>
     {m.uncertainUniqueClicks > 0 && <p role="status" className="rounded-xl bg-muted p-3 text-sm">발송 확인 전 링크의 고유 클릭 {reportNumber(m.uncertainUniqueClicks)}명은 클릭률에서 제외했어요. 클릭만으로 DM 발송 성공을 확정하지 않아요.</p>}
     {(m.dmUnknown > 0 || m.dmPending > 0) && <p role="status" className="text-sm text-danger-ink">대기·처리 중 {reportNumber(m.dmPending)}건, 발송 확인 필요 {reportNumber(m.dmUnknown)}건이 포함된 집계예요.</p>}

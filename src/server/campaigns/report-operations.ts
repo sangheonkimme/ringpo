@@ -67,7 +67,7 @@ export async function getOwnedReportSnapshot(db: Executor, userId: string, campa
   await requireReportCampaign(db, userId, campaignId);
   const [snapshot] = await db.select().from(reportSnapshots).where(and(eq(reportSnapshots.id, snapshotId), eq(reportSnapshots.campaignId, campaignId)));
   if (!snapshot) throw new CampaignError("not_found", "리포트 버전을 찾을 수 없어요");
-  return { id: snapshot.id, revision: snapshot.revision, data: campaignReportSchema.parse(snapshot.data) };
+  return { id: snapshot.id, revision: snapshot.revision, referralCode: snapshot.referralCode, data: campaignReportSchema.parse(snapshot.data) };
 }
 
 /** Database-only work: snapshot insert and request completion commit together; no external I/O inside locks. */

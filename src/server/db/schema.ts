@@ -829,6 +829,7 @@ export const manualOrderEntries = pgTable("manual_order_entries", {
 ]);
 
 export const reportSnapshots = pgTable("report_snapshots", {
+  referralCode: text("referral_code").notNull().unique().default(sql`replace(gen_random_uuid()::text, '-', '')`),
   id: uuid("id").primaryKey().defaultRandom(),
   campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
   revision: integer("revision").notNull(),
@@ -860,4 +861,36 @@ export const campaignReportRequests = pgTable("campaign_report_requests", {
   index("campaign_report_requests_queue_idx").on(t.status, t.nextAttemptAt),
   foreignKey({ columns: [t.snapshotId, t.campaignId], foreignColumns: [reportSnapshots.id, reportSnapshots.campaignId] }).onDelete("cascade"),
   check("campaign_report_requests_status_check", sql`${t.status} in ('waiting','done','failed') and ${t.attempts} >= 0`),
+]);
+
+
+export const reportShares = pgTable("report_shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  snapshotId: uuid("snapshot_id").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  referralCode: text("referral_code").notNull().unique(),
+  requestId: text("request_id").notNull(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  pdfEnabled: boolean("pdf_enabled").notNull().default(false),
+  expiresAt: tz("expires_at"),
+  revokedAt: tz("revoked_at"),
+  revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+}, (t) => [
+  foreignKey({ columns: [t.snapshotId, t.campaignId], foreignColumns: [reportSnapshots.id, reportSnapshots.campaignId] }).onDelete("cascade"),
+  unique("report_shares_snapshot_identity_key").on(t.id, t.snapshotId),
+  uniqueIndex("report_shares_request_key").on(t.campaignId, t.requestId),
+  index("report_shares_campaign_idx").on(t.campaignId),
+  check("report_shares_token_hash_check", sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`),
+]);
+
+export const reportReferralSignups = pgTable("report_referral_signups", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  snapshotId: uuid("snapshot_id").notNull().references(() => reportSnapshots.id, { onDelete: "cascade" }),
+  shareId: uuid("share_id"),
+  touchedAt: tz("touched_at").notNull(),
+  createdAt: createdAt(),
+}, (t) => [index("report_referral_signups_share_idx").on(t.shareId), index("report_referral_signups_snapshot_idx").on(t.snapshotId),
+  foreignKey({ columns: [t.shareId, t.snapshotId], foreignColumns: [reportShares.id, reportShares.snapshotId] }).onDelete("cascade"),
 ]);

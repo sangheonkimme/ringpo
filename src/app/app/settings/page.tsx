@@ -4,7 +4,7 @@ import { DeleteAccountButton, DisconnectButton } from "@/components/app/settings
 import { ToneBadge } from "@/components/app/status-badge";
 import { getUserPlan } from "@/server/billing/plan-of";
 import { getDb } from "@/server/db/client";
-import { account, igAccounts } from "@/server/db/schema";
+import { account, igAccounts, campaigns, reportShares } from "@/server/db/schema";
 import { requireUser } from "@/server/session";
 
 export const metadata = { title: "설정" };
@@ -21,10 +21,13 @@ export default async function SettingsPage() {
     .orderBy(asc(igAccounts.createdAt));
   const [login] = await db.select({ providerId: account.providerId }).from(account).where(eq(account.userId, user.id)).limit(1);
   const plan = await getUserPlan(db, user.id);
+  const [hasShare] = await db.select({ id: reportShares.id }).from(reportShares).innerJoin(campaigns, eq(campaigns.id, reportShares.campaignId)).where(eq(campaigns.userId, user.id)).limit(1);
 
   return (
     <main className="flex flex-col gap-5 px-5 pb-28 pt-5">
       <h1 className="font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">설정</h1>
+
+      {hasShare && <Link href="/app/report-shares" className="rounded-xl border bg-card p-4 font-semibold">공유 리포트 관리</Link>}
 
       <section className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
         <div className="flex items-baseline justify-between">
