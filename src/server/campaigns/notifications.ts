@@ -22,7 +22,7 @@ export async function sendCampaignNotifications(db: Db, now: Date, send: typeof 
     const [recipient] = await db.select({ email: user.email, username: igAccounts.username }).from(user).innerJoin(igAccounts, eq(igAccounts.userId, user.id)).where(and(eq(user.id, notification.userId), eq(igAccounts.id, notification.igAccountId)));
     if (!recipient) { await db.update(campaignNotificationOutbox).set({ status: "failed", leaseUntil: null }).where(where); continue; }
     try {
-      const content = notification.kind === "reauth_required" ? emails.reauthRequired(recipient.username) : emails.campaignPaused(recipient.username, notification.resumeAt);
+      const content = notification.kind === "reauth_required" ? emails.reauthRequired(recipient.username) : notification.kind === "operations_attention" ? emails.campaignAttention(recipient.username, notification.reason) : emails.campaignPaused(recipient.username, notification.resumeAt);
       await send({ to: recipient.email, ...content }, { idempotencyKey: `gonggu-notification/${notification.id}`, requireConfigured: true });
       await db.update(campaignNotificationOutbox).set({ status: "sent", leaseUntil: null }).where(where); sent++;
     } catch {

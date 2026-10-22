@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { CampaignError } from "@/server/campaigns/access";
 import { archiveCampaign, getCampaign, publishCampaign, saveCampaign, transitionCampaign } from "@/server/campaigns/service";
+import { retryCampaignJob } from "@/server/campaigns/retry";
 import { updateSendControls } from "@/server/campaigns/send-controls";
 import { decryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
@@ -64,5 +65,14 @@ export async function saveCampaignSendSettings(id: string, raw: unknown): Promis
     await updateSendControls(db, user.id, { ...raw, accountId: campaign.igAccountId }, new Date());
     revalidatePath("/app/campaigns", "layout");
     return { ok: true, id };
+  } catch (error) { return failure(error); }
+}
+
+export async function retryCampaignJobAction(raw: unknown): Promise<CampaignActionResult> {
+  const user = await requireUser();
+  try {
+    await retryCampaignJob(getDb(), user.id, raw, new Date());
+    revalidatePath("/app/campaigns", "layout");
+    return { ok: true, id: "" };
   } catch (error) { return failure(error); }
 }

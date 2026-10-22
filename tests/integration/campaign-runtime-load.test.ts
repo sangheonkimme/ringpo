@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { writeFile } from "node:fs/promises";
@@ -9,10 +9,14 @@ import { POST } from "@/app/api/webhooks/instagram/route";
 import { saveCampaign, publishCampaign, advanceDueCampaigns } from "@/server/campaigns/service";
 import { expireCampaignJobs, recoverCampaignJobs } from "@/server/campaigns/jobs";
 import { expireMessageEvents, recoverMessageEvents } from "@/server/campaigns/message-inbox";
+import { getCampaignReport } from "@/server/campaigns/report";
+import { saveCampaignFaq } from "@/server/campaigns/faq-service";
+import { FAQ_HANDOFF_FLAG } from "@/server/campaigns/faq-access";
+import { queueCampaignAlerts } from "@/server/campaigns/operations";
 import { getSendOverview } from "@/server/campaigns/send-controls";
 import { decryptSecret } from "@/server/crypto";
 import { getDb } from "@/server/db/client";
-import { campaigns, commentEvents, dmJobs, followGates, messageEvents, sendAttempts } from "@/server/db/schema";
+import { campaigns, commentEvents, dmJobs, featureFlags, featureFlagOverrides, followGates, messageEvents, sendAttempts } from "@/server/db/schema";
 import { setGraphClientForTesting } from "@/server/instagram/client";
 import { createGraphClient, type CommentInfo } from "@/server/instagram/graph";
 import { log } from "@/server/log";
@@ -31,6 +35,8 @@ function maxHour(values: number[]) { const times = values.toSorted((a, b) => a -
 describe("opt-in mixed runtime load", () => {
   it.skipIf(process.env.GONGGU_RUNTIME_LOAD !== "1")("handles 250 accounts, 3,000 comments over ten real minutes, legacy follow-ups and dashboard reads", async () => {
     await resetDb(); await seedCampaignConfig(); const db = getDb();
+    const m2 = process.env.GONGGU_RUNTIME_M2 === "1";
+    if (m2) await db.update(featureFlags).set({ enabled: true }).where(eq(featureFlags.key, FAQ_HANDOFF_FLAG));
     const errors: string[] = []; const info = vi.spyOn(log, "info").mockImplementation(() => {});
     const errorLog = vi.spyOn(log, "error").mockImplementation((message) => { errors.push(message); });
     const metadata = new Map<string, CommentInfo>(); const writes: { key: string; at: number }[] = [];
@@ -61,13 +67,17 @@ describe("opt-in mixed runtime load", () => {
       const user = await createUser(); const account = await createIgAccount(user.id); await setPlan(user.id, "pro"); const fixture = campaignWorld(account); const now = new Date();
       const campaign = await saveCampaign(db, user.id, { ...fixture.input, openAt: new Date(now.getTime() + 3_600_000).toISOString(), closeAt: new Date(now.getTime() + 86_400_000).toISOString() }, { graph: fixture.graph, decrypt: decryptSecret, now, appUrl: "https://app.test" });
       await publishCampaign(db, user.id, campaign.id, true, now); await createAutomation(account, { followGate: true });
+      if (m2) {
+        await db.insert(featureFlagOverrides).values({ flagKey: FAQ_HANDOFF_FLAG, igAccountId: account.id, enabled: true });
+        await saveCampaignFaq(db, user.id, { campaignId: campaign.id, requestId: randomUUID(), keywords: ["배송"], excludedKeywords: [], matchType: "contains", answer: "내일 배송합니다.", enabled: true, priority: 0 }, now);
+      }
       return { user, account, campaign, mediaId: fixture.input.mediaIds[0] };
     })));
     const start = Date.now(); const openAt = new Date(start + 600_000); await db.update(campaigns).set({ openAt });
     const deps = { db, graph, decryptToken: decryptSecret, now: () => new Date(), random: () => 0, appUrl: "https://app.test", hashKey: "fixture", workerId: "mixed-load", sleep, hourlyLimit: 700 };
     const loops = startCampaignLoops(deps, { router: 32, sender: 64, inbox: 8 });
     const legacy = startEventLoop({ concurrency: 8, pollMs: 250, claim: (batch) => claimEvents(db, { batch, now: new Date() }), handle: async (event) => { await processWithSharedBudget(deps, event); }, onError: (error) => { errors.push(error instanceof Error ? error.name : "legacy error"); } });
-    const intake: number[] = []; const dashboard: number[] = []; let dashboardSamples = 0; let stop = false;
+    const intake: number[] = []; const dashboard: number[] = []; let dashboardSamples = 0; let reportSamples = 0; const reportLatency: number[] = []; let stop = false;
     const post = async (entry: object[]) => {
       const body = JSON.stringify({ object: "instagram", entry }); const sig = `sha256=${createHmac("sha256", process.env.IG_APP_SECRET!).update(body).digest("hex")}`; const began = performance.now();
       const response = await POST(new Request("http://localhost/api/webhooks/instagram", { method: "POST", body, headers: { "x-hub-signature-256": sig } }));
@@ -78,8 +88,8 @@ describe("opt-in mixed runtime load", () => {
       metadata.set(id, { id, authorId: peer, mediaId, createdAt: new Date() });
       return { id: a.account.igUserId, changes: [{ field: "comments", value: { id, from: { id: peer }, media: { id: mediaId, media_product_type: "FEED" }, text: old ? "공구" : "알림!!" } }] };
     };
-    const maintenance = (async () => { while (!stop) { await advanceDueCampaigns(db, new Date()); await recoverCampaignJobs(db, new Date()); await recoverMessageEvents(db, new Date()); await expireCampaignJobs(db, new Date()); await expireMessageEvents(db, new Date()); await sleep(5000); } })();
-    const dashboards = (async () => { let batch = 0; while (!stop) { const t = performance.now(); await Promise.all(Array.from({ length: 25 }, async (_, j) => { const a = accounts[(batch * 25 + j) % 250]; const began = performance.now(); await getSendOverview(db, a.user.id, a.account.id, a.campaign.id); dashboard.push(performance.now() - began); dashboardSamples++; })); batch++; await sleep(3000 - (performance.now() - t)); } })();
+    const maintenance = (async () => { while (!stop) { await advanceDueCampaigns(db, new Date()); await recoverCampaignJobs(db, new Date()); await recoverMessageEvents(db, new Date()); await expireCampaignJobs(db, new Date()); await expireMessageEvents(db, new Date()); if (m2) await queueCampaignAlerts(db, new Date()); await sleep(5000); } })();
+    const dashboards = (async () => { let batch = 0; while (!stop) { const t = performance.now(); await Promise.all(Array.from({ length: 25 }, async (_, j) => { const a = accounts[(batch * 25 + j) % 250]; const began = performance.now(); await getSendOverview(db, a.user.id, a.account.id, a.campaign.id); dashboard.push(performance.now() - began); dashboardSamples++; if (m2 && j % 5 === 0) { const beganReport = performance.now(); await getCampaignReport(db, a.user.id, a.campaign.id); reportLatency.push(performance.now() - beganReport); reportSamples++; } })); batch++; await sleep(3000 - (performance.now() - t)); } })();
     const legacyTraffic = (async () => {
       for (let offset = 0; offset < 250; offset += 25) await post(Array.from({ length: 25 }, (_, j) => commentEntry(offset + j, true)));
       for (let wait = 0; ; wait++) {
@@ -92,22 +102,32 @@ describe("opt-in mixed runtime load", () => {
         await post(entries); await post(entries); await post(entries);
       }
     })();
+    const faqTraffic = (async () => {
+      if (!m2) return;
+      await sleep(openAt.getTime() + 6000 - Date.now());
+      await advanceDueCampaigns(db, new Date());
+      for (let offset = 0; offset < 250; offset += 25) {
+        const entries = accounts.slice(offset, offset + 25).map((a, j) => ({ id: a.account.igUserId, messaging: [{ sender: { id: `5${String(offset + j).padStart(8, "0")}` }, recipient: { id: a.account.igUserId }, timestamp: Date.now(), message: { mid: `faq-question-${offset + j}`, text: "배송 언제예요?" } }] }));
+        await post(entries); await post(entries); await post(entries);
+      }
+    })();
+    const expectedWrites = m2 ? 7000 : 6750;
     try {
       for (let second = 0; second < 600; second++) {
         await sleep(start + second * 1000 - Date.now()); const entries = Array.from({ length: 5 }, (_, j) => commentEntry(second * 5 + j));
         await post(entries); await post(entries); await post(entries);
         if (second % 60 === 0) console.log(JSON.stringify({ progress: "mixed-runtime", seconds: second, campaignComments: (second + 1) * 5, acceptedWrites: writes.length }));
       }
-      await legacyTraffic;
+      await legacyTraffic; await faqTraffic;
       for (;;) {
         const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(dmJobs).where(and(eq(dmJobs.channel, "private_reply"), eq(dmJobs.status, "sent")));
         const [old] = await db.select({ n: sql<number>`count(*)::int` }).from(followGates).where(eq(followGates.status, "sent"));
-        if (count.n === 3000 && old.n === 250 && writes.length === 6750) break;
+        if (count.n === 3000 && old.n === 250 && writes.length === expectedWrites) break;
         if (Date.now() - start > 1_000_000) throw new Error(`mixed queue did not drain: campaign=${count.n}, legacy=${old.n}, writes=${writes.length}, errors=${errors.join(",")}`);
         await sleep(1000);
       }
       const attempts = await db.select().from(sendAttempts); const campaignPrivate = attempts.filter((a) => a.campaignId && a.channel === "private_reply" && a.state === "accepted");
-      expect(errors).toEqual([]); expect(writes).toHaveLength(6750); expect(new Set(writes.map((w) => w.key)).size).toBe(6750);
+      expect(errors).toEqual([]); expect(writes).toHaveLength(expectedWrites); expect(new Set(writes.map((w) => w.key)).size).toBe(expectedWrites);
       expect(attempts.filter((a) => ["sending", "unknown"].includes(a.state))).toEqual([]);
       expect(await db.select().from(dmJobs).where(inArray(dmJobs.status, ["waiting", "leased", "sending", "retry", "unknown", "failed"]))).toHaveLength(0);
       expect(await db.select().from(messageEvents).where(inArray(messageEvents.status, ["pending", "leased", "failed", "send_unknown"]))).toHaveLength(0);
@@ -116,11 +136,11 @@ describe("opt-in mixed runtime load", () => {
       for (const a of accounts) for (const channel of ["private_reply", "public_reply", "message"] as const) observed[channel] = Math.max(observed[channel], maxHour(attempts.filter((s) => s.igAccountId === a.account.id && s.channel === channel && s.invokedAt).map((s) => s.invokedAt!.getTime())));
       expect(observed.private_reply).toBeLessThanOrEqual(400); expect(observed.public_reply).toBeLessThanOrEqual(120); expect(observed.message).toBeLessThanOrEqual(400);
       const completionMs = Math.max(...campaignPrivate.map((a) => a.finishedAt!.getTime())) - openAt.getTime();
-      const report = { scenario: "mixed-runtime-250-accounts", measuredAt: new Date().toISOString(), accounts: 250, campaignComments: 3000, intakeDurationMs: 600_000, legacyFollowFlows: 250, privateJobs: 3000, publicJobs: 3000, ordinaryLegacyLinks: 250, acceptedWrites: writes.length, missing: 0, duplicates: 0, unknown: 0, observedRollingHour: observed, openPrivateCompletionMs: completionMs, expectedPrivateMs: 108_000, privateEtaErrorMs: completionMs - 108_000, httpWriteDelayMs: 1000, httpReadDelayMs: 100, fixtureHttpRequests: requests, peakHttp, poolSize: 10, routerConcurrency: 32, senderConcurrency: 64, inboxConcurrency: 8, legacyConcurrency: 8, dashboardSamples, dashboardP95Ms: Math.round(p95(dashboard)), webhookP95Ms: Math.round(p95(intake)), errors, externalMetaCalls: 0, wallMs: Date.now() - start };
+      const report = { scenario: m2 ? "m2-mixed-runtime-250-accounts" : "mixed-runtime-250-accounts", faqFlows: m2 ? 250 : 0, reportSamples, reportP95Ms: Math.round(p95(reportLatency)), measuredAt: new Date().toISOString(), accounts: 250, campaignComments: 3000, intakeDurationMs: 600_000, legacyFollowFlows: 250, privateJobs: 3000, publicJobs: 3000, ordinaryLegacyLinks: 250, acceptedWrites: writes.length, missing: 0, duplicates: 0, unknown: 0, observedRollingHour: observed, openPrivateCompletionMs: completionMs, expectedPrivateMs: 108_000, privateEtaErrorMs: completionMs - 108_000, httpWriteDelayMs: 1000, httpReadDelayMs: 100, fixtureHttpRequests: requests, peakHttp, poolSize: 10, routerConcurrency: 32, senderConcurrency: 64, inboxConcurrency: 8, legacyConcurrency: 8, dashboardSamples, dashboardP95Ms: Math.round(p95(dashboard)), webhookP95Ms: Math.round(p95(intake)), errors, externalMetaCalls: 0, wallMs: Date.now() - start };
       if (process.env.GONGGU_RUNTIME_LOAD_REPORT) await writeFile(process.env.GONGGU_RUNTIME_LOAD_REPORT, `${JSON.stringify(report, null, 2)}\n`);
       console.log(JSON.stringify(report));
     } finally {
-      stop = true; await Promise.allSettled([maintenance, dashboards, legacyTraffic]); await Promise.all([loops.stop(), legacy.stop()]);
+      stop = true; await Promise.allSettled([maintenance, dashboards, legacyTraffic, faqTraffic]); await Promise.all([loops.stop(), legacy.stop()]);
       await new Promise<void>((resolve) => server.close(() => resolve())); setGraphClientForTesting(null); info.mockRestore(); errorLog.mockRestore();
     }
   }, 1_200_000);

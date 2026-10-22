@@ -164,7 +164,7 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
     const permitAt = await (deps.clock ?? databaseNow)(tx);
     try {
       const permit = await acquireSendPermit(tx, { igAccountId: job.igAccountId, channel: job.channel, campaignId: campaign.id, campaignRate: campaign.hourlyRate,
-        jobId: job.id, sourceMessageEventId: job.sourceMessageEventId ?? undefined, logicalKey: job.idempotencyKey, leaseOwner: job.leaseOwner!, leaseVersion: job.leaseVersion, payload, now: permitAt, extendSafety: true }, policy, deps.random);
+        jobId: job.id, retryAllowance: job.retryAllowance, sourceMessageEventId: job.sourceMessageEventId ?? undefined, logicalKey: job.idempotencyKey, leaseOwner: job.leaseOwner!, leaseVersion: job.leaseVersion, payload, now: permitAt, extendSafety: true }, policy, deps.random);
       if (permit.cached) { await finishWithoutSend(tx, job, "unknown", now, "accepted_attempt_requires_reconciliation"); return "unknown"; }
       const [sending] = await tx.update(dmJobs).set({ status: "sending", attempts: sql`${dmJobs.attempts} + 1`, templateRevisionUsed: campaign.version,
         leaseUntil: new Date(permitAt.getTime() + policy.dispatch_lease_seconds * 1000) }).where(fence(job)).returning();
@@ -217,11 +217,11 @@ export async function settleCampaignSend(deps: DispatchDeps, prepared: Prepared,
     } else {
       status = result.failure.state; errorCode = result.failure.code;
       if (status === "retry") {
-        if (job.attempts >= prepared.policy.max_attempts) status = "failed";
+        if (job.attempts >= prepared.policy.max_attempts + job.retryAllowance) status = "failed";
         else nextAttemptAt = new Date(now.getTime() + Math.max(result.failure.retryAfterMs ?? 0, backoffDelayMs(job.attempts, deps.random)));
       }
       // Only an explicit invalid-format rejection may switch format. Never a generic code 100.
-      if (result.failure.state === "failed" && errorCode === "100/2534015" && prepared.payload.kind !== "text" && job.messageFormat !== "text" && job.attempts < prepared.policy.max_attempts) {
+      if (result.failure.state === "failed" && errorCode === "100/2534015" && prepared.payload.kind !== "text" && job.messageFormat !== "text" && job.attempts < prepared.policy.max_attempts + job.retryAllowance) {
         status = "retry"; nextAttemptAt = new Date(now.getTime() + 1000);
         await tx.update(dmJobs).set({ messageFormat: "text" }).where(eq(dmJobs.id, job.id));
       }
