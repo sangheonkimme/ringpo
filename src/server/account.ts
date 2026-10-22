@@ -28,8 +28,10 @@ export async function deleteUserAccount(
       log.error("billing key deletion failed during account deletion", errorFields(e));
     }
   }
-  const accounts = await deps.db.select({ id: igAccounts.id }).from(igAccounts).where(eq(igAccounts.userId, userId));
-  await deleteIgAccounts(deps.db, accounts.map((a) => a.id));
-  // payments.user_id / subscription_id 는 ON DELETE SET NULL 이라 결제 기록은 남는다.
-  await deps.db.delete(user).where(eq(user.id, userId));
+  await deps.db.transaction(async (tx) => {
+    const accounts = await tx.select({ id: igAccounts.id }).from(igAccounts).where(eq(igAccounts.userId, userId));
+    await deleteIgAccounts(tx, accounts.map((a) => a.id));
+    // payments.user_id / subscription_id 는 ON DELETE SET NULL 이라 결제 기록은 남는다.
+    await tx.delete(user).where(eq(user.id, userId));
+  });
 }

@@ -4,6 +4,7 @@ import { createBillingDeps } from "@/server/billing/deps";
 import { advanceDueCampaigns } from "@/server/campaigns/service";
 import { CAMPAIGN_QUEUE_CHANNEL } from "@/server/campaigns/routing";
 import { expireMessageEvents, MESSAGE_QUEUE_CHANNEL, recoverMessageEvents } from "@/server/campaigns/message-inbox";
+import { redactCampaignContent } from "@/server/campaigns/retention";
 import { expireCampaignJobs, recoverCampaignJobs } from "@/server/campaigns/jobs";
 import { sendCampaignNotifications } from "@/server/campaigns/notifications";
 import { billingConfigured } from "@/server/billing/gateway";
@@ -90,6 +91,15 @@ async function main() {
     },
     { name: "expire-events", intervalMs: 10 * MINUTE, run: async () => void (await expireStaleEvents(db, new Date())) },
     { name: "cleanup", intervalMs: 60 * MINUTE, run: () => cleanupOldData(db, new Date()) },
+    { name: "redact-campaign-content", intervalMs: MINUTE, run: async () => {
+      const started = Date.now(); const counts = { comments: 0, messages: 0, payloads: 0 };
+      for (let batch = 0; batch < 10 && Date.now() - started < 3000; batch++) {
+        const removed = await redactCampaignContent(db, new Date());
+        counts.comments += removed.comments; counts.messages += removed.messages; counts.payloads += removed.payloads;
+        if (!removed.comments && !removed.messages && !removed.payloads) break;
+      }
+      if (counts.comments || counts.messages || counts.payloads) log.info("campaign content redacted", counts);
+    } },
   ];
   if (billingConfigured()) {
     jobs.push({

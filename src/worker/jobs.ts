@@ -102,11 +102,18 @@ export async function expireStaleEvents(db: Db, now: Date): Promise<number> {
 }
 
 export async function cleanupOldData(db: Db, now: Date): Promise<void> {
+  // Campaign and guarded delivery facts are report/deduplication evidence. Their content has its own TTL.
+  const unguardedLegacy = sql`comment_events.route_owner = 'legacy' and comment_events.campaign_id is null
+    and comment_events.flag_checked_at is null and comment_events.guarded_jitter_until is null
+    and not exists (select 1 from dm_jobs j where j.source_event_id = comment_events.id)
+    and not exists (select 1 from send_attempts a where a.legacy_event_id = comment_events.id)
+    and not exists (select 1 from message_events m where m.legacy_event_id = comment_events.id)`;
   await db
     .delete(commentEvents)
     .where(
       and(
         eq(commentEvents.status, "skipped"),
+        unguardedLegacy,
         inArray(commentEvents.skipReason, ["no_match", "self"]),
         lt(commentEvents.createdAt, new Date(now.getTime() - 3 * DAY)),
       ),
@@ -116,6 +123,7 @@ export async function cleanupOldData(db: Db, now: Date): Promise<void> {
     .where(
       and(
         inArray(commentEvents.status, ["succeeded", "partial", "failed", "skipped", "expired"]),
+        unguardedLegacy,
         lt(commentEvents.createdAt, new Date(now.getTime() - 180 * DAY)),
       ),
     );

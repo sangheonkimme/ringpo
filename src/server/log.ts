@@ -14,5 +14,10 @@ export const log = {
 };
 
 export function errorFields(e: unknown): Fields {
-  return e instanceof Error ? { error: e.message, errorName: e.name } : { error: String(e) };
+  // SQL/provider error messages can contain bind parameters, customer text or access tokens.
+  const fields: Fields = { errorName: e instanceof Error && /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(e.name) ? e.name : "Error" };
+  const source = e && typeof e === "object" ? e as { code?: unknown; cause?: { code?: unknown } } : undefined;
+  const code = source?.code ?? source?.cause?.code;
+  if ((typeof code === "number" && Number.isSafeInteger(code)) || (typeof code === "string" && /^(?:\d+(?:\/\d+)?|[0-9A-Z]{5})$/.test(code))) fields.errorCode = code;
+  return fields;
 }
