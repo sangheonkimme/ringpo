@@ -77,7 +77,9 @@ describe("opt-in mixed runtime load", () => {
     const deps = { db, graph, decryptToken: decryptSecret, now: () => new Date(), random: () => 0, appUrl: "https://app.test", hashKey: "fixture", workerId: "mixed-load", sleep, hourlyLimit: 700 };
     const loops = startCampaignLoops(deps, { router: 32, sender: 64, inbox: 8 });
     const legacy = startEventLoop({ concurrency: 8, pollMs: 250, claim: (batch) => claimEvents(db, { batch, now: new Date() }), handle: async (event) => { await processWithSharedBudget(deps, event); }, onError: (error) => { errors.push(error instanceof Error ? error.name : "legacy error"); } });
-    const intake: number[] = []; const dashboard: number[] = []; let dashboardSamples = 0; let reportSamples = 0; const reportLatency: number[] = []; let stop = false;
+    const intake: number[] = []; const dashboard: number[] = []; let dashboardSamples = 0; let legacyGateReadyMs = 0; let backgroundFailure: unknown = null;
+    const watch = (task: Promise<void>) => task.catch((error: unknown) => { backgroundFailure = error; });
+    let reportSamples = 0; const reportLatency: number[] = []; let stop = false;
     const post = async (entry: object[]) => {
       const body = JSON.stringify({ object: "instagram", entry }); const sig = `sha256=${createHmac("sha256", process.env.IG_APP_SECRET!).update(body).digest("hex")}`; const began = performance.now();
       const response = await POST(new Request("http://localhost/api/webhooks/instagram", { method: "POST", body, headers: { "x-hub-signature-256": sig } }));
@@ -88,38 +90,41 @@ describe("opt-in mixed runtime load", () => {
       metadata.set(id, { id, authorId: peer, mediaId, createdAt: new Date() });
       return { id: a.account.igUserId, changes: [{ field: "comments", value: { id, from: { id: peer }, media: { id: mediaId, media_product_type: "FEED" }, text: old ? "공구" : "알림!!" } }] };
     };
-    const maintenance = (async () => { while (!stop) { await advanceDueCampaigns(db, new Date()); await recoverCampaignJobs(db, new Date()); await recoverMessageEvents(db, new Date()); await expireCampaignJobs(db, new Date()); await expireMessageEvents(db, new Date()); if (m2) await queueCampaignAlerts(db, new Date()); await sleep(5000); } })();
-    const dashboards = (async () => { let batch = 0; while (!stop) { const t = performance.now(); await Promise.all(Array.from({ length: 25 }, async (_, j) => { const a = accounts[(batch * 25 + j) % 250]; const began = performance.now(); await getSendOverview(db, a.user.id, a.account.id, a.campaign.id); dashboard.push(performance.now() - began); dashboardSamples++; if (m2 && j % 5 === 0) { const beganReport = performance.now(); await getCampaignReport(db, a.user.id, a.campaign.id); reportLatency.push(performance.now() - beganReport); reportSamples++; } })); batch++; await sleep(3000 - (performance.now() - t)); } })();
-    const legacyTraffic = (async () => {
+    const maintenance = watch((async () => { while (!stop) { await advanceDueCampaigns(db, new Date()); await recoverCampaignJobs(db, new Date()); await recoverMessageEvents(db, new Date()); await expireCampaignJobs(db, new Date()); await expireMessageEvents(db, new Date()); if (m2) await queueCampaignAlerts(db, new Date()); await sleep(5000); } })());
+    const dashboards = watch((async () => { let batch = 0; while (!stop) { const t = performance.now(); await Promise.all(Array.from({ length: 25 }, async (_, j) => { const a = accounts[(batch * 25 + j) % 250]; const began = performance.now(); await getSendOverview(db, a.user.id, a.account.id, a.campaign.id); dashboard.push(performance.now() - began); dashboardSamples++; if (m2 && j % 5 === 0) { const beganReport = performance.now(); await getCampaignReport(db, a.user.id, a.campaign.id); reportLatency.push(performance.now() - beganReport); reportSamples++; } })); batch++; await sleep(3000 - (performance.now() - t)); } })());
+    const legacyTraffic = watch((async () => {
       for (let offset = 0; offset < 250; offset += 25) await post(Array.from({ length: 25 }, (_, j) => commentEntry(offset + j, true)));
       for (let wait = 0; ; wait++) {
         const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(commentEvents).where(eq(commentEvents.status, "awaiting_follow"));
-        if (count.n === 250) break; if (wait > 180) throw new Error("legacy gates did not finish"); await sleep(1000);
+        if (count.n === 250) { legacyGateReadyMs = Date.now() - start; break; } if (stop) return; if (wait > 300) throw new Error("legacy gates did not finish within 300 seconds"); await sleep(1000);
       }
       const gates = await db.select().from(followGates);
       for (let offset = 0; offset < gates.length; offset += 25) {
         const entries = gates.slice(offset, offset + 25).map((gate) => { const i = accounts.findIndex((a) => a.account.id === gate.igAccountId); return { id: accounts[i].account.igUserId, messaging: [{ sender: { id: `6${String(i).padStart(8, "0")}` }, recipient: { id: accounts[i].account.igUserId }, timestamp: Date.now(), message: { mid: `legacy-response-${i}`, text: "팔로우했어요", quick_reply: { payload: `fg:${gate.id}` } } }] }; });
         await post(entries); await post(entries); await post(entries);
       }
-    })();
-    const faqTraffic = (async () => {
+    })());
+    const faqTraffic = watch((async () => {
       if (!m2) return;
-      await sleep(openAt.getTime() + 6000 - Date.now());
+      while (!stop && Date.now() < openAt.getTime() + 6000) await sleep(1000);
+      if (stop) return;
       await advanceDueCampaigns(db, new Date());
       for (let offset = 0; offset < 250; offset += 25) {
         const entries = accounts.slice(offset, offset + 25).map((a, j) => ({ id: a.account.igUserId, messaging: [{ sender: { id: `5${String(offset + j).padStart(8, "0")}` }, recipient: { id: a.account.igUserId }, timestamp: Date.now(), message: { mid: `faq-question-${offset + j}`, text: "배송 언제예요?" } }] }));
         await post(entries); await post(entries); await post(entries);
       }
-    })();
+    })());
     const expectedWrites = m2 ? 7000 : 6750;
     try {
       for (let second = 0; second < 600; second++) {
+        if (backgroundFailure) throw backgroundFailure;
         await sleep(start + second * 1000 - Date.now()); const entries = Array.from({ length: 5 }, (_, j) => commentEntry(second * 5 + j));
         await post(entries); await post(entries); await post(entries);
         if (second % 60 === 0) console.log(JSON.stringify({ progress: "mixed-runtime", seconds: second, campaignComments: (second + 1) * 5, acceptedWrites: writes.length }));
       }
       await legacyTraffic; await faqTraffic;
       for (;;) {
+        if (backgroundFailure) throw backgroundFailure;
         const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(dmJobs).where(and(eq(dmJobs.channel, "private_reply"), eq(dmJobs.status, "sent")));
         const [old] = await db.select({ n: sql<number>`count(*)::int` }).from(followGates).where(eq(followGates.status, "sent"));
         if (count.n === 3000 && old.n === 250 && writes.length === expectedWrites) break;
@@ -136,7 +141,7 @@ describe("opt-in mixed runtime load", () => {
       for (const a of accounts) for (const channel of ["private_reply", "public_reply", "message"] as const) observed[channel] = Math.max(observed[channel], maxHour(attempts.filter((s) => s.igAccountId === a.account.id && s.channel === channel && s.invokedAt).map((s) => s.invokedAt!.getTime())));
       expect(observed.private_reply).toBeLessThanOrEqual(400); expect(observed.public_reply).toBeLessThanOrEqual(120); expect(observed.message).toBeLessThanOrEqual(400);
       const completionMs = Math.max(...campaignPrivate.map((a) => a.finishedAt!.getTime())) - openAt.getTime();
-      const report = { scenario: m2 ? "m2-mixed-runtime-250-accounts" : "mixed-runtime-250-accounts", faqFlows: m2 ? 250 : 0, reportSamples, reportP95Ms: Math.round(p95(reportLatency)), measuredAt: new Date().toISOString(), accounts: 250, campaignComments: 3000, intakeDurationMs: 600_000, legacyFollowFlows: 250, privateJobs: 3000, publicJobs: 3000, ordinaryLegacyLinks: 250, acceptedWrites: writes.length, missing: 0, duplicates: 0, unknown: 0, observedRollingHour: observed, openPrivateCompletionMs: completionMs, expectedPrivateMs: 108_000, privateEtaErrorMs: completionMs - 108_000, httpWriteDelayMs: 1000, httpReadDelayMs: 100, fixtureHttpRequests: requests, peakHttp, poolSize: 10, routerConcurrency: 32, senderConcurrency: 64, inboxConcurrency: 8, legacyConcurrency: 8, dashboardSamples, dashboardP95Ms: Math.round(p95(dashboard)), webhookP95Ms: Math.round(p95(intake)), errors, externalMetaCalls: 0, wallMs: Date.now() - start };
+      const report = { scenario: m2 ? "m2-mixed-runtime-250-accounts" : "mixed-runtime-250-accounts", faqFlows: m2 ? 250 : 0, reportSamples, reportP95Ms: Math.round(p95(reportLatency)), measuredAt: new Date().toISOString(), accounts: 250, campaignComments: 3000, intakeDurationMs: 600_000, legacyFollowFlows: 250, legacyGateReadyMs, privateJobs: 3000, publicJobs: 3000, ordinaryLegacyLinks: 250, acceptedWrites: writes.length, missing: 0, duplicates: 0, unknown: 0, observedRollingHour: observed, openPrivateCompletionMs: completionMs, expectedPrivateMs: 108_000, privateEtaErrorMs: completionMs - 108_000, httpWriteDelayMs: 1000, httpReadDelayMs: 100, fixtureHttpRequests: requests, peakHttp, poolSize: 10, routerConcurrency: 32, senderConcurrency: 64, inboxConcurrency: 8, legacyConcurrency: 8, dashboardSamples, dashboardP95Ms: Math.round(p95(dashboard)), webhookP95Ms: Math.round(p95(intake)), errors, externalMetaCalls: 0, wallMs: Date.now() - start };
       if (process.env.GONGGU_RUNTIME_LOAD_REPORT) await writeFile(process.env.GONGGU_RUNTIME_LOAD_REPORT, `${JSON.stringify(report, null, 2)}\n`);
       console.log(JSON.stringify(report));
     } finally {

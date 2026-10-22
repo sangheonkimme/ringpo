@@ -1,0 +1,12 @@
+{
+  "scenario": "m2-mixed-runtime-first-attempt",
+  "result": "failed",
+  "reason": "legacy gate readiness exceeded harness 180-second threshold",
+  "observedLegacyPrivateCompletedMs": 78339,
+  "observedLegacyPublicCompletedMs": 188571,
+  "legacyPrivateAccepted": 250,
+  "legacyPublicAccepted": 250,
+  "fullDrainAsserted": false,
+  "unhandledRejection": true,
+  "changes": "harness readiness timeout 300 seconds; immediate background rejection capture and cancelable teardown; no production behavior change"
+}
