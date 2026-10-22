@@ -189,3 +189,22 @@ FAQ는 **계정별 직접 답변 감지 검증 전 발송 금지**다. `gonggu_c
 대화 목록에서 직접 일시정지하거나 새 문의 응답을 재개할 수 있다. 기본 1시간이며 `campaign_policies.faq_handoff_seconds`를 따른다. 이전에 셀러가 답한 문의를 재개 버튼으로 다시 보내지 않는다. 소유자 화면은 문의 일부/최근 시각으로 대화를 구분하고 50개씩 이전 페이지를 볼 수 있다. 브랜드 공유에는 문의 내용이 포함되지 않는다.
 
 `echo_pending`은 송신의 주체를 확인 중인 상태다. `ringpo_echo`는 링포가 보낸 것으로 확인했고 `human_handoff`는 셀러 또는 다른 도구가 응답한 대화다. `echo_send_pending`이면 원래 `send_attempts`의 쓰기 결과/lease를 먼저 확인한다. pending 표식을 SQL로 지워 발송을 강제하지 않는다. `faq_response_pending`은 이전 FAQ가 미완료 또는 확인 필요인 상태이므로 그 원장부터 조사한다. 기존 unknown을 재시도로 바꾸지 않는다. 실계정 echo 동작이 어긋나면 계정 override를 끄고 새 FAQ 발송을 멈춘다.
+
+## 90일 원문 보존·삭제 확인
+
+`raw_content_retention_days` 기본 90일은 공구/공통 원장이 포착한 댓글 원문·사용자명, DM inbox 원문/action payload, 남은 발송 payload에 적용한다. 모든 상태가 대상이며 발송 확인 필요도 원문 보존을 연장하지 않는다. 운영 식별자/멱등 키와 집계 자료는 별도로 남으므로 익명화 완료와 혼동하지 않는다. 장기 식별자 보존 기간은 설계 Q14에서 제품 정책 확인이 필요하다.
+
+worker의 `redact-campaign-content`는 1분마다 bounded batch로 처리한다. `campaign content redacted` 로그에는 삭제 건수만 기록한다. 플래그 OFF에서도 실행된다. 지연이 누적되면 DB/worker 상태를 먼저 확인하고 batch를 되풀이할 수 있으며 원문을 복구하려고 백업을 운영 DB에 덮어쓰지 않는다.
+
+```sql
+SELECT value FROM campaign_policies WHERE key = 'raw_content_retention_days';
+SELECT count(*) FROM comment_events
+WHERE content_redacted_at IS NULL AND received_at <= now() - interval '90 days'
+  AND (flag_checked_at IS NOT NULL OR guarded_jitter_until IS NOT NULL OR campaign_id IS NOT NULL);
+SELECT count(*) FROM message_events
+WHERE content_redacted_at IS NULL AND received_at <= now() - interval '90 days';
+```
+
+개인정보 정리 목적으로 `comment_events`를 일괄 DELETE하지 않는다. 캠페인 DM/클릭 원장이 cascade 삭제되어 리포트가 변할 수 있다. 원문은 marker를 남기며 정리하고, 계정 전체 데이터 삭제는 서명 검증된 Meta callback 또는 서비스 탈퇴 경로를 사용한다.
+
+Meta 삭제 요청은 관련 공유·snapshot·referral·inbox·해시 기록 삭제가 완료된 DB transaction에서만 completed가 된다. 실패하면 503이며 재시도할 수 있다. 원시 예외 본문을 운영 로그에 복사하지 않는다. 폐기된 계정의 웹/PDF 접근은 DB에서 차단하며 이미 받은 PDF는 회수하지 못한다. 프로세스 PDF cache는 최대 60초 메모리 TTL이고 외부 파일은 생성하지 않는다.

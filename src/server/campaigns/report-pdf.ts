@@ -2,16 +2,17 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { campaignReportSchema, formatReportMetric, REPORT_DM_LABELS, REPORT_METRIC_LABELS, reportDate, reportNumber, type CampaignReport } from "@/lib/campaign-report";
+import { getCachedReportPdf, putCachedReportPdf, reportPdfCacheGeneration } from "./report-pdf-cache";
 
 export class ReportPdfBusyError extends Error {}
-const cache = new Map<string, { bytes: Buffer; expiresAt: number }>();
 let active = 0;
 let font: Promise<Buffer> | undefined;
 const MAX_BYTES = 2 * 1024 * 1024;
 
 /** Trusted snapshot + bundled font only. No browser, remote resources, HTML or user-supplied URL is executed. */
 export async function renderReportPdf(input: { cacheKey: string; report: CampaignReport; revision: number; signupUrl: string }) {
-  const existing = cache.get(input.cacheKey); if (existing && existing.expiresAt > Date.now()) return existing.bytes;
+  const existing = getCachedReportPdf(input.cacheKey); if (existing) return existing;
+  const cacheGeneration = reportPdfCacheGeneration();
   if (active >= 2) throw new ReportPdfBusyError("pdf_busy");
   active++;
   try {
@@ -52,9 +53,7 @@ export async function renderReportPdf(input: { cacheKey: string; report: Campaig
         doc.end();
       } catch (error) { doc.destroy(error instanceof Error ? error : new Error("pdf_render_failed")); }
     });
-    for (const [key, value] of cache) if (value.expiresAt <= Date.now()) cache.delete(key);
-    if (cache.size >= 32) cache.delete(cache.keys().next().value!);
-    cache.set(input.cacheKey, { bytes, expiresAt: Date.now() + 60_000 });
+    putCachedReportPdf(input.cacheKey, bytes, cacheGeneration);
     return bytes;
   } finally { active--; }
 }
