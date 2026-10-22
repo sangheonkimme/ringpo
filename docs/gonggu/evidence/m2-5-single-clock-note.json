@@ -1,0 +1,9 @@
+{
+  "scenario": "single-account-3000-virtual-first-attempt",
+  "result": "stopped_before_timeout",
+  "acceptedAtInspection": 1200,
+  "unknownAtInspection": 0,
+  "reason": "virtual clock remained frozen during claim/dispatch; thousands of queued jobs were checked repeatedly at each two-second rolling-window guard boundary",
+  "change": "advance virtual clock by actual monotonic processing duration between claim/dispatch rounds; production code unchanged",
+  "claimComplete": false
+}

@@ -22,8 +22,15 @@ async function drain(deps: DispatchDeps, start: Date, realtime = false) {
   for (;;) {
     if (++rounds > 20_000) throw new Error("Queue did not drain");
     if (realtime) now = new Date();
+    const roundStarted = performance.now();
     const jobs = await claimCampaignJobs(deps.db, { batch: 64, now, workerId: `load-${rounds % 3}` });
-    if (jobs.length) { await Promise.all(jobs.map((job) => dispatchCampaignJob(deps, job))); continue; }
+    if (jobs.length) {
+      await Promise.all(jobs.map((job) => dispatchCampaignJob(deps, job)));
+      // Real workers keep advancing time while checking due jobs. A frozen clock otherwise
+      // walks every queued job at each two-second rolling-window boundary before time can move.
+      if (!realtime) now = new Date(now.getTime() + Math.max(1, Math.ceil(performance.now() - roundStarted)));
+      continue;
+    }
     const rows = await deps.db.execute<{ at: string | null }>(sql`select min(greatest(j.next_attempt_at, b.next_eligible_at)) as at from dm_jobs j join send_buckets b on b.ig_account_id = j.ig_account_id and b.channel = j.channel where j.status in ('waiting','retry')`);
     const dueAt = rows[0].at;
     if (!dueAt) break;

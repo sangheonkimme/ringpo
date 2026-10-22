@@ -1,22 +1,24 @@
 # 공구 캠페인 검증·출시 점검
 
-기준일: 2026-10-22 UTC. 코드는 draft PR로 분리했고 운영 배포·마이그레이션·실제 Meta 발송은 하지 않았다. Redis 없이 기존 PostgreSQL worker/queue를 확장한다. 자동 시험은 별도 DB와 API fixture에서 수행한다. 실제 계정 조건을 자동 시험으로 대체하지 않는다.
+기준일: 2026-10-22 UTC. 코드·로컬 검증은 완료했고 draft PR로 분리했다. 운영 배포·마이그레이션·실제 Meta 발송은 하지 않았다. Redis 없이 기존 PostgreSQL worker/queue를 확장한다. 자동 시험은 별도 DB와 API fixture에서 수행한다. 실제 계정 조건을 자동 시험으로 대체하지 않는다.
+
+[최종 검증 결과](evidence/m2-5.md): 전체 회귀 524개, 250계정 실제 10분 혼합 부하 7,000건(누락·중복 0), 단일 계정 가상 시각 3,000건(rolling hour 최대 400), 추가 마이그레이션 검사 통과.
 
 ## 요구사항과 증거
 
 | 완료 기준 | 자동 검증·화면 증거 | 실제 계정 상태 |
 | --- | --- | --- |
 | TEASER 공개 답글만 발송, Meta 댓글 시각 기반 7일−1시간 예약 | `campaign-routing`, `campaign-dispatch`, `campaign-runtime`; M1-2/3/4d | 테스트 계정 필요 |
-| OPEN 전환 멱등, deadline 우선, rolling-hour 제한 | `campaign-foundation`, `campaign-dispatch-load`, `campaign-runtime-load` | API 실지연 측정 필요 |
+| OPEN 전환 멱등, deadline 우선, rolling-hour 제한 | `campaign-service`, `campaign-foundation-load`, `campaign-dispatch-load`, `campaign-runtime-load` | API 실지연 측정 필요 |
 | 만료 위험·대체 안내/만료 표시 | `campaign-routing`, `campaign-forecast`; [예상 화면](evidence/m2-1.md) | 기본 문구 최종 검토 |
-| 같은 사람의 공구 DM 중복·웹훅 3회 전달 방지 | `campaign-routing`, `campaign-shared-budget`, `campaign-runtime-load` | 댓글/메시지 IGSID 일치 확인 필요 |
-| 팔로우 응답 후 링크 | `campaign-messaging`, `campaign-follow`, `campaign-runtime`; 승인된 동의 우선 흐름 | profile consent, quick reply/postback payload 확인 필요 |
+| 같은 사람의 공구 DM 중복·웹훅 3회 전달 방지 | `campaign-routing`, `shared-send-budget`, `campaign-runtime-load` | 댓글/메시지 IGSID 일치 확인 필요 |
+| 팔로우 응답 후 링크 | `campaign-follow-messages`, `follow-inbox`, `campaign-runtime`; 승인된 동의 우선 흐름 | profile consent, quick reply/postback payload 확인 필요 |
 | 마감·품절 뒤 새 대상 마감 안내 | `campaign-routing`, `campaign-dispatch`; [상태 화면](evidence/m1-1.md) | 테스트 계정 필요 |
-| 클릭 1분 이내·미리보기 제외 | `campaign-links`, `campaign-report`; [클릭/리포트 화면](evidence/m2-2a.md) | 실제 Instagram 미리보기 요청 확인 권장 |
-| 연속 rate/정책 오류 자동 정지·메일 | `campaign-dispatch`, `campaign-shared-budget`, `campaign-operations`; [일시정지 화면](evidence/m1-3.md) | fixture로 검증, 실제 제한을 유발하는 시험은 하지 않음 |
-| 익명 집계 공유·폐기·PDF 동일 숫자 | `campaign-report-sharing`, `campaign-report-pdf`; [브랜드/PDF 화면](evidence/m2-2b.md) | 별도 Meta 권한 불필요 |
-| OFF 기존 자동화 회귀 | `campaign-runtime`, `campaign-shared-budget`, 기존 pipeline/follow 테스트 | 아직 한 번도 ON되지 않은 계정은 기존 경로 유지 |
-| Free 활성 1개·Pro entitlement | `campaign-foundation`, `campaign-report-sharing`, `campaign-faq` | 기존 유료 고객 승계 없음 |
+| 클릭 1분 이내·미리보기 제외 | `campaign-tracking`, `campaign-report`; [클릭/리포트 화면](evidence/m2-2a.md) | 실제 Instagram 미리보기 요청 확인 권장 |
+| 연속 rate/정책 오류 자동 정지·메일 | `campaign-dispatch`, `shared-send-budget`, `campaign-operations`; [일시정지 화면](evidence/m1-3.md) | fixture로 검증, 실제 제한을 유발하는 시험은 하지 않음 |
+| 익명 집계 공유·폐기·PDF 동일 숫자 | `report-sharing`, `unit/report-pdf`; [브랜드/PDF 화면](evidence/m2-2b.md) | 별도 Meta 권한 불필요 |
+| OFF 기존 자동화 회귀 | `campaign-runtime`, `shared-send-budget`, 기존 pipeline/follow 테스트 | 아직 한 번도 ON되지 않은 계정은 기존 경로 유지 |
+| Free 활성 1개·Pro entitlement | `campaign-service`, `campaign-foundation-load`, `report-sharing`, `campaign-faq` | 기존 유료 고객 승계 없음 |
 | FAQ·직접 답변 자동 중단 | `campaign-faq`, `campaign-faq-migration`; [FAQ 화면](evidence/m2-3.md) | 계정별 echo 확인 플래그 기본 OFF |
 | 원문 90일·삭제 callback·토큰 암호화 | `campaign-retention`, `ig-routes`, `account`, crypto; [보존 검증](evidence/m2-4.md) | 장기 운영 식별자 보존 정책 Q14 확인 |
 | 확정 일시 거부만 수동 재처리·운영 지표 | `campaign-operations`, `campaign-operations-migration`; [운영 화면](evidence/m2-5.md) | unknown 수동 재발송 경로 없음 |
