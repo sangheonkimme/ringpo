@@ -179,3 +179,13 @@ CLOSED/SOLD_OUT/SETTLED 전환 때 `report_requests`가 생성되고 30초 주�
 PDF 429는 생성 동시성 제한이므로 Retry-After 뒤 다시 요청한다. 503이 지속되면 standalone의 `src/assets/fonts/nanumgothic/NanumGothic-Regular.ttf`와 PDFKit 패키지가 포함됐는지 확인한다. 외부 URL에서 즉석으로 폰트를 다운로드하는 방식으로 우회하지 않는다. PDF와 웹은 반드시 같은 snapshot/revision을 비교한다.
 
 리포트 경유 가입은 같은 브라우저의 첫 유효 방문부터 30일 안에 생성된 신규 계정만 센다. 기존 회원·다른 기기·cookie 삭제는 집계되지 않는다. 직접 내려받은 PDF 경유와 공유 링크별 신규 가입을 소유자 화면에서 구분하고, 가입자 식별자는 브랜드 화면에 노출하지 않는다. `0010` down은 공유 또는 snapshot 이력이 있으면 거부하므로 flag OFF로 호환 롤백한다.
+
+## FAQ 사전 설정·대화 일시정지
+
+공구 상세 → **공구 FAQ·대화 관리**에서 키워드와 답변을 설정한다. 공구 Pro entitlement가 필요하며, 답변은 자동 안내 표시를 포함해 1,000바이트 안으로 작성한다. 우선순위는 작은 숫자부터다. 규칙을 끄면 아직 호출하지 않은 해당 FAQ를 취소하고, 수정하면 다음 발송에 최신 답변이 적용된다.
+
+FAQ는 **계정별 직접 답변 감지 검증 전 발송 금지**다. `gonggu_campaigns`만 켜도 FAQ는 열리지 않는다. 실계정 두 개로 사용자 문의, Instagram 앱의 셀러 직접 답변 echo, 링포 메시지 echo, 지연·중복 payload, 계정 IGSID 일치를 확인한 후 운영자가 `gonggu_faq_handoff_verified` 전체 플래그와 해당 계정 override를 함께 켠다. 신규 OAuth 권한 없이 가능하다는 문서 근거와 실제 webhook 필드 구독/전달 확인은 별개다. `default_enabled=true`로 이 검증을 우회하지 않는다.
+
+대화 목록에서 직접 일시정지하거나 새 문의 응답을 재개할 수 있다. 기본 1시간이며 `campaign_policies.faq_handoff_seconds`를 따른다. 이전에 셀러가 답한 문의를 재개 버튼으로 다시 보내지 않는다. 소유자 화면은 문의 일부/최근 시각으로 대화를 구분하고 50개씩 이전 페이지를 볼 수 있다. 브랜드 공유에는 문의 내용이 포함되지 않는다.
+
+`echo_pending`은 송신의 주체를 확인 중인 상태다. `ringpo_echo`는 링포가 보낸 것으로 확인했고 `human_handoff`는 셀러 또는 다른 도구가 응답한 대화다. `echo_send_pending`이면 원래 `send_attempts`의 쓰기 결과/lease를 먼저 확인한다. pending 표식을 SQL로 지워 발송을 강제하지 않는다. `faq_response_pending`은 이전 FAQ가 미완료 또는 확인 필요인 상태이므로 그 원장부터 조사한다. 기존 unknown을 재시도로 바꾸지 않는다. 실계정 echo 동작이 어긋나면 계정 override를 끄고 새 FAQ 발송을 멈춘다.

@@ -12,6 +12,7 @@ import { invokeBudgetedWrite, type BudgetedWriteResult } from "./send-call";
 import { effectiveCampaignState } from "./state";
 import { legacySendGuard } from "./legacy-guard";
 import { checkCampaignFollower, type FollowDecision } from "./follow-profile";
+import { faqHandoffReady } from "./faq-access";
 
 export interface RenderContext { job: DmJob; campaign: Campaign; participant: CampaignParticipant; event: CommentEvent | null }
 export interface DispatchDeps {
@@ -62,6 +63,7 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
       await finishWithoutSend(tx, job, "waiting", now, "account_inactive", new Date(now.getTime() + 60_000)); return "held";
     }
     try {
+      if (job.kind === "faq") await requireCampaignFeature(tx, campaign.userId, "campaign.faq");
       if (campaign.followOnly || ["follow_link", "follow_reminder", "follow_request"].includes(job.kind)) await requireCampaignFeature(tx, campaign.userId, "campaign.follow_gate");
       if (["opening_link", "expiry_fallback"].includes(job.kind) || (job.channel === "private_reply" && event?.matchedRule === "notification")) await requireCampaignFeature(tx, campaign.userId, "campaign.scheduled_dm");
     } catch (error) {
@@ -69,6 +71,9 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
       await finishWithoutSend(tx, job, "held", now, "entitlement"); return "held";
     }
     const state = effectiveCampaignState(campaign, now);
+    if (job.kind === "faq" && !await faqHandoffReady(tx, job.igAccountId)) {
+      await finishWithoutSend(tx, job, "held", now, "faq_not_ready"); return "held";
+    }
     if (campaign.archivedAt || state === "settled" || (["closed", "sold_out"].includes(state) && job.kind !== "closed_notice")) {
       await finishWithoutSend(tx, job, "canceled", now, "campaign_closed"); return "canceled";
     }
@@ -86,7 +91,7 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
     if (job.kind === "opening_link" && state !== "open") {
       await finishWithoutSend(tx, job, "waiting", now, "waiting_for_open", new Date(Math.min(campaign.openAt.getTime(), job.deadlineAt.getTime()))); return "waiting";
     }
-    if (["instant_link", "follow_request", "follow_link"].includes(job.kind) && state !== "open") {
+    if (["instant_link", "follow_request", "follow_link", "faq"].includes(job.kind) && state !== "open") {
       await finishWithoutSend(tx, job, "canceled", now, "campaign_not_open"); return "canceled";
     }
     if (!participant || (job.channel !== "message" && !event)) {
@@ -98,7 +103,7 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
       }
     }
     if (job.channel === "message") {
-      const [conversation] = await tx.select().from(conversationStates).where(and(eq(conversationStates.igAccountId, job.igAccountId), eq(conversationStates.senderId, participant.commenterIgId)));
+      const [conversation] = await tx.select().from(conversationStates).where(and(eq(conversationStates.igAccountId, job.igAccountId), eq(conversationStates.senderId, participant.commenterIgId))).for("update");
       if (!conversation?.lastUserInteractionAt || conversation.lastUserInteractionAt > now || conversation.lastUserInteractionAt.getTime() + (policy.message_window_seconds - policy.message_safety_seconds) * 1000 <= now.getTime()) {
         await finishWithoutSend(tx, job, "expired", now, "message_window_closed"); return "expired";
       }
@@ -107,10 +112,19 @@ export async function prepareCampaignSend(deps: DispatchDeps, leased: DmJob, fol
       if (!source || source.deletedAt || !source.occurredAt || source.occurredAt > now || !["message", "postback"].includes(source.kind) || (source.kind === "message" && !source.userMessageEvidence) || source.occurredAt.getTime() + (policy.message_window_seconds - policy.message_safety_seconds) * 1000 <= now.getTime()) {
         await finishWithoutSend(tx, job, "expired", now, "source_message_unavailable"); return "expired";
       }
+      if (job.kind === "faq" && (source.kind !== "message" || !source.userMessageEvidence)) {
+        await finishWithoutSend(tx, job, "canceled", now, "faq_requires_user_message"); return "canceled";
+      }
       const anchor = Math.min(source.occurredAt.getTime(), conversation.lastUserInteractionAt.getTime());
       job.deadlineAt = new Date(Math.min(job.deadlineAt.getTime(), anchor + (policy.message_window_seconds - policy.message_safety_seconds) * 1000));
       job.hardExpiresAt = new Date(Math.min(job.hardExpiresAt.getTime(), anchor + policy.message_window_seconds * 1000));
       await tx.update(dmJobs).set({ deadlineAt: job.deadlineAt, hardExpiresAt: job.hardExpiresAt }).where(fence(job));
+      if (conversation.pendingEchoEventId) {
+        await finishWithoutSend(tx, job, "waiting", now, "echo_pending", new Date(now.getTime() + 5000)); return "held";
+      }
+      if (job.kind === "faq" && conversation.lastHumanAt && source.occurredAt <= conversation.lastHumanAt) {
+        await finishWithoutSend(tx, job, "canceled", now, "human_answered_question"); return "canceled";
+      }
       if (conversation.automationPausedUntil && conversation.automationPausedUntil > now) {
         await finishWithoutSend(tx, job, "waiting", now, "human_handoff", conversation.automationPausedUntil); return "held";
       }
@@ -248,5 +262,13 @@ export async function dispatchCampaignJob(deps: DispatchDeps, job: DmJob): Promi
   }
   const prepared = await prepareCampaignSend(deps, job, follow);
   if (typeof prepared === "string") return prepared;
+  if (prepared.job.channel === "message") {
+    // A seller echo may arrive between the preparation commit and the network call.
+    const [conversation] = await deps.db.select().from(conversationStates).where(and(eq(conversationStates.igAccountId, prepared.job.igAccountId), eq(conversationStates.senderId, prepared.recipientId)));
+    const now = await (deps.clock ?? databaseNow)(deps.db);
+    if (!conversation || conversation.pendingEchoEventId || (conversation.automationPausedUntil && conversation.automationPausedUntil > now) || (prepared.job.kind === "faq" && conversation.lastHumanAt && prepared.job.commentCreatedAt <= conversation.lastHumanAt)) {
+      return settleCampaignSend(deps, prepared, { state: "not_invoked", code: "human_handoff_before_call" });
+    }
+  }
   return settleCampaignSend(deps, prepared, await invokePreparedSend(prepared, deps.graph));
 }

@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { buildTextFallback, truncateChars, truncateUtf8 } from "@/server/automations/render";
-import { campaignMedia, campaignProducts } from "@/server/db/schema";
+import { campaignFaqs, campaignMedia, campaignProducts, dmJobs } from "@/server/db/schema";
+import { FAQ_PREFIX } from "@/lib/campaign-faq";
 import type { Executor } from "@/server/db/client";
 import type { PrivateReplyMessage } from "@/server/instagram/graph";
 import type { RenderContext } from "./dispatch";
@@ -26,6 +27,12 @@ export function campaignLinkMessage(template: string, values: Parameters<typeof 
 /** Called inside the preparation transaction. Every retry before a confirmed send sees the latest templates. */
 export async function renderCampaignMessage(db: Executor, context: RenderContext, appUrl: string): Promise<PrivateReplyMessage | null> {
   const { campaign, job, event } = context;
+  if (job.kind === "faq") {
+    const [rule] = job.faqId ? await db.select().from(campaignFaqs).where(and(eq(campaignFaqs.id, job.faqId), eq(campaignFaqs.campaignId, campaign.id), eq(campaignFaqs.enabled, true))) : [];
+    if (!rule || Buffer.byteLength(FAQ_PREFIX + rule.answer) > 1000) return null;
+    await db.update(dmJobs).set({ faqRevisionUsed: rule.version }).where(eq(dmJobs.id, job.id));
+    return { kind: "text", text: FAQ_PREFIX + rule.answer };
+  }
   const [product] = await db.select({ name: campaignProducts.name }).from(campaignProducts).where(and(eq(campaignProducts.campaignId, campaign.id), isNull(campaignProducts.archivedAt))).orderBy(asc(campaignProducts.sortOrder), asc(campaignProducts.id)).limit(1);
   const [media] = event ? await db.select({ permalink: campaignMedia.permalink }).from(campaignMedia).where(and(eq(campaignMedia.campaignId, campaign.id), eq(campaignMedia.mediaId, event.mediaId))).limit(1) : [];
   const values = { productName: product?.name ?? campaign.title, openAt: campaign.openAt, mediaUrl: media?.permalink ?? "공구 게시물", link: "" };

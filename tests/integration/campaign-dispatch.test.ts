@@ -158,10 +158,10 @@ describe("campaign send dispatch", () => {
     expect(bucket.pausedUntil).toEqual(new Date(w.now().getTime() + 6 * 3_600_000));
   });
 
-  it("enforces user-initiated 24h messaging windows and human handoff at send time", async () => {
+  it("enforces user-initiated 24h messaging windows at send time", async () => {
     const w = await world();
     const [job] = await w.db.select().from(dmJobs).where(eq(dmJobs.channel, "private_reply"));
-    await w.db.update(dmJobs).set({ channel: "message", kind: "faq" }).where(eq(dmJobs.id, job.id));
+    await w.db.update(dmJobs).set({ channel: "message", kind: "follow_link" }).where(eq(dmJobs.id, job.id));
     await w.db.insert(conversationStates).values({ igAccountId: w.account.id, senderId: "person-0", lastUserInteractionAt: new Date(w.now().getTime() - 86_400_000) });
     expect(await w.tick()).toContain("expired"); expect(w.graph.messages).toHaveLength(0);
   });

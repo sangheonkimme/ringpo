@@ -27,6 +27,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
     <CampaignControls id={id} version={campaign.version} status={campaign.status} published={Boolean(campaign.publishedAt)} scheduledDm={entitlements.get("campaign.scheduled_dm")?.booleanValue === true} incompleteDm={["waiting", "retry", "held", "leased", "sending", "unknown"].reduce((sum, key) => sum + (sendOverview.counts[key] ?? 0), 0)} />
     <CampaignSendPanel id={id} overview={sendOverview} />
     <Link href={`/app/campaigns/${id}/report`} className="rounded-xl border bg-card p-4 text-center font-semibold">공구 성과 리포트 보기</Link>
+    <Link href={`/app/campaigns/${id}/faq`} className="rounded-xl border bg-card p-4 text-center font-semibold">공구 FAQ·대화 관리</Link>
     <section className="flex flex-col gap-3"><h2 className="text-lg font-bold">상품</h2><ul className="divide-y rounded-xl border bg-card">{campaign.products.map((p) => <li key={p.id} className="p-3"><span className="font-semibold">{p.name}</span>{p.option && <span className="ml-2 text-sm text-muted-foreground">{p.option}</span>}</li>)}</ul></section>
     <section className="flex flex-col gap-3"><h2 className="text-lg font-bold">운영 이력</h2><ul className="flex flex-col gap-2 text-sm">{campaign.audit.map((a) => <li key={a.id} className="rounded-xl border p-3">{a.reason} · {date(a.createdAt)}{a.toState && <span className="ml-2">→ {CAMPAIGN_STATE_LABELS[a.toState as keyof typeof CAMPAIGN_STATE_LABELS] ?? a.toState}</span>}</li>)}</ul></section>
   </main>;
