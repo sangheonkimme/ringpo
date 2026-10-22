@@ -99,6 +99,9 @@ async function eligible(tx: Executor, context: Locked, now: Date, policy: SendPo
   if (!event.dmMessageId && !privateAccepted) return fail("initial_send_unconfirmed");
   const sentAt = privateAccepted?.invokedAt ?? event.completedAt;
   if (!sentAt || anchor < sentAt) return fail("response_predates_gate");
+  if (conversation.pendingEchoEventId) {
+    await deferMessageEvent(tx, message, new Date(now.getTime() + 5000), "echo_pending", true); return "held";
+  }
   if (conversation.automationPausedUntil && conversation.automationPausedUntil > now) {
     await deferMessageEvent(tx, message, conversation.automationPausedUntil, "human_handoff", true); return "held";
   }

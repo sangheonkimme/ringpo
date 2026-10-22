@@ -5,6 +5,7 @@ import type { ParsedCampaignMessage } from "@/server/instagram/campaign-messagin
 import type { FollowTap } from "@/server/instagram/webhook";
 import { legacySendGuard } from "./legacy-guard";
 import { releaseSendLease, sendPolicy } from "./send-budget";
+import { faqHandoffReady } from "./faq-access";
 
 export const MESSAGE_QUEUE_CHANNEL = "gonggu_message_events";
 
@@ -24,6 +25,7 @@ export async function ingestGuardedMessages(db: Db, messages: ParsedCampaignMess
     if (!(await legacySendGuard(db, account.id, now, { force: Boolean(unfinishedGate || unfinishedMessage) })).guarded) continue;
     // Even a legacy-shaped tap rejected by the strict parser must not fall through to the unguarded sender.
     guardedIgUserIds.add(account.igUserId);
+    const reviewEchoes = await faqHandoffReady(db, account.id);
     for (const message of messages.filter((m) => m.igUserId === account.igUserId)) {
       queued += await db.transaction(async (tx) => {
         // Serialize a conversation's arrivals, including delete-before-message races.
@@ -41,6 +43,10 @@ export async function ingestGuardedMessages(db: Db, messages: ParsedCampaignMess
           completedAt: validTime && !tombstone ? null : now,
         }).onConflictDoNothing({ target: [messageEvents.igAccountId, messageEvents.eventKey] }).returning();
         if (!row) return 0;
+        if (reviewEchoes && row.kind === "echo" && row.status === "pending") {
+          await tx.update(conversationStates).set({ pendingEchoEventId: row.id, updatedAt: now })
+            .where(and(eq(conversationStates.igAccountId, account.id), eq(conversationStates.senderId, message.peerId)));
+        }
         if (message.kind === "deleted" && message.providerMessageId) {
           await tx.update(messageEvents).set({ text: "", payload: null, deletedAt: now }).where(and(eq(messageEvents.igAccountId, account.id), eq(messageEvents.peerId, message.peerId), eq(messageEvents.providerMessageId, message.providerMessageId)));
         }

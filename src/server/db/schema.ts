@@ -522,6 +522,24 @@ export const campaignParticipants = pgTable("campaign_participants", {
   check("campaign_participants_hash_check", sql`${t.recipientHash} ~ '^[a-f0-9]{64}$'`),
 ]);
 
+export const campaignFaqs = pgTable("campaign_faqs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  keywords: text("keywords").array().notNull(),
+  excludedKeywords: text("excluded_keywords").array().notNull().default(sql`'{}'::text[]`),
+  matchType: text("match_type", { enum: ["contains", "exact"] }).notNull().default("contains"),
+  answer: text("answer").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  priority: integer("priority").notNull().default(0),
+  version: integer("version").notNull().default(1),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  unique("campaign_faqs_identity_key").on(t.id, t.campaignId),
+  index("campaign_faqs_campaign_idx").on(t.campaignId),
+  check("campaign_faqs_match_check", sql`${t.matchType} in ('contains','exact')`),
+]);
+
 export const dmJobs = pgTable("dm_jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   campaignId: uuid("campaign_id").notNull(),
@@ -529,6 +547,8 @@ export const dmJobs = pgTable("dm_jobs", {
   participantId: uuid("participant_id").notNull(),
   sourceEventId: uuid("source_event_id").references(() => commentEvents.id, { onDelete: "cascade" }),
   sourceMessageEventId: uuid("source_message_event_id").references(() => messageEvents.id, { onDelete: "cascade" }),
+  faqId: uuid("faq_id"),
+  faqRevisionUsed: integer("faq_revision_used"),
   followCheckAttempts: integer("follow_check_attempts").notNull().default(0),
   channel: text("channel", { enum: SEND_CHANNELS }).notNull(),
   kind: text("kind", { enum: CAMPAIGN_JOB_KINDS }).notNull(),
@@ -556,6 +576,9 @@ export const dmJobs = pgTable("dm_jobs", {
   foreignKey({ columns: [t.campaignId, t.igAccountId], foreignColumns: [campaigns.id, campaigns.igAccountId] }).onDelete("cascade"),
   foreignKey({ columns: [t.participantId, t.campaignId, t.igAccountId], foreignColumns: [campaignParticipants.id, campaignParticipants.campaignId, campaignParticipants.igAccountId] }).onDelete("cascade"),
   unique("dm_jobs_participant_key").on(t.id, t.participantId),
+  foreignKey({ columns: [t.faqId, t.campaignId], foreignColumns: [campaignFaqs.id, campaignFaqs.campaignId] }),
+  uniqueIndex("dm_jobs_faq_source_key").on(t.sourceMessageEventId).where(sql`${t.kind} = 'faq'`),
+  check("dm_jobs_faq_check", sql`${t.kind} <> 'faq' or (${t.channel} = 'message' and ${t.sourceMessageEventId} is not null and ${t.faqId} is not null)`),
   index("dm_jobs_due_idx").on(t.nextAttemptAt).where(sql`${t.status} in ('waiting','retry')`),
   index("dm_jobs_account_edf_idx").on(t.igAccountId, t.channel, t.deadlineAt, t.commentCreatedAt, t.id).where(sql`${t.status} in ('waiting','retry')`),
   index("dm_jobs_campaign_status_idx").on(t.campaignId, t.status),
@@ -675,6 +698,9 @@ export const conversationStates = pgTable("conversation_states", {
   lastUserInteractionAt: tz("last_user_interaction_at"),
   lastUserEventId: text("last_user_event_id"),
   automationPausedUntil: tz("automation_paused_until"),
+  pendingEchoEventId: text("pending_echo_event_id"),
+  lastHumanAt: tz("last_human_at"),
+  lastFaqAt: tz("last_faq_at"),
   currentCampaignId: uuid("current_campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
   updatedAt: updatedAt(),
 }, (t) => [primaryKey({ columns: [t.igAccountId, t.senderId] })]);
