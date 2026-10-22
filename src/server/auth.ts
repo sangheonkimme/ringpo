@@ -1,3 +1,5 @@
+import { attributeReportSignup } from "@/server/campaigns/report-referrals";
+import { log } from "@/server/log";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { magicLink } from "better-auth/plugins";
@@ -16,11 +18,20 @@ function createAuth() {
   if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
     socialProviders.google = { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
   }
+  const attribute = async (userId: string, cookie: string | null | undefined) => {
+    if (!cookie?.includes("ringpo_report_ref=")) return;
+    try { await attributeReportSignup(getDb(), userId, cookie, env.BETTER_AUTH_SECRET, new Date()); }
+    catch { log.error("report signup attribution unavailable", { retry: "next_session" }); }
+  };
   return betterAuth({
     baseURL: env.APP_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDb(), { provider: "pg", schema: { user, session, account, verification } }),
     socialProviders,
+    databaseHooks: {
+      user: { create: { after: async (user, ctx) => { await attribute(user.id, ctx?.headers?.get("cookie")); } } },
+      session: { create: { after: async (session, ctx) => { await attribute(session.userId, ctx?.headers?.get("cookie")); } } },
+    },
     // 카카오는 미인증 이메일을 줄 수 있으므로 자동 연결을 신뢰하지 않는다(같은 이메일 계정 탈취 방지)
     account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
     plugins: [

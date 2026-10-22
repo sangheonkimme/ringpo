@@ -514,3 +514,13 @@ Q1~Q3는 §1의 사용자 결정으로 해소되었다. 아래는 결정 당시 
 - 마감·품절·정산 상태 전환과 `campaign_report_requests` insert는 같은 tx다. 기존 worker의 30초 작업이 DB 안에서 snapshot 생성+요청 완료를 원자적으로 처리한다. 중복 worker/재시작으로 버전을 중복 만들지 않으며, 비활성 flag 계정의 요청이 활성 계정 큐를 막지 않는다. 최대 5회 실패는 셀러 화면에 별도로 표시한다.
 - 정산에 미완료/unknown DM이 있으면 셀러 확인이 필요하다. 이후 미확정 발송을 성공으로 바꾸는 동작은 없다. 정산 후 주문 수정은 새 확정 리포트를 만드는 선택을 요구하고, 이전 버전은 덮어쓰지 않는다. 공유/PDF는 후속 M2-2b에서 이 동일 snapshot을 소비한다.
 - `0009`는 additive다. 신규 테이블이 비었을 때만 down을 허용하며 주문/요청/리포트 이력이 있으면 보존한다. 이후 migration이 존재하면 먼저 되돌려야 한다. 운영에서는 flag OFF와 호환 코드로 복귀한다.
+
+## 19. M2-2b 구현 결정: 브랜드 공유·PDF·가입 귀속
+
+- 공유 대상은 immutable `report_snapshots` 버전이다. `report_shares`는 256비트 난수의 SHA-256 hash만 저장하며 원본 URL은 생성 응답에서 한 번만 반환한다. 만료/폐기는 매 HTML/PDF 요청에서 검사하고 PDF 생성 뒤에도 다시 검사한다. 인증 없는 응답에 no-store/no-referrer/noindex를 적용한다. 원래 댓글·계정명·IGSID가 없는 strict aggregate DTO만 렌더링하며 셀러가 작성한 제목/브랜드/상품명의 개인정보 검토를 발급 전 확인한다.
+- 신규 발급은 flag/소유권/공유 entitlement, PDF는 별도 entitlement를 검사한다. 이미 발급한 읽기 권한은 플래그 OFF/요금제 변경 뒤에도 명시 폐기·만료·삭제까지 유지한다. 설정의 전체 공유 관리 화면과 폐기 action은 OFF/연결 해제/다운그레이드 뒤에도 소유자에게 열려 있다. 다운로드한 파일의 회수는 보장하지 않는다.
+- PDFKit 0.20.2와 동봉 Nanum Gothic 글꼴로 서버에서 PDF를 만든다. 웹과 같은 strict snapshot 및 숫자 formatter를 사용한다. 외부 폰트·HTML·브라우저·Meta 요청을 실행하지 않는다. 프로세스당 동시 생성 2개, 출력 2MiB, immutable byte cache 32개/60초로 제한하며 캐시 사용 전에도 접근 권한을 확인한다. 초과 시 429/Retry-After를 반환한다. standalone build에 글꼴과 PDFKit 파일을 포함하고 실제 standalone HTTP 다운로드로 검증했다.
+- 가입은 30일 first-touch다. 공유별 96비트 referral code 또는 snapshot별 32자리 UUID 기반 code는 `/join/{code}`의 귀속에만 사용하며 리포트를 열 권한이 없다. `/join`은 고정 login 주소+UTM으로 302 이동한다. GET 중 알려진 bot/HEAD/prefetch를 제외하고 HMAC 서명된 HttpOnly/SameSite=Lax cookie를 기록한다. IP/UA를 저장하지 않는다. 최초 user 생성 및 session 생성 재시도 hook에서 신규 사용자만 한 번 귀속하며 hook 오류가 회원가입을 막지 않는다.
+- `report_referral_signups`의 계정 FK는 가입당 1회 제약용 최소 개인정보이며 브랜드 DTO에는 전달하지 않는다. 보고서는 숫자만 표시한다. 기존 사용자 로그인은 집계하지 않고 다른 기기·cookie 삭제·추적 차단은 이어 붙이지 않는다. 유효한 방문 뒤 공유가 폐기되어도 이미 받은 cookie의 기간 내 가입은 귀속할 수 있다. 계정/공구/snapshot 삭제 시 관련 공유·귀속 기록을 cascade 삭제한다.
+- `0010`은 additive이고 기존 snapshot에 별도 referral code를 부여한다. empty up/down/up은 가능하나 이미 snapshot/공유/가입 이력이 있으면 down을 거부한다. 배포 롤백은 flag OFF+호환 코드이며 발급된 링크를 DROP으로 지우지 않는다.
+- 새 Meta 권한 없음: 로컬 집계/렌더링/회원가입만 사용한다. 구현 확인 자료(2026-10-21): [PDFKit 시작](https://pdfkit.org/docs/getting_started.html), [텍스트·글꼴](https://pdfkit.org/docs/text.html), [0.20.2 릴리스](https://github.com/foliojs/pdfkit/releases/tag/v0.20.2), [Google Fonts OFL](https://raw.githubusercontent.com/google/fonts/main/ofl/nanumgothic/OFL.txt), [PDF.js](https://mozilla.github.io/pdf.js/examples/), [Better Auth database hooks](https://better-auth.com/docs/concepts/database). 폰트 출처·hash는 `src/assets/fonts/nanumgothic/provenance.json`, 라이선스는 동봉 OFL.txt에 보존했다. 검증일 2026-10-22의 브라우저/PDF 결과는 [M2-2b](evidence/m2-2b.md)를 따른다.

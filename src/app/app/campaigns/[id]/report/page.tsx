@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { CampaignReportSharing } from "@/components/app/campaign-report-sharing";
+import { ReportShareList } from "@/components/app/report-share-list";
+import { listReportShares, reportReferralSummary } from "@/server/campaigns/report-shares";
 import { CampaignReportView } from "@/components/app/campaign-report-view";
 import { CampaignReportControls } from "@/components/app/campaign-report-controls";
 import { reportDate } from "@/lib/campaign-report";
-import { CampaignError } from "@/server/campaigns/access";
+import { CampaignError, campaignEntitlements } from "@/server/campaigns/access";
 import { getCampaignReport } from "@/server/campaigns/report";
 import { getOwnedReportSnapshot } from "@/server/campaigns/report-operations";
 import { getDb } from "@/server/db/client";
@@ -15,8 +18,8 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   const user = await requireUser(); const { id } = await params; const { snapshot } = await searchParams;
   if (!z.uuid().safeParse(id).success || (snapshot && !z.uuid().safeParse(snapshot).success)) notFound();
   const db = getDb();
-  const [overview, saved] = await Promise.all([
-    getCampaignReport(db, user.id, id), snapshot ? getOwnedReportSnapshot(db, user.id, id, snapshot) : null,
+  const [overview, saved, entitlements, shares, referrals] = await Promise.all([
+    getCampaignReport(db, user.id, id), snapshot ? getOwnedReportSnapshot(db, user.id, id, snapshot) : null, campaignEntitlements(db, user.id), listReportShares(db, user.id, id), reportReferralSummary(db, user.id, id),
   ]).catch((error) => { if (error instanceof CampaignError && error.code === "not_found") notFound(); throw error; });
     return <main className="flex flex-col gap-6 px-5 pb-28 pt-5">
       <Link href={`/app/campaigns/${id}`} className="text-sm text-muted-foreground">← 공구 운영</Link>
@@ -25,6 +28,10 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
       {overview.failedReports > 0 && <p role="alert" className="text-sm text-danger-ink">자동 리포트 {overview.failedReports}개를 생성하지 못했어요. 실시간 수치를 확인한 뒤 새 버전을 저장할 수 있어요.</p>}
       {saved && <p className="text-sm font-semibold">저장한 버전 {saved.revision}</p>}
       <CampaignReportView report={saved?.data ?? overview.live} />
-      <CampaignReportControls id={id} revision={overview.orderRevision} orders={overview.live.metrics.orders} revenueKrw={overview.live.metrics.revenueKrw} settled={overview.settled} incomplete={overview.live.metrics.dmPending + overview.live.metrics.dmUnknown > 0} live={!saved} />
+      <CampaignReportSharing key={`${id}:${saved?.id ?? "live"}`} campaignId={id} snapshotId={saved?.id ?? null} canShare={entitlements.get("campaign.report_share")?.booleanValue === true} canPdf={entitlements.get("campaign.report_pdf")?.booleanValue === true} />
+      <p className="text-sm text-muted-foreground">리포트 경유 신규 가입 {referrals.total}명 · 이 중 직접 다운로드한 PDF 경유 {referrals.directPdf}명. 같은 브라우저의 첫 방문 후 30일 안에 가입한 경우를 집계해요.</p>
+      <ReportShareList items={shares.items} />
+      {shares.nextCursor && <Link href="/app/report-shares" className="text-sm underline">이전 공유 링크 더 보기</Link>}
+      <CampaignReportControls key={id} id={id} revision={overview.orderRevision} orders={overview.live.metrics.orders} revenueKrw={overview.live.metrics.revenueKrw} settled={overview.settled} incomplete={overview.live.metrics.dmPending + overview.live.metrics.dmUnknown > 0} live={!saved} />
     </main>;
 }

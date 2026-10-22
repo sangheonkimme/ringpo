@@ -71,6 +71,13 @@
       "when": 1792577218753,
       "tag": "0009_gonggu_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792578335686,
+      "tag": "0010_gonggu_report_sharing",
+      "breakpoints": true
     }
   ]
 }
