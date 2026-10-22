@@ -8,7 +8,7 @@ import { getDb } from "@/server/db/client";
 import { campaigns, dmJobs, sendAttempts } from "@/server/db/schema";
 import { decryptSecret } from "@/server/crypto";
 import { dispatchCampaignJob, type DispatchDeps } from "@/server/campaigns/dispatch";
-import { claimCampaignJobs } from "@/server/campaigns/jobs";
+import { claimCampaignJobs, recoverCampaignJobs } from "@/server/campaigns/jobs";
 import { createGraphClient } from "@/server/instagram/graph";
 import { startEventLoop } from "@/worker/loop";
 import { resetDb } from "../helpers/db";
@@ -101,12 +101,25 @@ describe("dispatch load and rolling-hour safety", () => {
     } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
   }, 600_000);
 
-  it("never exceeds 400 actual call starts in any rolling hour across 401 sends", async () => {
-    const db = getDb(); await seedDispatchLoad(1, 401, CAMPAIGN_NOW);
+  it("never exceeds 400 actual call starts in any rolling hour, including the opt-in 3,000-job restart scenario", async () => {
+    const expanded = process.env.GONGGU_SINGLE_ACCOUNT_LOAD === "1"; const count = expanded ? 3000 : 401;
+    const db = getDb(); await seedDispatchLoad(1, count, CAMPAIGN_NOW);
+    let start = CAMPAIGN_NOW;
+    if (expanded) {
+      const leases = await claimCampaignJobs(db, { batch: 37, now: start, workerId: "stopped-worker" });
+      expect(leases).toHaveLength(1); // Only one in-flight job for this account/channel.
+      start = new Date(start.getTime() + 61_000);
+      expect((await recoverCampaignJobs(db, start)).waiting).toBe(1);
+    }
     const graph = new FakeGraphClient();
-    await drain({ db, graph, decryptToken: decryptSecret, random: () => 0, render: async () => ({ kind: "text", text: "fixture" }) }, CAMPAIGN_NOW);
+    const end = await drain({ db, graph, decryptToken: decryptSecret, random: () => 0, render: async () => ({ kind: "text", text: "fixture" }) }, start);
     const calls = await db.select().from(sendAttempts).where(and(eq(sendAttempts.state, "accepted"), eq(sendAttempts.channel, "private_reply")));
-    expect(calls).toHaveLength(401); expect(graph.dms).toHaveLength(401);
-    expect(maxRollingHour(calls.map((a) => a.invokedAt!.getTime()))).toBeLessThanOrEqual(400);
-  }, 120_000);
+    expect(calls).toHaveLength(count); expect(graph.dms).toHaveLength(count);
+    expect(new Set(graph.dms.map((d) => d.commentId)).size).toBe(count);
+    expect(graph.dms.map((d) => d.commentId)).toEqual(Array.from({ length: count }, (_, i) => `load-comment-${count - i - 1}`));
+    const maxHour = maxRollingHour(calls.map((a) => a.invokedAt!.getTime()));
+    expect(maxHour).toBeLessThanOrEqual(400);
+    const [pending] = await db.select({ n: sql<number>`count(*)::int` }).from(dmJobs).where(sql`${dmJobs.status} <> 'sent'`); expect(pending.n).toBe(0);
+    if (expanded && process.env.GONGGU_SINGLE_ACCOUNT_REPORT) await writeFile(process.env.GONGGU_SINGLE_ACCOUNT_REPORT, JSON.stringify({ scenario: "single-account-3000-virtual-restart", measuredAt: new Date().toISOString(), accounts: 1, jobs: count, missing: 0, duplicates: 0, recoveredUnstartedLeases: 1, maxRollingHour: maxHour, virtualElapsedMs: end.getTime() - start.getTime(), nominalMs: count / 400 * 3_600_000, externalMetaCalls: 0, clock: "virtual" }, null, 2) + "\n");
+  }, 600_000);
 });
