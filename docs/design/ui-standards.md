@@ -26,6 +26,10 @@
 - **발송 기록**: 시간순 로그 — 왼쪽 칸에 한국 시각(오늘이 아니면 날짜를 위에, `lib/time.ts` 의 `logTime`), 가운데 댓글과 사유, 오른쪽 결과 배지.
 - **사이트 아이콘·공유 이미지**: 핑크 타일 + 흰 심볼, 공유 이미지는 흰 바탕 + 노랑 형광펜 + 핑크 블록(`src/app/icon.svg` · `apple-icon.png` · `favicon.ico` · `opengraph-image.png` · `twitter-image.png`).
   `brand-assets/` 의 Meta·카카오 등록용 아이콘과 프로필 이미지는 **이전 색 그대로**다 — 바꾸려면 각 플랫폼에 다시 올려야 해서 따로 정한다.
+- **운영 반영** (2026-10-23 11:15 KST, `0af37b8`, 사용자 지시): 커밋을 깨끗한 폴더로 꺼내 `ringpo:0af37b8` 를 빌드하고 **web 만** 교체했다(`docker compose up -d web`, migrate 는 새 마이그레이션 없이 0 으로 끝남).
+  worker 는 `ringpo:fc3347e` 그대로 둔다 — 서버 코드는 같고, 활성 공구 발송을 끊지 않으려고. 교체 직전 운영은 최근 24시간 댓글 0 · 공구 0 · 발송 대기 0. 교체 뒤 strict health 정상(약 8초), 운영 주소에서 랜딩·로그인 화면을 헤드리스로 확인했다.
+  되돌리기: `deploy/.env` 의 `IMAGE=ringpo:fc3347e` 로 바꾸고 `docker compose up -d web`.
+  ⚠️ 이 커밋은 `feat/redesign-a` 브랜치에만 있다. `feat/gonggu-operations` 에서 `deploy-on-vps.sh` 로 다시 배포하면 이 디자인이 빠진다 — 먼저 합칠 것.
 
 ---
 
