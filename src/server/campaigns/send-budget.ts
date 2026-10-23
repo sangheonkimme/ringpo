@@ -69,7 +69,7 @@ function bucketWhere(accountId: string, channel: SendChannel) { return and(eq(se
 export interface PermitInput {
   igAccountId: string; channel: SendChannel; logicalKey: string; leaseOwner: string; leaseVersion: number;
   jobId?: string; campaignId?: string; campaignRate?: number; legacyEventId?: string; sourceMessageEventId?: string;
-  payload: PrivateReplyMessage; now: Date; extendSafety: boolean;
+  payload: PrivateReplyMessage; now: Date; extendSafety: boolean; retryAllowance?: number;
 }
 
 export type Permit = { cached: true; providerMessageId: string } | { cached: false; attempt: SendAttempt };
@@ -103,7 +103,7 @@ export async function acquireSendPermit(db: Executor, input: PermitInput, policy
   const previous = history?.previous;
   if (previous?.state === "accepted" && previous.providerMessageId) return { cached: true, providerMessageId: previous.providerMessageId };
   if (previous && ["sending", "unknown"].includes(previous.state)) throw new SendUncertainError(previous.errorCode ?? "previous_attempt_unresolved");
-  if ((history?.calledAttempts ?? 0) >= policy.max_attempts) throw new SendRejectedError(previous?.errorCode ?? "max_attempts");
+  if ((history?.calledAttempts ?? 0) >= policy.max_attempts + (input.campaignId && input.jobId ? input.retryAllowance ?? 0 : 0)) throw new SendRejectedError(previous?.errorCode ?? "max_attempts");
 
   const rate = input.channel === "private_reply" ? Math.min(control.privateReplyRate, policy.private_reply_max_rate) : channelRate(control, input.channel);
   const cutoff = new Date(now.getTime() - HOUR_MS - policy.send_permit_ms);

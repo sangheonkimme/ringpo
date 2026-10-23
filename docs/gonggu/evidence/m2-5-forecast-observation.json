@@ -1,0 +1,190 @@
+{
+  "scenario": "pre-open-forecast-observation",
+  "openAt": "2026-10-22T01:32:25.026Z",
+  "sampleCount": 20,
+  "maxAbsoluteErrorMs": 34063,
+  "samples": [
+    {
+      "campaignId": "33f03dc7-8289-4409-ba0e-89a0519d05e8",
+      "asOf": "2026-10-22T01:32:10.172Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.031Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.146Z",
+      "errorMs": 32115
+    },
+    {
+      "campaignId": "33843a89-2b50-4808-977b-28028da6a13f",
+      "asOf": "2026-10-22T01:32:10.363Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.031Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:41.465Z",
+      "errorMs": 31434
+    },
+    {
+      "campaignId": "8a22c9a9-1e2f-4693-9291-d0bb0d1df920",
+      "asOf": "2026-10-22T01:32:10.427Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.099Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.430Z",
+      "errorMs": 32331
+    },
+    {
+      "campaignId": "156c8dd6-c544-4ca8-a802-3af801b9d7bb",
+      "asOf": "2026-10-22T01:32:10.484Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.078Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:44.094Z",
+      "errorMs": 34016
+    },
+    {
+      "campaignId": "435e77b8-19f6-464e-a56e-7941f05323f3",
+      "asOf": "2026-10-22T01:32:10.554Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.030Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.428Z",
+      "errorMs": 32398
+    },
+    {
+      "campaignId": "fe08a533-df5b-43f0-910b-7798c55e7976",
+      "asOf": "2026-10-22T01:32:10.588Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.090Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.807Z",
+      "errorMs": 32717
+    },
+    {
+      "campaignId": "d4f66688-9bb5-4603-ace3-88a8b5578128",
+      "asOf": "2026-10-22T01:32:10.639Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.162Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:41.856Z",
+      "errorMs": 31694
+    },
+    {
+      "campaignId": "d6a03294-899b-4a14-be1d-2ae5e27e7897",
+      "asOf": "2026-10-22T01:32:10.666Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.097Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:44.160Z",
+      "errorMs": 34063
+    },
+    {
+      "campaignId": "0dd7c3b6-95d8-4941-a8cb-a091c7c7a8e9",
+      "asOf": "2026-10-22T01:32:10.681Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.081Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:43.161Z",
+      "errorMs": 33080
+    },
+    {
+      "campaignId": "e3b69b25-7e21-4d95-afab-515100df519b",
+      "asOf": "2026-10-22T01:32:10.692Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.101Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.410Z",
+      "errorMs": 32309
+    },
+    {
+      "campaignId": "70b7de77-3ec7-49aa-b8a1-ddc8290ce37c",
+      "asOf": "2026-10-22T01:32:10.732Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.032Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:43.062Z",
+      "errorMs": 33030
+    },
+    {
+      "campaignId": "79b8f113-0298-4ae6-a9b1-239f908a354f",
+      "asOf": "2026-10-22T01:32:10.767Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.121Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:44.119Z",
+      "errorMs": 33998
+    },
+    {
+      "campaignId": "19c99b52-7ab6-4723-b107-724f8e8124e2",
+      "asOf": "2026-10-22T01:32:10.823Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.029Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.828Z",
+      "errorMs": 32799
+    },
+    {
+      "campaignId": "f3d8f48d-05ab-4291-92fc-d1f00015c144",
+      "asOf": "2026-10-22T01:32:10.864Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.102Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:41.318Z",
+      "errorMs": 31216
+    },
+    {
+      "campaignId": "e97b841f-c586-44e4-9c02-20b6c8efe11f",
+      "asOf": "2026-10-22T01:32:10.896Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.090Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.809Z",
+      "errorMs": 32719
+    },
+    {
+      "campaignId": "cab93624-1e75-4a49-beb2-7f40278fa4a5",
+      "asOf": "2026-10-22T01:32:10.932Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.126Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.476Z",
+      "errorMs": 32350
+    },
+    {
+      "campaignId": "312a2a69-f9ef-409a-be76-11671706d7f8",
+      "asOf": "2026-10-22T01:32:10.963Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.099Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.529Z",
+      "errorMs": 32430
+    },
+    {
+      "campaignId": "56935500-6c99-4158-9b14-31d44199c7f3",
+      "asOf": "2026-10-22T01:32:10.983Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.101Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.813Z",
+      "errorMs": 32712
+    },
+    {
+      "campaignId": "68caaee4-19fb-4d1d-8d89-5db5e2d363fc",
+      "asOf": "2026-10-22T01:32:10.998Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.094Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:42.189Z",
+      "errorMs": 32095
+    },
+    {
+      "campaignId": "aad8a2a2-2cb8-46a8-8a2b-36260bc6cc6d",
+      "asOf": "2026-10-22T01:32:11.019Z",
+      "waiting": 12,
+      "predictedAt": "2026-10-22T01:34:10.030Z",
+      "nominalAt": "2026-10-22T01:34:13.026Z",
+      "actualAt": "2026-10-22T01:34:43.098Z",
+      "errorMs": 33068
+    }
+  ],
+  "observerPoolMax": 2,
+  "externalMetaCalls": 0
+}

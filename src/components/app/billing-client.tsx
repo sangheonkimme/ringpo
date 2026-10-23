@@ -140,7 +140,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
                     type="button"
                     disabled={pending}
                     onClick={() => startTransition(() => registerAndPay(id))}
-                    className="h-[54px] flex-1 rounded-xl bg-foreground text-base font-semibold text-white disabled:opacity-60"
+                    className="h-[54px] flex-1 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-[0_4px_0_var(--foreground)] transition-transform active:translate-y-0.5 disabled:opacity-60"
                   >
                     {isCurrent ? "새 카드 등록" : `${formatKrw(plan.priceKrw)} 결제하고 ${current.paidActive ? `${plan.name}로 변경` : `${plan.name} 시작`}`}
                   </button>
@@ -150,7 +150,7 @@ export function BillingClient({ storeId, channelKey, appUrl, user, current }: Bi
                   현재 플랜 · 카드 변경
                 </button>
               ) : upgrade ? (
-                <button type="button" onClick={() => setSelected(id)} className="h-12 flex-1 rounded-xl bg-foreground text-[15px] font-semibold text-white">
+                <button type="button" onClick={() => setSelected(id)} className="h-12 flex-1 rounded-2xl bg-primary text-[15px] font-bold text-primary-foreground">
                   {current.paidActive ? "업그레이드" : "시작하기"}
                 </button>
               ) : current.pendingPlan === id ? (

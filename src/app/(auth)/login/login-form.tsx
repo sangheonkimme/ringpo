@@ -32,7 +32,7 @@ export function LoginForm({ kakao, google }: { kakao: boolean; google: boolean }
 
   if (sent) {
     return (
-      <div className="rounded-2xl border bg-card p-6 text-center text-sm">
+      <div className="rounded-3xl border-2 border-foreground bg-card p-6 text-center text-sm">
         <p className="font-semibold">{email}로 로그인 링크를 보냈어요</p>
         <p className="mt-1 text-muted-foreground">메일함에서 링크를 눌러주세요. 5분간 유효해요.</p>
       </div>
@@ -48,7 +48,7 @@ export function LoginForm({ kakao, google }: { kakao: boolean; google: boolean }
               type="button"
               disabled={pending}
               onClick={() => social("kakao")}
-              className="flex h-[54px] items-center justify-center gap-2.5 rounded-xl bg-[#FEE500] text-base font-semibold text-[#191919] disabled:opacity-60"
+              className="flex h-[54px] items-center justify-center gap-2.5 rounded-2xl bg-[#FEE500] text-base font-bold text-[#191919] disabled:opacity-60"
             >
               <svg viewBox="0 0 24 24" className="size-5 fill-[#191919]" aria-hidden>
                 <path d={KAKAO_ICON} />
@@ -61,7 +61,7 @@ export function LoginForm({ kakao, google }: { kakao: boolean; google: boolean }
               type="button"
               disabled={pending}
               onClick={() => social("google")}
-              className="flex h-[54px] items-center justify-center gap-2.5 rounded-xl border border-input bg-card text-base font-semibold disabled:opacity-60"
+              className="flex h-[54px] items-center justify-center gap-2.5 rounded-2xl border-2 border-foreground bg-card text-base font-bold disabled:opacity-60"
             >
               <svg viewBox="0 0 48 48" className="size-5" aria-hidden>
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -94,13 +94,13 @@ export function LoginForm({ kakao, google }: { kakao: boolean; google: boolean }
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-[52px] rounded-xl border border-input bg-card px-4 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-[52px] rounded-2xl border-2 border-input bg-card px-4 text-base outline-none placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
           />
         </div>
         <button
           type="submit"
           disabled={pending}
-          className="h-[54px] rounded-xl bg-foreground text-base font-semibold text-white disabled:opacity-60"
+          className="h-[54px] rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-[0_4px_0_var(--foreground)] transition-transform active:translate-y-0.5 disabled:opacity-60"
         >
           이메일로 로그인 링크 받기
         </button>

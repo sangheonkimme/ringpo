@@ -14,7 +14,7 @@ export default async function DataDeletionStatusPage({ params }: { params: Promi
   if (!req) notFound();
   return (
     <main className="mx-auto max-w-md px-4 py-20 text-center">
-      <h1 className="text-xl font-bold">데이터 삭제 요청</h1>
+      <h1 className="font-display text-2xl tracking-[-0.02em]">데이터 삭제 요청</h1>
       <p className="mt-4 text-sm text-muted-foreground">확인 코드: {req.confirmationCode}</p>
       <p className="mt-2 text-sm">
         상태: {req.status === "completed" ? "삭제 완료" : "처리 중"}

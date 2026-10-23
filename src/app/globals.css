@@ -8,26 +8,37 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --font-display: var(--font-sans);
+  /* 제목·숫자 글꼴. 한 굵기뿐이라 굵게 만들기(가짜 볼드)를 끈다 — 아래 @layer base */
+  --font-display: "Black Han Sans", var(--font-sans);
   --font-heading: var(--font-sans);
-  /* 링포 디자인 시스템(docs/design/external-v1/tokens/ringpo.css) — Ink 네이비 + Lime 포인트 */
-  --color-brand: #CCF76B;
-  --color-brand-ink: #142338;
-  --color-ink-2: #526075;
-  --color-ink-700: #304B68;
-  --color-chip: #F3FBDF;
-  --color-chip-foreground: #142338;
-  --color-success: #237245;
-  --color-success-soft: #EAF6EE;
-  --color-success-ink: #237245;
-  --color-warning-soft: #FFF5E2;
-  --color-warning-ink: #8A5B12;
-  --color-danger-soft: #FDECEC;
-  --color-danger-ink: #BC3636;
-  --color-neutral-soft: #F0F3F6;
-  --color-neutral-ink: #526075;
-  --color-line-soft: #E6EBF0;
-  --color-bubble: #F0F3F6;
+  /*
+   * 링포 디자인 A "블록 팝" (2026-10-23, 시안: claude.ai 캔버스 "링포 리디자인 시안").
+   * 잉크(글자·어두운 면) + 핑크(누르는 것) + 노랑(형광펜·강조) + 연보라(보조 면). 색 블록과 굵은 테두리.
+   * brand = 노랑 강조(글자는 잉크), brand-ink = 흰 바탕 위 핑크 글자, pop = 핑크 면(글자는 흰색)
+   */
+  --color-brand: #FFD43B;
+  --color-brand-ink: #D61F5C;
+  --color-pop: #D61F5C;
+  --color-pop-soft: #FFE1EA;
+  --color-pop-ink: #8F1240;
+  --color-lilac: #EAE4FF;
+  --color-lilac-ink: #4B3A8C;
+  --color-yellow-ink: #5A4300;
+  --color-ink-2: #4E4556;
+  --color-ink-700: #3A2E42;
+  --color-chip: #FFE58A;
+  --color-chip-foreground: #1B1220;
+  --color-success: #0B6B3A;
+  --color-success-soft: #DDF5E7;
+  --color-success-ink: #0B6B3A;
+  --color-warning-soft: #FFF1C7;
+  --color-warning-ink: #7A5300;
+  --color-danger-soft: #FDE6E3;
+  --color-danger-ink: #B42318;
+  --color-neutral-soft: #F1ECF3;
+  --color-neutral-ink: #5E5566;
+  --color-line-soft: #F0E9F2;
+  --color-bubble: #F4F1F6;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -57,48 +68,49 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-3xl: 24px;
-  --radius-4xl: 32px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+  --radius-3xl: 28px;
+  --radius-4xl: 36px;
 }
 
 :root {
-  --background: #F6F8FA;
-  --foreground: #142338;
+  --background: #FAF7FB;
+  --foreground: #1B1220;
   --card: #FFFFFF;
-  --card-foreground: #142338;
+  --card-foreground: #1B1220;
   --popover: #FFFFFF;
-  --popover-foreground: #142338;
-  --primary: #142338;
+  --popover-foreground: #1B1220;
+  --primary: #D61F5C;
   --primary-foreground: #FFFFFF;
-  --secondary: #F0F3F6;
-  --secondary-foreground: #142338;
-  --muted: #F0F3F6;
-  --muted-foreground: #6B7280;
-  --accent: #F3FBDF;
-  --accent-foreground: #142338;
-  --destructive: #BC3636;
-  --border: #E6EBF0;
-  --input: #D3DBE5;
-  --ring: #4168DA;
-  --chart-1: #CCF76B;
-  --chart-2: #142338;
-  --chart-3: #6B7280;
-  --chart-4: #D3DBE5;
-  --chart-5: #E6EBF0;
-  --radius: 0.75rem;
-  --sidebar: #142338;
-  --sidebar-foreground: #D3DBE5;
-  --sidebar-primary: #CCF76B;
-  --sidebar-primary-foreground: #142338;
-  --sidebar-accent: #20354F;
+  --secondary: #F3EEF5;
+  --secondary-foreground: #1B1220;
+  --muted: #F3EEF5;
+  --muted-foreground: #6A6072;
+  --accent: #FFE1EA;
+  --accent-foreground: #8F1240;
+  --destructive: #B42318;
+  --border: #ECE4EF;
+  /* 입력칸 테두리 — 흰 바탕에서 3:1 */
+  --input: #9C8EA3;
+  --ring: #D61F5C;
+  --chart-1: #D61F5C;
+  --chart-2: #FFD43B;
+  --chart-3: #7A6A86;
+  --chart-4: #D9CEDD;
+  --chart-5: #ECE4EF;
+  --radius: 1rem;
+  --sidebar: #1B1220;
+  --sidebar-foreground: #E9E1EE;
+  --sidebar-primary: #FFD43B;
+  --sidebar-primary-foreground: #1B1220;
+  --sidebar-accent: #2A1F31;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #20354F;
-  --sidebar-ring: #4168DA;
+  --sidebar-border: #3A2E42;
+  --sidebar-ring: #D61F5C;
 }
 
 .dark {
@@ -147,6 +159,10 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Black Han Sans 는 굵기가 하나다. font-bold 등이 붙어도 가짜로 두껍게 그리지 않는다 */
+  .font-display {
+    font-synthesis: none;
   }
 }
 /* iOS Safari는 글자가 16px보다 작은 입력창을 누르면 화면을 확대한다. 레이어 밖에 두어 유틸리티 클래스보다 우선한다 */

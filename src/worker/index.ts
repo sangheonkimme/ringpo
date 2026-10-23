@@ -4,6 +4,7 @@ import { createBillingDeps } from "@/server/billing/deps";
 import { advanceDueCampaigns } from "@/server/campaigns/service";
 import { CAMPAIGN_QUEUE_CHANNEL } from "@/server/campaigns/routing";
 import { expireMessageEvents, MESSAGE_QUEUE_CHANNEL, recoverMessageEvents } from "@/server/campaigns/message-inbox";
+import { queueCampaignAlerts } from "@/server/campaigns/operations";
 import { redactCampaignContent } from "@/server/campaigns/retention";
 import { expireCampaignJobs, recoverCampaignJobs } from "@/server/campaigns/jobs";
 import { sendCampaignNotifications } from "@/server/campaigns/notifications";
@@ -73,6 +74,7 @@ async function main() {
       if (recovered.waiting || recovered.unknown || expired) log.info("campaign queue maintenance", { ...recovered, expired });
       if (messagesRecovered || messagesExpired) log.info("message inbox maintenance", { recovered: messagesRecovered, expired: messagesExpired });
     } },
+    { name: "campaign-operational-alerts", intervalMs: 30_000, run: async () => { await queueCampaignAlerts(db, new Date()); } },
     { name: "campaign-notifications", intervalMs: 30_000, run: async () => { await sendCampaignNotifications(db, new Date()); } },
     {
       name: "refresh-tokens",

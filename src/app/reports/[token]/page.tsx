@@ -10,7 +10,7 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
   return <main className="mx-auto flex max-w-2xl flex-col gap-6 px-5 py-10">
     <p className="text-sm text-muted-foreground">공유 리포트 · 버전 {shared.revision}</p>
     <CampaignReportView report={shared.report} />
-    {shared.pdfEnabled && <a href={`/reports/${token}/pdf`} rel="noreferrer" className="rounded-xl border px-5 py-3 text-center font-semibold">동일 버전 PDF 다운로드</a>}
-    <footer className="border-t pt-6 text-center"><p className="mb-3 text-sm text-muted-foreground">링포로 만든 리포트</p><a href={`/join/${shared.referralCode}`} rel="noreferrer" className="inline-block rounded-xl bg-foreground px-6 py-3 font-semibold text-background">링포 가입하기</a></footer>
+    {shared.pdfEnabled && <a href={`/reports/${token}/pdf`} rel="noreferrer" className="rounded-2xl border-2 border-foreground px-5 py-3 text-center font-bold">동일 버전 PDF 다운로드</a>}
+    <footer className="border-t pt-6 text-center"><p className="mb-3 text-sm text-muted-foreground">링포로 만든 리포트</p><a href={`/join/${shared.referralCode}`} rel="noreferrer" className="inline-block rounded-2xl bg-primary px-6 py-3 font-bold text-primary-foreground shadow-[0_4px_0_var(--foreground)]">링포 가입하기</a></footer>
   </main>;
 }

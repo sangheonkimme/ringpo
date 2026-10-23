@@ -106,6 +106,6 @@ export function CampaignForm({ accounts, initial, id, version, features, default
       <CampaignForecastPreview accountId={draft.igAccountId} campaignId={id} openAt={openAt} closeAt={closeAt} originalOpenAt={initial?.openAt} originalCloseAt={initial?.closeAt} hourlyRate={draft.hourlyRate} expiryFallback={draft.expiryFallbackEnabled} />
     </fieldset>
     {error && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-danger-ink">{error}</p>}
-    <button type="submit" disabled={pending} className="h-12 rounded-xl bg-foreground font-bold text-background disabled:opacity-50">{pending ? "저장 중…" : id ? "변경 저장" : "초안 저장"}</button>
+    <button type="submit" disabled={pending} className="h-12 rounded-2xl bg-primary font-bold text-primary-foreground shadow-[0_4px_0_var(--foreground)] transition-transform active:translate-y-0.5 disabled:opacity-50">{pending ? "저장 중…" : id ? "변경 저장" : "초안 저장"}</button>
   </form>;
 }

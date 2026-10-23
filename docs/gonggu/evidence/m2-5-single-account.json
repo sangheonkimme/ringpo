@@ -1,0 +1,14 @@
+{
+  "scenario": "single-account-3000-virtual-restart",
+  "measuredAt": "2026-10-22T01:47:34.398Z",
+  "accounts": 1,
+  "jobs": 3000,
+  "missing": 0,
+  "duplicates": 0,
+  "recoveredUnstartedLeases": 1,
+  "maxRollingHour": 400,
+  "virtualElapsedMs": 27008250,
+  "nominalMs": 27000000,
+  "externalMetaCalls": 0,
+  "clock": "virtual"
+}

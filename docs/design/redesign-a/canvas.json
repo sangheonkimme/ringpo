@@ -1,0 +1,22 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-23T00:56:40Z" },
+  "title": "링포 리디자인 시안",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 3000, "title": "A · 블록 팝 — 랜딩", "expand": "fill" },
+    "A-Dashboard.dc.html": { "x": 1360, "y": 0, "w": 390, "h": 1500, "title": "A · 블록 팝 — 앱 홈 (모바일)" },
+    "B-Landing.dc.html": { "x": 0, "y": 3420, "w": 1280, "h": 3000, "title": "B · 에디토리얼 — 랜딩", "expand": "fill" },
+    "B-Dashboard.dc.html": { "x": 1360, "y": 3420, "w": 390, "h": 1500, "title": "B · 에디토리얼 — 앱 홈 (모바일)" },
+    "C-Landing.dc.html": { "x": 0, "y": 6840, "w": 1280, "h": 3000, "title": "C · 다크 콘솔 — 랜딩", "expand": "fill" },
+    "C-Dashboard.dc.html": { "x": 1360, "y": 6840, "w": 390, "h": 1500, "title": "C · 다크 콘솔 — 앱 홈 (모바일)" }
+  },
+  "order": ["Main.dc.html", "A-Dashboard.dc.html", "B-Landing.dc.html", "B-Dashboard.dc.html", "C-Landing.dc.html", "C-Dashboard.dc.html"],
+  "notes": {
+    "rowA": { "x": 0, "y": -300, "text": "A · 블록 팝 — 밝은 색 블록 · 스티커 칩 · 둥근 모서리", "kind": "title1", "maxW": 1750 },
+    "rowB": { "x": 0, "y": 3120, "text": "B · 에디토리얼 — 흑백 큰 글씨 · 굵은 선 · 주황 하나", "kind": "title1", "maxW": 1750 },
+    "rowC": { "x": 0, "y": 6540, "text": "C · 다크 콘솔 — 어두운 바탕 · 라임 강조 · 로그처럼", "kind": "title1", "maxW": 1750 }
+  },
+  "designSystems": []
+}

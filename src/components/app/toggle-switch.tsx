@@ -26,11 +26,11 @@ export function ToggleSwitch({
       <span
         className={cn(
           "flex h-8 w-[52px] rounded-full p-[3px] transition-colors",
-          checked ? "justify-end bg-brand" : "justify-start bg-input",
+          checked ? "justify-end bg-pop" : "justify-start bg-input",
         )}
       >
-        {/* 켜짐은 라임 트랙에 Ink 손잡이: 흰 손잡이는 라임 위에서 거의 안 보인다(대비 1.2:1) */}
-        <span className={cn("size-[26px] rounded-full shadow-sm", checked ? "bg-foreground" : "bg-white")} />
+        {/* 켜짐은 핑크 트랙에 흰 손잡이(디자인 A — 메뉴의 '지금 여기'와 같은 색). 흰 손잡이와 핑크는 5:1 */}
+        <span className="size-[26px] rounded-full bg-white shadow-sm" />
       </span>
     </button>
   );

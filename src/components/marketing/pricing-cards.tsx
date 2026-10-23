@@ -27,31 +27,32 @@ export function PricingCards() {
       {CARDS.map((c) => {
         const plan = PLANS[c.id];
         const featured = c.id === "pro";
+        // 디자인 A: Free 는 흰 카드 + 잉크 테두리, Pro 는 핑크 면 + 아래로 떨어지는 그림자 + 노랑 '추천'
         return (
           <div
             key={c.id}
             className={cn(
-              "flex flex-col gap-6 rounded-2xl p-6 md:rounded-3xl md:p-8",
-              featured ? "order-first bg-foreground text-background md:order-none" : "border bg-card",
+              "flex flex-col gap-6 rounded-3xl p-6 md:rounded-[32px] md:p-8",
+              featured ? "order-first bg-pop text-white shadow-[0_8px_0_var(--foreground)] md:order-none" : "border-2 border-foreground bg-card",
             )}
           >
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold md:text-[22px]">{plan.name}</h3>
-                {featured && <span className="rounded-full bg-brand px-3 py-1 text-xs font-bold text-foreground">추천</span>}
+                <h3 className="text-xl font-black md:text-2xl">{plan.name}</h3>
+                {featured && <span className="rounded-full bg-brand px-3 py-1 text-xs font-black text-foreground">추천</span>}
               </div>
-              <p className={cn("text-[15px]", featured ? "text-input" : "text-muted-foreground")}>{c.tagline}</p>
+              <p className={cn("text-[15px]", featured ? "text-white" : "text-muted-foreground")}>{c.tagline}</p>
             </div>
             <p className="flex items-baseline gap-1.5">
-              <span className="font-display text-[34px] font-extrabold tracking-[-0.03em] md:text-[44px]">
+              <span className="font-display text-[40px] leading-none tracking-[-0.02em] md:text-[52px]">
                 {plan.priceKrw === 0 ? "0원" : formatKrw(plan.priceKrw)}
               </span>
-              {plan.priceKrw > 0 && <span className={cn("text-[15px]", featured ? "text-input" : "text-muted-foreground")}>/ 월</span>}
+              {plan.priceKrw > 0 && <span className={cn("text-[15px] font-medium", featured ? "text-white" : "text-muted-foreground")}>/ 월</span>}
             </p>
             <ul className="flex flex-1 flex-col gap-3 text-[15px]">
               {c.features.map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
-                  <Check className={cn("size-[18px]", featured && "text-brand")} strokeWidth={2.4} aria-hidden />
+                  <Check className={cn("size-[18px]", featured ? "text-brand" : "text-brand-ink")} strokeWidth={2.6} aria-hidden />
                   {f}
                 </li>
               ))}
@@ -65,8 +66,8 @@ export function PricingCards() {
             <Link
               href={c.href}
               className={cn(
-                "flex h-[54px] items-center justify-center rounded-xl text-base font-semibold",
-                featured ? "bg-brand text-foreground" : "border-[1.5px] border-foreground",
+                "flex h-[54px] items-center justify-center rounded-2xl text-base font-bold transition-transform active:translate-y-0.5",
+                featured ? "bg-card text-foreground" : "border-2 border-foreground",
               )}
             >
               {c.cta}
