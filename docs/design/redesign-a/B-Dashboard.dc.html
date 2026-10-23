@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>링포 앱 홈 — 에디토리얼</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;font-family:"Gothic A1",-apple-system,"Apple SD Gothic Neo",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#0A0A0A}a:hover{color:#4A4A4A}
+</style>
+</helmet>
+<div style="width: 390px; height: 1500px; box-sizing: border-box; background: #FFFFFF; color: #0A0A0A; font-family: 'Gothic A1', sans-serif; line-height: 1.5; position: relative; overflow: hidden; display: flex; flex-direction: column">
+
+<header style="height: 60px; flex-shrink: 0; box-sizing: border-box; padding: 0 20px; border-bottom: 3px solid #0A0A0A; display: flex; align-items: center; justify-content: space-between">
+<span style="font-weight: 900; font-size: 22px; letter-spacing: -0.04em">링포<span style="color: {{accent}}">.</span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; border: 2px solid #0A0A0A; padding: 2px 8px">FREE</span>
+</header>
+
+<main style="flex: 1; display: flex; flex-direction: column; padding: 0 20px 120px">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid #0A0A0A">
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; background: #0A0A0A; flex-shrink: 0"></span><strong style="font-size: 17px">@hana.living</strong></div>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">● 연결됨</span>
+</div>
+
+<div style="padding: 20px 0; border-bottom: 3px solid #0A0A0A; display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">이번 달 DM</span>
+<p style="margin: 0; display: flex; align-items: baseline; gap: 6px"><span style="font-weight: 900; font-size: 64px; line-height: 1; letter-spacing: -0.05em">412</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px">/ 1,000</span></p>
+<div role="progressbar" aria-label="이번 달 DM 사용량" aria-valuenow="41" aria-valuemin="0" aria-valuemax="100" style="height: 14px; border: 2px solid #0A0A0A; box-sizing: border-box"><div style="width: 41%; height: 10px; background: {{accent}}"></div></div>
+<p style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4A4A">발송 대기 0건 · 한도에 맞춰 순서대로 보내요</p>
+</div>
+
+<section style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 0 12px">
+<h2 style="margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.04em">자동화</h2>
+<a href="#" style="min-height: 44px; box-sizing: border-box; padding: 0 16px; background: #0A0A0A; color: #FFFFFF; font-size: 15px; font-weight: 800; text-decoration: none; display: flex; align-items: center">+ 새 자동화</a>
+</div>
+
+<a href="#" style="text-decoration: none; border: 3px solid #0A0A0A; display: flex; flex-direction: column">
+<div style="display: flex; gap: 12px; align-items: center; padding: 14px">
+<span style="width: 48px; height: 48px; background: #E6E6E6; flex-shrink: 0"></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><strong style="font-size: 17px">10월 텀블러 공구</strong><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; background: {{accent}}; padding: 2px 8px">켜짐</span></div>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">키워드 · 공구 · 링크</span>
+</div>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 3px solid #0A0A0A">
+<div style="padding: 10px 8px; border-right: 1px solid #0A0A0A"><dt style="font-size: 11px">반응한 댓글</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">128</dd></div>
+<div style="padding: 10px 8px; border-right: 1px solid #0A0A0A"><dt style="font-size: 11px">보냄</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">126</dd></div>
+<div style="padding: 10px 8px; border-right: 1px solid #0A0A0A"><dt style="font-size: 11px">실패</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">2</dd></div>
+<div style="padding: 10px 8px"><dt style="font-size: 11px">대기</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">0</dd></div>
+</dl>
+</a>
+
+<a href="#" style="text-decoration: none; border: 3px solid #0A0A0A; border-top: 0; display: flex; flex-direction: column; color: #4A4A4A">
+<div style="display: flex; gap: 12px; align-items: center; padding: 14px">
+<span style="width: 48px; height: 48px; background: #F2F2F2; flex-shrink: 0"></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><strong style="font-size: 17px; color: #0A0A0A">육아 PDF 자료 배포</strong><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; border: 2px solid #0A0A0A; color: #0A0A0A; padding: 0 6px">꺼짐</span></div>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">키워드 · 자료</span>
+</div>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #0A0A0A">
+<div style="padding: 10px 8px; border-right: 1px solid #0A0A0A"><dt style="font-size: 11px">반응한 댓글</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">54</dd></div>
+<div style="padding: 10px 8px; border-right: 1px solid #0A0A0A"><dt style="font-size: 11px">보냄</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">54</dd></div>
+<div style="padding: 10px 8px; border-right: 1px solid #0A0A0A"><dt style="font-size: 11px">실패</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">0</dd></div>
+<div style="padding: 10px 8px"><dt style="font-size: 11px">대기</dt><dd style="margin: 2px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600">0</dd></div>
+</dl>
+</a>
+</section>
+
+<section style="display: flex; flex-direction: column; padding-top: 28px">
+<h2 style="margin: 0 0 8px; font-size: 26px; font-weight: 900; letter-spacing: -0.04em">최근 발송</h2>
+<ul style="margin: 0; padding: 0; list-style: none; border-top: 3px solid #0A0A0A">
+<li style="display: flex; justify-content: space-between; gap: 10px; padding: 14px 0; border-bottom: 1px solid #0A0A0A"><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>@jiwoo.daily</strong> 공구 링크 주세요!</p><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4A4A">방금 · 10월 텀블러 공구</span></div><span style="flex-shrink: 0; align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; background: #0A0A0A; color: #FFFFFF; padding: 2px 8px">보냄</span></li>
+<li style="display: flex; justify-content: space-between; gap: 10px; padding: 14px 0; border-bottom: 1px solid #0A0A0A"><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>@minseo.k</strong> 공구</p><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4A4A">2분 전 · 10월 텀블러 공구</span></div><span style="flex-shrink: 0; align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; background: #0A0A0A; color: #FFFFFF; padding: 2px 8px">보냄</span></li>
+<li style="display: flex; justify-content: space-between; gap: 10px; padding: 14px 0; border-bottom: 1px solid #0A0A0A"><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>@daily_yun</strong> 공구요!!</p><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4A4A">5분 전 · 이미 보낸 사람</span></div><span style="flex-shrink: 0; align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; border: 2px solid #0A0A0A; padding: 0 6px">건너뜀</span></li>
+<li style="display: flex; justify-content: space-between; gap: 10px; padding: 14px 0; border-bottom: 1px solid #0A0A0A"><div style="min-width: 0"><p style="margin: 0; font-size: 15px"><strong>@soo.home</strong> 링크 부탁드려요</p><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4A4A">12분 전 · 메시지를 받을 수 없는 계정</span></div><span style="flex-shrink: 0; align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; background: {{accent}}; padding: 2px 8px">실패</span></li>
+</ul>
+</section>
+</main>
+
+<nav aria-label="주요 메뉴" style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #FFFFFF; border-top: 3px solid #0A0A0A; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr))">
+<a href="#" aria-current="page" style="background: #0A0A0A; color: #FFFFFF; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 800"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>홈</a>
+<a href="#" style="text-decoration: none; border-left: 1px solid #0A0A0A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"></path></svg>자동화</a>
+<a href="#" style="text-decoration: none; border-left: 1px solid #0A0A0A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><path d="M3 6h18"></path><path d="M16 10a4 4 0 0 1-8 0"></path></svg>공구</a>
+<a href="#" style="text-decoration: none; border-left: 1px solid #0A0A0A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="5" width="20" height="14"></rect><path d="M2 10h20"></path></svg>결제</a>
+<a href="#" style="text-decoration: none; border-left: 1px solid #0A0A0A; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"></path></svg>설정</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF4D1F","options":["#FF4D1F","#C6F432","#3D7BFF","#FFD12E"]},"$preview":{"width":390,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF4D1F' };
+  }
+}
+</script>
+</body>
+</html>
