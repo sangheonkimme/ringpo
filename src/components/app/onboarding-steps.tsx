@@ -23,7 +23,7 @@ function StepBadge({ state, n }: { state: StepState; n: number }) {
     <span
       className={cn(
         "flex size-8 shrink-0 items-center justify-center rounded-full text-[15px] font-bold",
-        state === "current" ? "bg-foreground text-white" : "bg-neutral-soft text-ink-2",
+        state === "current" ? "bg-pop text-white" : "bg-neutral-soft text-ink-2",
       )}
     >
       {n}
@@ -88,7 +88,7 @@ export function OnboardingSteps({
           href="/api/instagram/connect"
           className={cn(
             "flex h-[54px] items-center justify-center gap-2.5 rounded-xl text-base font-semibold",
-            s1 === "current" ? "bg-foreground text-white" : "border-[1.5px] border-foreground",
+            s1 === "current" ? "bg-primary text-primary-foreground shadow-[0_4px_0_var(--foreground)]" : "border-2 border-foreground",
           )}
         >
           <Link2 className="size-[18px]" aria-hidden />
@@ -138,7 +138,7 @@ export function OnboardingSteps({
             href="/app/automations/new"
             className={cn(
               "flex h-[54px] items-center justify-center rounded-xl text-base font-semibold",
-              s3 === "upcoming" ? "border-[1.5px] border-foreground" : "bg-foreground text-white",
+              s3 === "upcoming" ? "border-2 border-foreground" : "bg-primary text-primary-foreground shadow-[0_4px_0_var(--foreground)]",
             )}
           >
             자동화 만들기

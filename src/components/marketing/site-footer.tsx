@@ -13,10 +13,10 @@ export function SiteFooter() {
     ["이메일", site.supportEmail],
   ].filter(([, v]) => v);
   return (
-    <footer className="bg-background">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-10 md:px-20 md:py-14">
+    <footer className="border-t border-line-soft bg-card">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-10 md:px-12 md:py-14">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <span className="font-display text-lg font-extrabold md:text-xl">{site.name}</span>
+          <span className="font-display text-xl md:text-2xl">{site.name}</span>
           <nav aria-label="약관" className="flex flex-wrap gap-4 text-[13px] md:gap-6 md:text-sm">
             <Link href="/terms">이용약관</Link>
             <Link href="/privacy" className="font-bold">

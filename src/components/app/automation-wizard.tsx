@@ -665,7 +665,7 @@ export function AutomationWizard({
                 type="button"
                 disabled={pending}
                 onClick={() => save(true)}
-                className="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-xl bg-foreground text-base font-semibold text-white disabled:opacity-60"
+                className="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-[0_4px_0_var(--foreground)] transition-transform active:translate-y-0.5 disabled:opacity-60"
               >
                 <span className="size-2 rounded-full bg-brand" />
                 켜고 저장
@@ -678,7 +678,7 @@ export function AutomationWizard({
                   이전
                 </button>
               )}
-              <button type="button" onClick={next} className="h-[54px] flex-1 rounded-xl bg-foreground text-base font-semibold text-white">
+              <button type="button" onClick={next} className="h-[54px] flex-1 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-[0_4px_0_var(--foreground)] transition-transform active:translate-y-0.5">
                 다음
               </button>
             </>

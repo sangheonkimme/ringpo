@@ -1,5 +1,34 @@
 # 링포 UI 기준표
 
+## 0. 디자인 A "블록 팝" (2026-10-23 — 이 절이 아래 표보다 우선)
+
+사용자 결정으로 전면 리디자인했다. 시안 3개(A 블록 팝 · B 에디토리얼 · C 다크 콘솔) 중 A를 골랐고, 앱 홈의 최근 발송은 C의 시간순 로그를 가져왔다.
+시안은 claude.ai 캔버스 "링포 리디자인 시안"(https://claude.ai/artifact/FMPXhqsEuhRUbsoKTQLq2w, 비공개)에 있다. 이 폴더의 `*.dc.html` 과 `external-v1` 은 **이전(잉크 네이비 + 라임) 디자인**이다.
+
+**아래 1~7절의 글자 크기·간격·버튼 높이 원칙은 그대로 쓴다. 색·모서리·버튼 색·카드 모양은 이 절을 따른다.**
+
+| 역할 | 값 | 토큰 / Tailwind |
+|---|---|---|
+| 글자·어두운 면(잉크) | `#1B1220` | `foreground` · `bg-foreground` |
+| 누르는 것(핑크) — 주 버튼, 지금 메뉴, 토글 켜짐 | `#D61F5C` (흰 글자 5:1) | `primary` · `pop` · 흰 바탕 위 핑크 글자는 `text-brand-ink` |
+| 강조(노랑) — 형광펜, 키워드 칩, 추천 배지 | `#FFD43B` (글자는 잉크) | `brand` · 노랑 위 작은 글자는 `text-yellow-ink` |
+| 보조 면(연보라) | `#EAE4FF` | `lilac` · 글자 `lilac-ink` |
+| 연분홍 면 | `#FFE1EA` | `pop-soft` · 글자 `pop-ink` |
+| 바탕 / 카드 | `#FAF7FB` / `#FFFFFF` | `background` / `card` (마케팅 페이지 바탕은 흰색) |
+| 입력칸 테두리 | `#9C8EA3` (흰 바탕 3:1) | `input` |
+
+- **글꼴**: 제목·큰 숫자는 Black Han Sans(`font-display`, Google Fonts), 본문은 Pretendard. Black Han Sans 는 굵기가 하나라 `font-extrabold` 를 붙여도 굵어지지 않는다(가짜 볼드를 껐다).
+- **모서리**: 한 단계씩 키웠다 — `rounded-xl` 16 · `2xl` 22 · `3xl` 28. 큰 카드는 `rounded-3xl`.
+- **버튼**: 주 행동(다음·저장·결제·연결·무료로 시작)은 **핑크 채움 + 아래로 떨어지는 잉크 그림자** `bg-primary text-primary-foreground shadow-[0_4px_0_var(--foreground)]`(랜딩은 6px), 누르면 `active:translate-y-0.5`.
+  제목 옆 작은 행동(새 자동화)은 잉크 채움, 보조는 2px 잉크 테두리.
+- **카드**: 강조 카드(켜진 자동화, 선택한 항목, 요금 Free)는 `border-2 border-foreground` + 그림자. 보통 카드는 흰 면 + 옅은 테두리. 요약 숫자 카드는 색 블록(이번 달 DM 핑크, 발송 대기 노랑, 계정 연보라).
+- **아래 메뉴**: 화면 아래 12px 떠 있는 잉크 바, 지금 메뉴는 핑크 알약.
+- **발송 기록**: 시간순 로그 — 왼쪽 칸에 한국 시각(오늘이 아니면 날짜를 위에, `lib/time.ts` 의 `logTime`), 가운데 댓글과 사유, 오른쪽 결과 배지.
+- **사이트 아이콘·공유 이미지**: 핑크 타일 + 흰 심볼, 공유 이미지는 흰 바탕 + 노랑 형광펜 + 핑크 블록(`src/app/icon.svg` · `apple-icon.png` · `favicon.ico` · `opengraph-image.png` · `twitter-image.png`).
+  `brand-assets/` 의 Meta·카카오 등록용 아이콘과 프로필 이미지는 **이전 색 그대로**다 — 바꾸려면 각 플랫폼에 다시 올려야 해서 따로 정한다.
+
+---
+
 화면끼리 같은 역할이면 같은 값을 쓴다. 외주 디자이너 토큰(`docs/design/external-v1/tokens`)의 원칙을 따른다. 4px 간격, 기본 모서리 12px, 옅은 잉크 그림자, 평평하게. 토큰에 없는 값은 앱이 실제로 쓰던 값 중 가장 많이 쓴 것으로 정했다(2026-09-28 결정).
 
 정한 것

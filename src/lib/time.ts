@@ -11,6 +11,18 @@ export function relativeTime(date: Date, now: Date = new Date()): string {
   return `${k.getUTCMonth() + 1}월 ${k.getUTCDate()}일 ${hh}:${mm}`;
 }
 
+/**
+ * 발송 기록(로그)의 시각 칸. 같은 날(KST)이면 "21:04", 아니면 날짜를 위 줄에 붙인다 — { day: "10/21", time: "14:03" }.
+ * 시간순으로 훑어보는 목록이라 "5분 전"보다 시각이 낫다(디자인 A + C 의 로그 표시, 2026-10-23)
+ */
+export function logTime(date: Date, now: Date = new Date()): { day: string | null; time: string } {
+  const k = new Date(date.getTime() + KST_OFFSET_MS);
+  const n = new Date(now.getTime() + KST_OFFSET_MS);
+  const time = `${String(k.getUTCHours()).padStart(2, "0")}:${String(k.getUTCMinutes()).padStart(2, "0")}`;
+  const sameDay = k.getUTCFullYear() === n.getUTCFullYear() && k.getUTCMonth() === n.getUTCMonth() && k.getUTCDate() === n.getUTCDate();
+  return { day: sameDay ? null : `${k.getUTCMonth() + 1}/${k.getUTCDate()}`, time };
+}
+
 export function kstDate(date: Date): string {
   const k = new Date(date.getTime() + KST_OFFSET_MS);
   return `${k.getUTCFullYear()}년 ${k.getUTCMonth() + 1}월 ${k.getUTCDate()}일`;

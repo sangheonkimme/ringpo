@@ -13,7 +13,7 @@ const TONE: Record<StatusTone, string> = {
 /** 색과 글자로 함께 상태를 알리는 배지(디자인 시스템 Badge) */
 export function ToneBadge({ tone, children, className }: { tone: StatusTone; children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[3px] text-xs font-semibold", TONE[tone], className)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-xs font-bold", TONE[tone], className)}>
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
       {children}
     </span>

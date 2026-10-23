@@ -37,8 +37,9 @@ export default async function SettingsPage() {
           </span>
         </div>
         {accounts.map((a) => (
-          <div key={a.id} className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2.5">
+          // 버튼이 둘(다시 연결 + 연결 해제)일 때 좁은 화면에서 이름·배지가 눌려 세로로 깨졌다 — 버튼 줄을 아래로 내린다
+          <div key={a.id} className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-[180px] flex-1 items-center gap-2.5">
               {a.profilePictureUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={a.profilePictureUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
@@ -60,7 +61,7 @@ export default async function SettingsPage() {
             </div>
             <div className="flex shrink-0 gap-2">
               {a.status !== "active" && (
-                <a href="/api/instagram/connect" className="flex h-11 items-center rounded-xl bg-foreground px-5 text-[15px] font-semibold text-white">
+                <a href="/api/instagram/connect" className="flex h-11 items-center rounded-2xl bg-primary px-5 text-[15px] font-bold text-primary-foreground">
                   다시 연결
                 </a>
               )}
@@ -69,7 +70,7 @@ export default async function SettingsPage() {
           </div>
         ))}
         {accounts.length < plan.maxIgAccounts ? (
-          <a href="/api/instagram/connect" className="flex h-12 items-center justify-center rounded-xl border-[1.5px] border-foreground text-[15px] font-semibold">
+          <a href="/api/instagram/connect" className="flex h-12 items-center justify-center rounded-2xl border-2 border-foreground text-[15px] font-bold">
             인스타그램 계정 연결
           </a>
         ) : (

@@ -5,6 +5,8 @@ import "./globals.css";
 
 // Pretendard 가변 글꼴. 한글은 글자 묶음 단위로 필요한 만큼만 내려받는다(dynamic subset)
 const PRETENDARD = "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css";
+// 제목·큰 숫자용 Black Han Sans(디자인 A "블록 팝"). Google Fonts 가 한글을 글자 묶음별 파일로 나눠 필요한 만큼만 내려준다
+const DISPLAY = "https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap";
 
 const TITLE = `${site.name} — 인스타그램 댓글 자동 DM`;
 
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: site.description },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#F6F8FA" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#FAF7FB" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="stylesheet" href={PRETENDARD} crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={DISPLAY} />
       </head>
       <body className="min-h-dvh bg-background font-sans text-foreground antialiased">
         {children}

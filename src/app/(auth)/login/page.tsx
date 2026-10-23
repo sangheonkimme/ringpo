@@ -15,10 +15,10 @@ export default async function LoginPage() {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col gap-10 px-5 pb-10 pt-16">
       <div className="flex flex-col items-center gap-5 text-center">
         <Logo href="/" size="lg" />
-        <h1 className="font-display text-[28px] font-extrabold leading-[1.3] tracking-[-0.03em]">
+        <h1 className="font-display text-[30px] leading-[1.3] tracking-[-0.02em]">
           댓글 하나로
           <br />
-          DM 링크까지, 자동으로
+          DM 링크까지, <mark className="inline-block -rotate-2 rounded-xl bg-brand px-1.5 text-inherit">자동으로</mark>
         </h1>
         <p className="text-[15px] text-ink-2">가입하고 3분이면 첫 자동화를 켤 수 있어요.</p>
       </div>

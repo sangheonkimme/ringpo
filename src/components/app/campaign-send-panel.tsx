@@ -68,7 +68,7 @@ export function CampaignSendPanel({ id, overview }: { id: string; overview: Over
       <p className="text-xs text-muted-foreground">계정 전체 한도와 각 공구의 속도 중 더 낮은 값이 적용돼요.</p>
       <label className="flex items-center gap-2 text-sm"><input name="continueDm" type="checkbox" defaultChecked={overview.continueDmOnPublicPause} />공개 답글 자동 중지 중에도 DM 계속 보내기</label>
       {review && <label className="flex items-start gap-2 text-sm"><input name="review" type="checkbox" />Meta 정책 오류 원인을 확인했고, 대기 시간이 끝나면 발송을 재개합니다.</label>}
-      <button disabled={pending} className="rounded-xl bg-foreground px-4 py-3 text-sm font-semibold text-background disabled:opacity-50">{pending ? "저장 중…" : "발송 설정 저장"}</button>
+      <button disabled={pending} className="rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{pending ? "저장 중…" : "발송 설정 저장"}</button>
     </form>
   </section>;
 }

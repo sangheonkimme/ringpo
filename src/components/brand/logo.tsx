@@ -16,10 +16,10 @@ export function LogoSymbol({ className }: { className?: string }) {
   );
 }
 
-/** 앱 아이콘 모양: Ink 타일 위 라임 심볼 */
+/** 앱 아이콘 모양: 핑크 타일 위 흰 심볼 (디자인 A) */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <span aria-hidden className={cn("flex size-7 items-center justify-center rounded-[8px] bg-foreground text-brand", className)}>
+    <span aria-hidden className={cn("flex size-7 items-center justify-center rounded-[9px] bg-pop text-white", className)}>
       <LogoSymbol className="size-[72%]" />
     </span>
   );
@@ -34,7 +34,7 @@ const SIZE = {
 export function Logo({ href, size = "md" }: { href: string; size?: keyof typeof SIZE }) {
   return (
     <Link href={href} className="flex items-center gap-1.5 text-foreground">
-      <LogoSymbol className={SIZE[size].mark} />
+      <LogoSymbol className={cn("text-pop", SIZE[size].mark)} />
       <svg viewBox="0 0 182 70" aria-hidden className={cn("w-auto", SIZE[size].word)} fill="currentColor">
         {WORDMARK.map((d) => (
           <path key={d} d={d} />
