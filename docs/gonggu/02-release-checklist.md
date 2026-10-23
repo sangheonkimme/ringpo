@@ -1,6 +1,6 @@
 # 공구 캠페인 검증·출시 점검
 
-기준일: 2026-10-22 UTC. 코드·로컬 검증은 완료했고 draft PR로 분리했다. 운영 배포·마이그레이션·실제 Meta 발송은 하지 않았다. Redis 없이 기존 PostgreSQL worker/queue를 확장한다. 자동 시험은 별도 DB와 API fixture에서 수행한다. 실제 계정 조건을 자동 시험으로 대체하지 않는다.
+기준일: 2026-10-23 UTC. 코드·로컬 검증은 완료했고 draft PR로 분리했다. 사용자 배포 지시에 따라 `fc3347e` 웹·워커와 마이그레이션 0002–0013을 운영에 배포했다. 공구·FAQ 플래그는 OFF이며 실제 Meta 발송 점검은 아직 하지 않았다. [운영 배포 결과](evidence/production-2026-10-23.md). Redis 없이 기존 PostgreSQL worker/queue를 확장한다. 자동 시험은 별도 DB와 API fixture에서 수행한다. 실제 계정 조건을 자동 시험으로 대체하지 않는다.
 
 [최종 검증 결과](evidence/m2-5.md): 전체 회귀 524개, 250계정 실제 10분 혼합 부하 7,000건(누락·중복 0), 단일 계정 가상 시각 3,000건(rolling hour 최대 400), 추가 마이그레이션 검사 통과.
 
@@ -41,7 +41,7 @@
 
 1. 실제 계정 검증, 정책 문구/운영 식별자 보존 Q14, 백업/복구 가능 상태를 확인한다. 테스트용 DB URL이 운영 설정에 들어가지 않게 점검한다.
 2. 기존 untracked sender와 새 sender가 동시에 실행되지 않도록 구 웹/워커를 drain한다. 기본 `gonggu_campaigns=OFF`, FAQ readiness OFF를 유지한다.
-3. 백업 후 0002→0013 additive migration을 순서대로 실행한다. 기존 큰 테이블의 인덱스 생성 잠금/실행 시간은 운영과 비슷한 데이터에서 미리 확인한다. 이번 개발 작업은 운영 migration을 실행하지 않았다.
+3. 백업 후 0002→0013 additive migration을 순서대로 실행한다. 기존 큰 테이블의 인덱스 생성 잠금/실행 시간은 운영과 비슷한 데이터에서 미리 확인한다. 2026-10-23 최초 배포에서는 운영 백업 복원본으로 먼저 시험한 뒤 운영에 적용했다.
 4. 호환 웹/워커를 함께 배포하고 strict health, worker heartbeat, DB pool, outbox, 만료/unknown 지표를 확인한다.
 5. `enabled=true, default_enabled=false`와 지정 계정 override로 먼저 운영한다. FAQ는 echo 검증된 계정만 별도 허용한다. 측정 결과를 보고 계정을 점진적으로 늘린다.
 6. 문제 발생 시 feature flag OFF와 계정 pause를 사용한다. OFF 이전 공통 원장/unknown을 삭제하지 않는다. 데이터가 있으면 destructive down을 강행하지 않고 호환 코드로 되돌린다. [운영 절차](runbook.md).
